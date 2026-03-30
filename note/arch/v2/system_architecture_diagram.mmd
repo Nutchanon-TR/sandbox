@@ -1,0 +1,99 @@
+graph TD
+    %% ══════════════════════════════════════════
+    %%  BLOCK 1 — CI/CD Pipeline (Zero Cost)
+    %% ══════════════════════════════════════════
+    subgraph CICD [" 🚀 CI/CD Pipeline"]
+        direction LR
+        Dev(["👨‍💻 Developer"])
+        GHA["⚙️ GitHub Actions"]
+        GHCR[("📦 GHCR\n(GitHub Container Registry)")]
+        ACADeploy(["🚢 Deploy to ACA"])
+
+        Dev -->|push code| GHA
+        GHA -->|build & push image| GHCR
+        GHCR -->|pull & deploy| ACADeploy
+    end
+
+    %% ══════════════════════════════════════════
+    %%  BLOCK 2 — Network & Runtime (Budget-Optimized)
+    %% ══════════════════════════════════════════
+
+    User(["🌐 User"])
+    Admin(["🔐 Admin (RBAC)"])
+    CF["🛡️ Cloudflare (Free Tier)\nDNS · WAF · Rate Limit"]
+    EntraID(["🪪 Microsoft Entra ID\n(Free Tier)"])
+    Groq["⚡ Groq API\nLlama 3 (Free Tier)"]
+
+    subgraph Azure ["☁️ Azure (Compute Layer - Pay as you go)"]
+        subgraph ACAEnv [" 📦 Container Apps Environment (VNet)"]
+            
+            Gateway["🔀 Nginx Gateway\n(External Ingress)"]
+            
+            subgraph Services ["Microservices (Internal Ingress)"]
+                direction LR
+                FE["🖼️ Next.js\nFrontend"]
+                Chat["💬 Chat Service\nSpring Boot"]
+                Dinner["🍽️ Dinner Service\nSpring Boot"]
+            end
+            
+            Redis[("⚡ Redis Container\n(Internal)")]
+            Secret["🔑 ACA Built-in Secrets\n(Env Variables)"]
+        end
+    end
+
+    subgraph Supabase ["🔥 Supabase (Free Tier - Data Layer)"]
+        direction LR
+        PG[("🐘 PostgreSQL\nMain Database")]
+        Vec[("🔮 pgvector\nVector Search")]
+        Blob[("🖼️ Supabase Storage\nImages & Files")]
+    end
+
+    %% ── Public traffic path ───────────────────
+    User -->|HTTPS| CF
+    Admin -->|HTTPS (Web Login)| CF
+    CF -->|clean traffic| Gateway
+    
+    Gateway -->|/| FE
+    Gateway -->|/api/main| Chat
+    Gateway -->|/api/dinner| Dinner
+
+    %% ── Internal logic ────────────────
+    Gateway -.->|validate JWT| EntraID
+    Chat -.->|read| Secret
+    Dinner -.->|read| Secret
+
+    %% ── Cache pattern ─────────────────────────
+    Chat -->|cache read/write| Redis
+    Dinner -->|cache read/write| Redis
+
+    %% ── DB & External calls ────────────────────────
+    Chat -->|read/write| PG
+    Chat -->|vector search| Vec
+    Chat -->|upload image| Blob
+    Dinner -->|read/write| PG
+    
+    Chat -->|LLM inference| Groq
+
+    %% ── CI/CD deploy ──────────────────────────
+    ACADeploy -.->|rolling deploy| ACAEnv
+
+    %% ══════════════════════════════════════════
+    %%  Styling
+    %% ══════════════════════════════════════════
+    classDef actor    fill:#FBEAF0,stroke:#993556,stroke-width:2px,color:#72243E,font-weight:bold
+    classDef security fill:#FAECE7,stroke:#993C1D,stroke-width:2px,color:#712B13
+    classDef compute  fill:#E6F1FB,stroke:#185FA5,stroke-width:2px,color:#0C447C
+    classDef cache    fill:#FAEEDA,stroke:#854F0B,stroke-width:2px,color:#633806
+    classDef database fill:#E1F5EE,stroke:#0F6E56,stroke-width:2px,color:#085041
+    classDef identity fill:#FFF3E0,stroke:#E65100,stroke-width:2px,color:#BF360C
+    classDef llm      fill:#EEEDFE,stroke:#534AB7,stroke-width:2px,color:#3C3489
+    classDef cicd     fill:#F1EFE8,stroke:#5F5E5A,stroke-width:2px,color:#444441
+
+    class User,Admin actor
+    class CF security
+    class Gateway,FE,Chat,Dinner compute
+    class Redis cache
+    class PG,Vec,Blob database
+    class EntraID,Secret identity
+    class Groq llm
+    class Dev,GHA,GHCR,ACADeploy cicd

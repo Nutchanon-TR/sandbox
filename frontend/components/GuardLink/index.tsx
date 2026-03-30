@@ -12,6 +12,9 @@ const GuardedLink: React.FC<GuardedLinkProps> = ({ href, children, className, ..
   const router = useRouter();
 
   const onClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
+    //===========================================================================
+    //For check permission in future, currently just prevent default and navigate
+    //===========================================================================
     e.preventDefault();
     router.push(href.toString());
   };

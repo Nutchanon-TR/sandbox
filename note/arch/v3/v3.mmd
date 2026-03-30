@@ -1,0 +1,144 @@
+graph TD
+
+    %% ══════════════════════════════════════════
+    %%  BLOCK 1 — CI/CD Pipeline
+    %% ══════════════════════════════════════════
+    subgraph CICD ["🚀 CI/CD Pipeline"]
+        direction LR
+        Dev(["👨‍💻 Developer"])
+        GHA["⚙️ GitHub Actions"]
+        GHCR[("📦 GHCR")]
+        ACADeploy(["🚢 Deploy to ACA"])
+
+        Dev -->|push code| GHA
+        GHA -->|build & push image| GHCR
+        GHCR -->|pull & rolling update| ACADeploy
+    end
+
+    %% ══════════════════════════════════════════
+    %%  BLOCK 2 — Auth Flow
+    %% ══════════════════════════════════════════
+    subgraph AuthFlow ["🔐 Login Flow (one-time per session)"]
+        direction LR
+        UserLogin(["🌐 User / Admin"])
+        SupabaseAuth["🔑 Supabase Auth\nOIDC Provider"]
+        JWTToken(["🎫 Supabase JWT\n{ sub, email, app_metadata.role }"])
+
+        UserLogin -->|"① email / OAuth login"| SupabaseAuth
+        SupabaseAuth -->|"② issue JWT"| JWTToken
+        JWTToken -->|"③ stored in FE\nsent on every request"| UserLogin
+    end
+
+    %% ══════════════════════════════════════════
+    %%  BLOCK 3 — Network & Runtime
+    %% ══════════════════════════════════════════
+    User(["🌐 User"])
+    Admin(["🔐 Admin\napp_metadata.role = admin"])
+
+    subgraph Cloudflare ["🛡️ Cloudflare (Free Tier)"]
+        CF["DNS · WAF · Rate Limit · DDoS"]
+    end
+
+    subgraph Azure ["☁️ Azure — Container Apps Environment"]
+
+        subgraph Gateway ["🔀 Ingress Layer"]
+            Nginx["Nginx\nExternal Ingress · Routing"]
+            OAuth2Proxy["oauth2-proxy\nJWT Validation Sidecar"]
+
+            Nginx -->|"every request\nforward to validate"| OAuth2Proxy
+            OAuth2Proxy -->|"✅ valid\ninject X-User-Id\ninject X-User-Role"| Nginx
+            OAuth2Proxy -->|"❌ invalid → 401"| Nginx
+        end
+
+        OAuth2Proxy -.->|"verify JWT signature\nSWKS endpoint"| SupabaseAuthVerify["🔑 Supabase Auth\nJWKS Endpoint"]
+
+        subgraph Services ["📦 Microservices (Internal Ingress)"]
+            direction LR
+            FE["🖼️ Next.js\nFrontend"]
+            Chat["💬 Chat Service\nSpring Boot"]
+            Dinner["🍽️ Dinner Service\nSpring Boot"]
+            Bpost["📸 B-Post Service\nSpring Boot"]
+        end
+
+        Redis[("⚡ Redis Container\nmin replicas = 1")]
+        Secret["🔑 ACA Built-in Secrets\nDB URL · API Keys"]
+
+        Nginx -->|"/ + X-User-* headers"| FE
+        Nginx -->|"/api/chat + X-User-* headers"| Chat
+        Nginx -->|"/api/dinner + X-User-* headers"| Dinner
+        Nginx -->|"/api/bpost + X-User-* headers"| Bpost
+
+        Chat -.->|read secrets| Secret
+        Dinner -.->|read secrets| Secret
+        Bpost -.->|read secrets| Secret
+
+        FE -.->|internal · server-side fetch| Chat
+
+        Chat -->|① check cache| Redis
+        Redis -.->|cache hit ↩| Chat
+        Chat -->|② cache miss → query| SupabasePG
+        Chat -.->|③ write to cache| Redis
+        Dinner -->|cache read / write| Redis
+    end
+
+    subgraph Supabase ["🔥 Supabase (Free Tier)"]
+        direction LR
+        SupabasePG[("🐘 PostgreSQL\nMain DB")]
+        Vec[("🔮 pgvector\nVector Search")]
+        Storage[("🖼️ Supabase Storage\nImages · Files")]
+    end
+
+    Groq["⚡ Groq API\nLlama 3 · circuit breaker"]
+
+    subgraph Observability ["📊 New Relic (Free 100GB/month)"]
+        NR["APM · Logs · Distributed Tracing\nAlert · Dashboard"]
+    end
+
+    %% ── Entry ──────────────────────────────────
+    User -->|HTTPS + JWT| CF
+    Admin -->|HTTPS + JWT\n(role = admin)| CF
+    CF --> Nginx
+
+    %% ── DB & Storage ───────────────────────────
+    Chat -->|read / write| SupabasePG
+    Chat -->|vector search| Vec
+    Chat -->|upload| Storage
+    Dinner -->|read / write| SupabasePG
+    Bpost -->|upload / read| Storage
+    FE -.->|image link| Storage
+
+    %% ── External AI ────────────────────────────
+    Chat -->|LLM inference| Groq
+
+    %% ── Observability ──────────────────────────
+    FE -.->|APM + logs + traces| NR
+    Chat -.->|APM + logs + traces| NR
+    Dinner -.->|APM + logs + traces| NR
+    Bpost -.->|APM + logs + traces| NR
+    OAuth2Proxy -.->|logs| NR
+
+    %% ── CI/CD ──────────────────────────────────
+    ACADeploy -.->|rolling deploy| Azure
+
+    %% ══════════════════════════════════════════
+    %%  Styling
+    %% ══════════════════════════════════════════
+    classDef actor      fill:#FBEAF0,stroke:#993556,stroke-width:2px,color:#72243E,font-weight:bold
+    classDef security   fill:#FAECE7,stroke:#993C1D,stroke-width:2px,color:#712B13
+    classDef compute    fill:#E6F1FB,stroke:#185FA5,stroke-width:2px,color:#0C447C
+    classDef cache      fill:#FAEEDA,stroke:#854F0B,stroke-width:2px,color:#633806
+    classDef database   fill:#E1F5EE,stroke:#0F6E56,stroke-width:2px,color:#085041
+    classDef auth       fill:#FFF3E0,stroke:#E65100,stroke-width:2px,color:#BF360C
+    classDef llm        fill:#EEEDFE,stroke:#534AB7,stroke-width:2px,color:#3C3489
+    classDef cicd       fill:#F1EFE8,stroke:#5F5E5A,stroke-width:2px,color:#444441
+    classDef observe    fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20
+
+    class User,Admin,UserLogin actor
+    class CF,Nginx,OAuth2Proxy security
+    class FE,Chat,Dinner,Bpost compute
+    class Redis cache
+    class SupabasePG,Vec,Storage database
+    class SupabaseAuth,SupabaseAuthVerify,JWTToken,Secret auth
+    class Groq llm
+    class Dev,GHA,GHCR,ACADeploy cicd
+    class NR observe
