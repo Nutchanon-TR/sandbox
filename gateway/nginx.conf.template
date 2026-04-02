@@ -10,23 +10,23 @@ http {
 
     # Upstreams for Docker Compose services
     upstream frontend {
-        server frontend:3000;
+        server frontend:${FRONTEND_PORT};
     }
     
     upstream chat_backend {
-        server chat-backend:8080;
+        server chat-service:${BACKEND_PORT};
     }
 
     upstream dinner_backend {
-        server dinner-backend:8080;
+        server dinner-service:${BACKEND_PORT};
     }
 
     upstream bpost_backend {
-        server bpost-backend:8080;
+        server bpost-service:${BACKEND_PORT};
     }
 
     upstream oauth2_proxy {
-        server oauth2-proxy:4180;
+        server oauth2-proxy:${OAUTH2_PROXY_PORT};
     }
 
     server {

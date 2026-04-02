@@ -10,11 +10,15 @@ services:
       dockerfile: Dockerfile
     ports:
       - "80:80"
+    environment:
+      - FRONTEND_PORT=3000
+      - BACKEND_PORT=8080
+      - OAUTH2_PROXY_PORT=4180
     depends_on:
       - frontend
-      - chat-backend
-      - dinner-backend
-      - bpost-backend
+      - chat-service
+      - dinner-service
+      - bpost-service
       - oauth2-proxy
     networks:
       - sandbox_net
@@ -61,7 +65,7 @@ services:
   # ----------------------------------------
   # Backend Services
   # ----------------------------------------
-  chat-backend:
+  chat-service:
     build:
       context: ./backend/chatapp
       dockerfile: Dockerfile
@@ -69,7 +73,7 @@ services:
       - sandbox_net
     restart: unless-stopped
 
-  dinner-backend:
+  dinner-service:
     build:
       context: ./backend/dinner
       dockerfile: Dockerfile
@@ -77,7 +81,7 @@ services:
       - sandbox_net
     restart: unless-stopped
 
-  bpost-backend:
+  bpost-service:
     build:
       context: ./backend/bpost
       dockerfile: Dockerfile
