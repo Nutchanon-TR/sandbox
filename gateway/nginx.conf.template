@@ -58,8 +58,8 @@ http {
         # Backend API Routes
         # ----------------------------------------
         # Chat Service
-        location /v1/api/chat/ {
-            # => Uncomment the following block to enable JWT sidecar validation 
+        location /v1/api/chat-app/ {
+            # => Uncomment the following block to enable JWT sidecar validation
             # auth_request /oauth2/auth;
             # error_page 401 = /oauth2/sign_in;
             # auth_request_set $user   $upstream_http_x_auth_request_user;
@@ -67,28 +67,21 @@ http {
             # proxy_set_header X-User-Id $user;
             # proxy_set_header X-User-Email $email;
 
-            proxy_pass http://chat_backend/v1/api/chat/;
+            proxy_pass http://chat_backend/v1/api/chat-app/;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
         }
 
         # Dinner Service
-        location /v1/api/supplier-order/ {
-            proxy_pass http://dinner_backend/v1/api/supplier-order/;
+        location /v1/api/dinner/ {
+            proxy_pass http://dinner_backend/v1/api/dinner/;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
         }
 
         # B-Post Service (Image/Storage)
-        location /v1/api/bpost/ {
-            proxy_pass http://bpost_backend/v1/api/bpost/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-        }
-        
-        # Legacy Report endpoint (routing to B-Post since it's the new storage service)
-        location /v1/api/report/ {
-            proxy_pass http://bpost_backend/v1/api/bpost/;
+        location /v1/api/b-post/ {
+            proxy_pass http://bpost_backend/v1/api/b-post/;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
         }
