@@ -2,6 +2,7 @@ package com.sandbox.sandman.backend.services;
 
 import com.sandbox.sandman.backend.model.dto.ChatDto.ChatRequestDto;
 import com.sandbox.sandman.backend.model.dto.ChatDto.MessageDto;
+import com.sandbox.sandman.backend.model.dto.ChatDto.MessageHistoryResponse;
 import com.sandbox.sandman.backend.model.entity.ChatEntity.AiContext;
 import com.sandbox.sandman.backend.model.entity.ChatEntity.Message;
 import com.sandbox.sandman.backend.model.entity.ChatEntity.Room;
@@ -19,7 +20,11 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.stream.Collectors;
+
+import org.springframework.data.domain.PageRequest;
 
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
@@ -45,20 +50,38 @@ public class ChatService {
         this.groqAiClient = groqAiClient;
     }
 
-    // [Phase 2 Prototype]: Cache this method to avoid DB hits
-    @Cacheable(value = "chatHistory", key = "#roomId")
-    public List<MessageDto> getChatHistoryByRoom(Long roomId) {
+    private static final int DEFAULT_PAGE_SIZE = 20;
+
+    // [Phase 2 Prototype]: Cache paginated history (key includes beforeId + limit)
+    @Cacheable(value = "chatHistory", key = "#roomId + '_' + #beforeId + '_' + #limit")
+    public MessageHistoryResponse getChatHistoryByRoom(Long roomId, Long beforeId, int limit) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
 
-        return messageRepository.findByRoomIdOrderByCreatedAtAsc(room.getId())
-                .stream()
+        // Fetch one extra record to determine if there are more messages
+        int fetchSize = limit + 1;
+        List<Message> raw;
+        if (beforeId == null) {
+            raw = messageRepository.findLatestByRoomId(room.getId(), PageRequest.of(0, fetchSize));
+        } else {
+            raw = messageRepository.findByRoomIdBeforeId(room.getId(), beforeId, PageRequest.of(0, fetchSize));
+        }
+
+        boolean hasMore = raw.size() > limit;
+        List<Message> page = hasMore ? raw.subList(0, limit) : raw;
+
+        // Results come back newest-first; reverse to oldest-first for the client
+        Collections.reverse(page);
+
+        List<MessageDto> dtos = page.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
+
+        return new MessageHistoryResponse(dtos, hasMore);
     }
 
-    // [Phase 2 Prototype]: Evict cache when new message arrives
-    @CacheEvict(value = "chatHistory", key = "#request.roomId")
+    // [Phase 2 Prototype]: Evict all paginated cache entries for the room when new message arrives
+    @CacheEvict(value = "chatHistory", allEntries = true)
     public String getAiResponse(ChatRequestDto request) {
         // STEP 1: Validate and find room
         Long reqRoomId = request.getRoomId();
@@ -104,7 +127,8 @@ public class ChatService {
         List<org.springframework.ai.chat.messages.Message> aiPromptMessages = new ArrayList<>();
         aiPromptMessages.add(systemMessage);
 
-        List<Message> history = messageRepository.findByRoomIdOrderByCreatedAtAsc(room.getId());
+        List<Message> history = messageRepository.findTopNByRoomId(room.getId(), PageRequest.of(0, DEFAULT_PAGE_SIZE));
+        Collections.reverse(history);
 
         for (Message msg : history) {
             if (msg.getSender().getId().equals(aiUser.getId())) {

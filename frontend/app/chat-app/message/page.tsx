@@ -34,6 +34,11 @@ interface ChatResponse {
     reply: string;
 }
 
+interface MessageHistoryResponse {
+    messages: Message[];
+    hasMore: boolean;
+}
+
 interface UserResolveResponse {
     userId: number;
     roomId: number;
@@ -61,8 +66,12 @@ export default function MessagePage() {
     const [isResolving, setIsResolving] = useState(true);
     const [roomId, setRoomId] = useState<number | null>(null);
     const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+    const [hasMore, setHasMore] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [oldestMessageId, setOldestMessageId] = useState<number | null>(null);
     const notification = useNotification();
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
     const { theme } = useTheme();
     const { data: session, status } = useSupabaseSession();
 
@@ -115,16 +124,18 @@ export default function MessagePage() {
     const fetchHistory = useCallback(async () => {
         if (roomId === null) return;
         try {
-            const response = await fetchApi<Message[]>(
+            const response = await fetchApi<MessageHistoryResponse>(
                 API_SANDBOX.CHAT_APP_HISTORY,
-                {},
+                { limit: 20 },
                 { roomId }
             );
-            const history: Message[] = response.map((msg): Message => ({
+            const history: Message[] = response.messages.map((msg): Message => ({
                 ...msg,
                 role: msg.senderRole === 'AI' ? 'AI' : 'USER',
             }));
             setMessages(history);
+            setHasMore(response.hasMore);
+            setOldestMessageId(history.length > 0 ? (history[0].id ?? null) : null);
         } catch (error: unknown) {
             console.error('Failed to fetch chat history:', error);
             notification.error({
@@ -133,6 +144,47 @@ export default function MessagePage() {
             });
         }
     }, [notification, roomId]);
+
+    const loadMoreMessages = useCallback(async () => {
+        if (roomId === null || !hasMore || isLoadingMore || oldestMessageId === null) return;
+        setIsLoadingMore(true);
+        const container = scrollContainerRef.current;
+        const prevScrollHeight = container?.scrollHeight ?? 0;
+        try {
+            const response = await fetchApi<MessageHistoryResponse>(
+                API_SANDBOX.CHAT_APP_HISTORY,
+                { beforeId: oldestMessageId, limit: 20 },
+                { roomId }
+            );
+            const older: Message[] = response.messages.map((msg): Message => ({
+                ...msg,
+                role: msg.senderRole === 'AI' ? 'AI' : 'USER',
+            }));
+            setMessages((prev) => [...older, ...prev]);
+            setHasMore(response.hasMore);
+            setOldestMessageId(older.length > 0 ? (older[0].id ?? null) : null);
+            // Restore scroll position so the view doesn't jump
+            requestAnimationFrame(() => {
+                if (container) {
+                    container.scrollTop = container.scrollHeight - prevScrollHeight;
+                }
+            });
+        } catch (error: unknown) {
+            console.error('Failed to load more messages:', error);
+            notification.error({
+                message: 'Error',
+                description: getErrorMessage(error, 'Failed to load more messages'),
+            });
+        } finally {
+            setIsLoadingMore(false);
+        }
+    }, [roomId, hasMore, isLoadingMore, oldestMessageId, notification]);
+
+    const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+        if (e.currentTarget.scrollTop === 0 && hasMore && !isLoadingMore) {
+            void loadMoreMessages();
+        }
+    }, [hasMore, isLoadingMore, loadMoreMessages]);
 
     useEffect(() => {
         void fetchHistory();
@@ -223,8 +275,16 @@ export default function MessagePage() {
             </div>
 
             <div
+                ref={scrollContainerRef}
+                onScroll={handleScroll}
                 className="flex-1 overflow-y-auto bg-slate-50 px-4 py-5 dark:bg-slate-950 md:px-6"
             >
+                {isLoadingMore && (
+                    <div className="flex justify-center py-3">
+                        <Spin size="small" />
+                    </div>
+                )}
+
                 {messages.length === 0 && !isLoading && (
                     <div
                         className="mx-auto mt-20 flex max-w-md flex-col items-center justify-center text-center text-slate-500 dark:text-slate-400"
