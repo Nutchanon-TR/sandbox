@@ -120,33 +120,43 @@ chat.message_embeddings  (Phase 4 — รอ implement)
 
 ### `GET /v1/api/chat-app/message/history/{roomId}`
 
-ดึงประวัติแชทของห้องนั้น เรียงตามเวลา (เก่าสุด → ใหม่สุด)
+ดึงประวัติแชทของห้องแบบ Paginated (cursor-based) เรียงตามเวลา (เก่าสุด → ใหม่สุด)
+
+**Query Parameters:**
+
+| Parameter | Required | Default | คำอธิบาย |
+|-----------|----------|---------|---------|
+| `limit` | ไม่บังคับ | `20` | จำนวน message ที่ต้องการดึง |
+| `beforeId` | ไม่บังคับ | (ไม่มี) | ดึง messages ที่มี id น้อยกว่านี้ (load more) |
 
 **Response:**
 ```json
-[
-  {
-    "id": 1,
-    "roomId": 3,
-    "senderId": 5,
-    "senderUsername": "john",
-    "senderRole": "USER",
-    "content": "สวัสดี",
-    "createdAt": "2025-01-01T10:00:00Z"
-  },
-  {
-    "id": 2,
-    "roomId": 3,
-    "senderId": 4,
-    "senderUsername": "ai_assistant",
-    "senderRole": "AI",
-    "content": "สวัสดีครับ มีอะไรให้ช่วยไหม",
-    "createdAt": "2025-01-01T10:00:05Z"
-  }
-]
+{
+  "messages": [
+    {
+      "id": 1,
+      "roomId": 3,
+      "senderId": 5,
+      "senderUsername": "john",
+      "senderRole": "USER",
+      "content": "สวัสดี",
+      "createdAt": "2025-01-01T10:00:00Z"
+    },
+    {
+      "id": 2,
+      "roomId": 3,
+      "senderId": 4,
+      "senderUsername": "ai_assistant",
+      "senderRole": "AI",
+      "content": "สวัสดีครับ มีอะไรให้ช่วยไหม",
+      "createdAt": "2025-01-01T10:00:05Z"
+    }
+  ],
+  "hasMore": false
+}
 ```
 
-**Cache:** Redis key = `chatHistory::roomId` — evict อัตโนมัติเมื่อมีข้อความใหม่
+**Cache:** Redis key = `chatHistory::{roomId}_{beforeId}_{limit}` — evict `allEntries` อัตโนมัติเมื่อมีข้อความใหม่
 
 ---
 
@@ -173,8 +183,8 @@ chat.message_embeddings  (Phase 4 — รอ implement)
 **ขั้นตอนภายใน:**
 1. Validate room + sender มีอยู่จริง
 2. บันทึกข้อความของ user ลง `chat.messages`
-3. ดึงประวัติการสนทนาทั้งหมดของห้อง
-4. สร้าง Prompt = System Message (จาก `ai_context`) + ประวัติ + ข้อความใหม่
+3. ดึง **20 message ล่าสุด** ของห้อง (CONTEXT_LIMIT)
+4. สร้าง Prompt = System Message (จาก `ai_context`) + ประวัติ 20 รายการ + ข้อความใหม่
 5. เรียก Groq API ผ่าน `GroqAiClient` (มี Circuit Breaker ป้องกัน)
 6. บันทึกคำตอบของ AI ลง `chat.messages`
 7. Evict Redis cache สำหรับห้องนั้น
@@ -192,11 +202,9 @@ chat.message_embeddings  (Phase 4 — รอ implement)
 │ [User]    → "สวัสดี"                     │
 │ [AI]      → "สวัสดีครับ..."              │
 │ [User]    → "ช่วยสรุป Spring Boot หน่อย" │
-│  ↑ ประวัติทั้งหมดของห้อง (ไม่มี limit)  │
+│  ↑ 20 message ล่าสุดของห้อง (CONTEXT_LIMIT = 20) │
 └─────────────────────────────────────────┘
 ```
-
-> **หมายเหตุ:** ปัจจุบันโหลดประวัติทั้งหมด (ไม่มี limit) — อาจเกิน context window ถ้าแชทยาวมาก
 
 ---
 
@@ -221,8 +229,7 @@ chat.message_embeddings  (Phase 4 — รอ implement)
 
 | Cache key | ค่า | เมื่อ evict |
 |-----------|-----|------------|
-| `chatHistory::1` | List ประวัติแชทของ room 1 | เมื่อมีข้อความใหม่ใน room 1 |
-| `chatHistory::N` | List ประวัติแชทของ room N | เมื่อมีข้อความใหม่ใน room N |
+| `chatHistory::{roomId}_{beforeId}_{limit}` | Paginated batch ของห้องนั้น | Evict ทุก entry (`allEntries=true`) เมื่อมีข้อความใหม่ |
 
 Redis อยู่บน internal network ไม่ expose port ออกข้างนอก และใช้ password จาก `${REDIS_PASSWORD}`
 
@@ -261,6 +268,9 @@ id: "abc-uuid"    ←──→  supabase_uid: "abc-uuid"
 | `currentUserId` | `number \| null` | User ID จาก resolve |
 | `isResolving` | `boolean` | Loading ขณะ resolve session |
 | `isLoading` | `boolean` | Loading ขณะรอ AI ตอบ |
+| `hasMore` | `boolean` | มี message เก่ากว่านี้อีกไหม |
+| `isLoadingMore` | `boolean` | Loading ขณะดึง batch เก่า |
+| `oldestMessageId` | `number \| null` | ID ของ message เก่าสุดที่โหลดไว้ (ใช้เป็น cursor) |
 
 **Hooks ที่ใช้:**
 - `useSupabaseSession()` — ดึง Supabase auth session
@@ -289,6 +299,6 @@ id: "abc-uuid"    ←──→  supabase_uid: "abc-uuid"
 | รายการ | เหตุผล |
 |--------|--------|
 | **Vector Search (RAG)** | รอตัดสินใจ embedding approach (ONNX vs HuggingFace API) เพราะ ACA free tier มี RAM จำกัด |
-| **จำกัด history ก่อนส่ง Prompt** | ปัจจุบันโหลดทั้งหมด อาจเกิน context window ถ้าแชทยาว |
+| ~~**จำกัด history ก่อนส่ง Prompt**~~ | ✅ เสร็จแล้วใน Phase 4 — ส่งแค่ 20 message ล่าสุด |
 | **CORS production domain** | WebConfig ยังใส่แค่ localhost |
 | **pgvector activation** | SQL พร้อมแล้วใน `database/03_pgvector_schema.sql` รอรันบน Supabase |
