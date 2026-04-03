@@ -27,10 +27,10 @@
 
 ## Phase 4: AI & Vector Database Completeness
 เป้าหมาย: เติมเต็มพลังงานขับเคลื่อนแชตตามแผนการค้นหาเวกเตอร์
-- `[ ]` **Fix Hardcoded User Context:** แก้ Chat UI (`message/page.tsx`) ที่ตอนนี้ hardcode `ROOM_ID=1` และ `USER_ID=1` ให้ดึงค่าจริงจาก Supabase Session แทน
-- `[ ]` **Activate `pgvector`:** เปิดและทดสอบ Extension `pgvector` บนฐานข้อมูล Supabase PostgreSQL
-- `[ ]` **Implement Vector Search:** เขียนฟีเจอร์สำหรับค้นหาเนื้อหาหรือบริบทแบบ Vector ใน Chat Service
-- `[ ]` **Connect to Groq:** รับประกันการตั้งค่า API Call สำหรับใช้โมเดล Llama 3 (Groq API) ให้ทนทานต่อ Request ขาดการเชื่อมต่อ (Circuit Breaker)
+- `[x]` **Fix Hardcoded User Context:** แก้ Chat UI (`message/page.tsx`) ที่ตอนนี้ hardcode `ROOM_ID=1` และ `USER_ID=1` ให้ดึงค่าจริงจาก Supabase Session แทน (เพิ่ม `/user/resolve` endpoint + `useSupabaseSession` hook)
+- `[x]` **Activate `pgvector`:** เปิดและทดสอบ Extension `pgvector` บนฐานข้อมูล Supabase PostgreSQL (SQL อยู่ใน `database/03_pgvector_schema.sql`)
+- `[ ]` **Implement Vector Search:** เขียนฟีเจอร์สำหรับค้นหาเนื้อหาหรือบริบทแบบ Vector ใน Chat Service (เลื่อนไว้ก่อน — รอตัดสินใจ embedding approach)
+- `[x]` **Connect to Groq:** รับประกันการตั้งค่า API Call สำหรับใช้โมเดล Llama 3 (Groq API) ให้ทนทานต่อ Request ขาดการเชื่อมต่อ (Circuit Breaker) — ใช้ Resilience4j + `GroqAiClient`
 
 ## Phase 5: Observability (New Relic)
 เป้าหมาย: ระบบตรวจสอบการทำงาน ข้อผิดพลาด และ Performance ในรูปแบบศูนย์กลาง

@@ -1,22 +1,21 @@
--- คำสั่งล้างตารางทั้งหมดในฐานข้อมูล (ทำงานแบบ CASCADE คือลบ constraint และ data ที่เกี่ยวข้องกันด้วย)
+-- คำสั่งล้างตารางทั้งหมดในฐานข้อมูล (PostgreSQL)
+-- ใช้ CASCADE เพื่อลบ constraint ที่เกี่ยวข้องด้วย
 
 -- 1. ลบตารางกลุ่ม Chat
--- ต้องลบ messages และ room_members ก่อนเพราะอ้างอิงไปยัง users และ rooms
-DROP TABLE IF EXISTS chat.messages;
-DROP TABLE IF EXISTS chat.room_members;
-DROP TABLE IF EXISTS chat.rooms;
-DROP TABLE IF EXISTS chat.users;
+DROP TABLE IF EXISTS chat.message_embeddings CASCADE;
+DROP TABLE IF EXISTS chat.ai_context CASCADE;
+DROP TABLE IF EXISTS chat.messages CASCADE;
+DROP TABLE IF EXISTS chat.room_members CASCADE;
+DROP TABLE IF EXISTS chat.rooms CASCADE;
+DROP TABLE IF EXISTS chat.users CASCADE;
 
 -- 2. ลบตารางกลุ่ม Dinner
--- ต้องลบ order_items ก่อนเป็นอันดับแรก เพราะเป็นตารางปลายทางสุดของความสัมพันธ์
-DROP TABLE IF EXISTS dinner.order_items;
-DROP TABLE IF EXISTS dinner.orders;
-DROP TABLE IF EXISTS dinner.ingredients;
-DROP TABLE IF EXISTS dinner.categories;
-DROP TABLE IF EXISTS dinner.suppliers;
+DROP TABLE IF EXISTS dinner.order_items CASCADE;
+DROP TABLE IF EXISTS dinner.orders CASCADE;
+DROP TABLE IF EXISTS dinner.ingredients CASCADE;
+DROP TABLE IF EXISTS dinner.categories CASCADE;
+DROP TABLE IF EXISTS dinner.suppliers CASCADE;
 
--- (เพิ่มเติม) หากต้องการลบ Schema ด้วย 
--- ต้องลบหลังจากตารางข้างในว่างหมดแล้วเท่านั้น
--- IF EXISTS (SELECT * FROM sys.schemas WHERE name = 'chat') DROP SCHEMA chat;
--- IF EXISTS (SELECT * FROM sys.schemas WHERE name = 'dinner') DROP SCHEMA dinner;
-GO
+-- (เพิ่มเติม) หากต้องการลบ Schema ด้วย
+-- DROP SCHEMA IF EXISTS chat CASCADE;
+-- DROP SCHEMA IF EXISTS dinner CASCADE;

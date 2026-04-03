@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 import com.sandbox.sandman.backend.model.entity.ChatEntity.User;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -14,4 +15,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
 
     Optional<User> findByRole(String role);
+
+    Optional<User> findBySupabaseUid(UUID supabaseUid);
 }

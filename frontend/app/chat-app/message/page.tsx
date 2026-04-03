@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Avatar, Badge, Button, Input, Space, Typography } from 'antd';
+import { Avatar, Badge, Button, Input, Space, Spin, Typography } from 'antd';
 import Image from 'next/image';
 import { TITLE } from "@/constants/Title";
 import { useChangeTitle } from "@/utils/breadCrumbUtil";
@@ -9,6 +9,7 @@ import { fetchApi } from '@/utils/api';
 import { API_SANDBOX } from '@/constants/api/ApiSandbox';
 import { useNotification } from '@/context/NotificationContext';
 import { useTheme } from "@/context/ThemeContext";
+import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import {
     MoreOutlined,
     PhoneOutlined,
@@ -33,6 +34,11 @@ interface ChatResponse {
     reply: string;
 }
 
+interface UserResolveResponse {
+    userId: number;
+    roomId: number;
+}
+
 function getErrorMessage(error: unknown, fallbackMessage: string) {
     if (typeof error === "object" && error !== null && "response" in error) {
         const response = (error as { response?: { data?: { message?: unknown } } }).response;
@@ -52,15 +58,51 @@ export default function MessagePage() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isResolving, setIsResolving] = useState(true);
+    const [roomId, setRoomId] = useState<number | null>(null);
+    const [currentUserId, setCurrentUserId] = useState<number | null>(null);
     const notification = useNotification();
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const { theme } = useTheme();
-
-    const ROOM_ID = 1;
-    // const CURRENT_USER_ID = session?.user?.id ? Number(session.user.id) : 1;
-    const CURRENT_USER_ID = 1;
+    const { data: session, status } = useSupabaseSession();
 
     useChangeTitle(TITLE.CHAT_APP, "MESSAGE");
+
+    // Resolve Supabase session → chat user ID + room ID
+    useEffect(() => {
+        if (status === 'loading') return;
+        if (status === 'unauthenticated' || !session?.user) {
+            setIsResolving(false);
+            return;
+        }
+
+        const resolveUser = async () => {
+            try {
+                const response = await fetchApi<UserResolveResponse>(
+                    API_SANDBOX.CHAT_APP_RESOLVE_USER,
+                    {
+                        supabaseUid: session.user.id,
+                        email: session.user.email || '',
+                        username: session.user.user_metadata?.full_name
+                            || session.user.email?.split('@')[0]
+                            || 'user',
+                    }
+                );
+                setCurrentUserId(response.userId);
+                setRoomId(response.roomId);
+            } catch (error: unknown) {
+                console.error('Failed to resolve user:', error);
+                notification.error({
+                    message: 'Error',
+                    description: getErrorMessage(error, 'Failed to resolve user session'),
+                });
+            } finally {
+                setIsResolving(false);
+            }
+        };
+
+        void resolveUser();
+    }, [session, status, notification]);
 
     useEffect(() => {
         scrollToBottom();
@@ -71,11 +113,12 @@ export default function MessagePage() {
     };
 
     const fetchHistory = useCallback(async () => {
+        if (roomId === null) return;
         try {
             const response = await fetchApi<Message[]>(
                 API_SANDBOX.CHAT_APP_HISTORY,
                 {},
-                { roomId: ROOM_ID }
+                { roomId }
             );
             const history: Message[] = response.map((msg): Message => ({
                 ...msg,
@@ -89,20 +132,20 @@ export default function MessagePage() {
                 description: getErrorMessage(error, 'Failed to fetch chat history'),
             });
         }
-    }, [notification, ROOM_ID]);
+    }, [notification, roomId]);
 
     useEffect(() => {
         void fetchHistory();
     }, [fetchHistory]);
 
     const handleSendMessage = async () => {
-        if (!inputText.trim() || isLoading) return;
+        if (!inputText.trim() || isLoading || roomId === null || currentUserId === null) return;
 
         const newMsg: Message = {
             content: inputText,
             role: 'USER',
-            senderId: CURRENT_USER_ID,
-            roomId: ROOM_ID,
+            senderId: currentUserId,
+            roomId: roomId,
         };
 
         setMessages((prev) => [...prev, newMsg]);
@@ -111,8 +154,8 @@ export default function MessagePage() {
 
         try {
             const response = await fetchApi<ChatResponse>(API_SANDBOX.CHAT_APP_MESSAGE, {
-                roomId: ROOM_ID,
-                senderId: CURRENT_USER_ID,
+                roomId: roomId,
+                senderId: currentUserId,
                 message: newMsg.content,
             });
 
@@ -133,6 +176,22 @@ export default function MessagePage() {
     };
 
     const isDark = theme === "dark";
+
+    if (isResolving || status === 'loading') {
+        return (
+            <div className="flex h-full items-center justify-center">
+                <Spin size="large" />
+            </div>
+        );
+    }
+
+    if (status === 'unauthenticated' || roomId === null || currentUserId === null) {
+        return (
+            <div className="flex h-full items-center justify-center text-slate-500">
+                <p>Please log in to use the chat.</p>
+            </div>
+        );
+    }
 
     return (
         <div className={`flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border shadow-sm ${theme === "dark" ? "dark border-slate-800 bg-slate-950" : "border-slate-200 bg-white"}`}>

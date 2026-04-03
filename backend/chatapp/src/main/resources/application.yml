@@ -31,6 +31,24 @@ spring:
   cache:
     type: redis
 
+resilience4j:
+  circuitbreaker:
+    instances:
+      groqAi:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        waitDurationInOpenState: 30s
+        failureRateThreshold: 50
+        slowCallRateThreshold: 80
+        slowCallDurationThreshold: 10s
+  retry:
+    instances:
+      groqAi:
+        maxAttempts: 3
+        waitDuration: 2s
+
 server:
   error:
     include-stacktrace: on_param
