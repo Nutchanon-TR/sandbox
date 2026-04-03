@@ -7,150 +7,256 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_CONTAINER_REGISTRY: ${{ secrets.AZURE_CONTAINER_REGISTRY }}
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
   RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
 
 jobs:
   build_and_deploy_frontend:
     name: Build and Deploy Frontend
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push frontend image
+        run: |
+          docker build --file ./frontend/Dockerfile --tag ghcr.io/${{ github.repository_owner }}/frontend:${{ github.sha }} ./frontend
+          docker push ghcr.io/${{ github.repository_owner }}/frontend:${{ github.sha }}
 
       - name: Log in to Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Log in to Azure Container Registry
-        uses: azure/docker-login@v2
-        with:
-          login-server: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
-
-      - name: Build and push frontend image
-        run: |
-          docker build --file ./frontend/Dockerfile --tag ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/frontend:${{ github.sha }} ./frontend
-          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/frontend:${{ github.sha }}
 
       - name: Deploy frontend to Azure Container Apps
         uses: azure/container-apps-deploy-action@v2
         with:
           appSourcePath: ${{ github.workspace }}/frontend
-          registryUrl: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io
-          registryUsername: ${{ secrets.ACR_USERNAME }}
-          registryPassword: ${{ secrets.ACR_PASSWORD }}
+          registryUrl: ghcr.io
+          registryUsername: ${{ github.actor }}
+          registryPassword: ${{ secrets.GITHUB_TOKEN }}
           containerAppName: frontend
           resourceGroup: ${{ env.RESOURCE_GROUP }}
-          imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/frontend:${{ github.sha }}
-        # ACA ingress reminder: set frontend ingress to "External".
+          imageToDeploy: ghcr.io/${{ github.repository_owner }}/frontend:${{ github.sha }}
+          ingress: internal
+          targetPort: 3000
+        # ACA ingress reminder: set frontend ingress to "Internal" (Gateway will route traffic).
 
   build_and_deploy_chat_service:
     name: Build and Deploy Chat Service
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push chat-service image
+        run: |
+          docker build --file ./backend/chatapp/Dockerfile --tag ghcr.io/${{ github.repository_owner }}/chat-service:${{ github.sha }} ./backend/chatapp
+          docker push ghcr.io/${{ github.repository_owner }}/chat-service:${{ github.sha }}
 
       - name: Log in to Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Log in to Azure Container Registry
-        uses: azure/docker-login@v2
-        with:
-          login-server: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
-
-      - name: Build and push chat-service image
-        run: |
-          docker build --file ./backend/chat/Dockerfile --tag ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/chat-service:${{ github.sha }} ./backend/chat
-          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/chat-service:${{ github.sha }}
-
       - name: Deploy chat-service to Azure Container Apps
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}/backend/chat
-          registryUrl: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io
-          registryUsername: ${{ secrets.ACR_USERNAME }}
-          registryPassword: ${{ secrets.ACR_PASSWORD }}
+          appSourcePath: ${{ github.workspace }}/backend/chatapp
+          registryUrl: ghcr.io
+          registryUsername: ${{ github.actor }}
+          registryPassword: ${{ secrets.GITHUB_TOKEN }}
           containerAppName: chat-service
           resourceGroup: ${{ env.RESOURCE_GROUP }}
-          imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/chat-service:${{ github.sha }}
+          imageToDeploy: ghcr.io/${{ github.repository_owner }}/chat-service:${{ github.sha }}
+          ingress: internal
+          targetPort: 8080
         # ACA ingress reminder: set chat-service ingress to "Internal" (Limited to VNet).
 
   build_and_deploy_dinner_service:
     name: Build and Deploy Dinner Service
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push dinner-service image
+        run: |
+          docker build --file ./backend/dinner/Dockerfile --tag ghcr.io/${{ github.repository_owner }}/dinner-service:${{ github.sha }} ./backend/dinner
+          docker push ghcr.io/${{ github.repository_owner }}/dinner-service:${{ github.sha }}
 
       - name: Log in to Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Log in to Azure Container Registry
-        uses: azure/docker-login@v2
-        with:
-          login-server: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
-
-      - name: Build and push dinner-service image
-        run: |
-          docker build --file ./backend/dinner/Dockerfile --tag ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/dinner-service:${{ github.sha }} ./backend/dinner
-          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/dinner-service:${{ github.sha }}
 
       - name: Deploy dinner-service to Azure Container Apps
         uses: azure/container-apps-deploy-action@v2
         with:
           appSourcePath: ${{ github.workspace }}/backend/dinner
-          registryUrl: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io
-          registryUsername: ${{ secrets.ACR_USERNAME }}
-          registryPassword: ${{ secrets.ACR_PASSWORD }}
+          registryUrl: ghcr.io
+          registryUsername: ${{ github.actor }}
+          registryPassword: ${{ secrets.GITHUB_TOKEN }}
           containerAppName: dinner-service
           resourceGroup: ${{ env.RESOURCE_GROUP }}
-          imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/dinner-service:${{ github.sha }}
+          imageToDeploy: ghcr.io/${{ github.repository_owner }}/dinner-service:${{ github.sha }}
+          ingress: internal
+          targetPort: 8080
         # ACA ingress reminder: set dinner-service ingress to "Internal" (Limited to VNet).
 
-  build_and_deploy_gateway_service:
-    name: Build and Deploy Gateway Service
+  build_and_deploy_bpost_service:
+    name: Build and Deploy B-Post Service
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push bpost-service image
+        run: |
+          docker build --file ./backend/bpost/Dockerfile --tag ghcr.io/${{ github.repository_owner }}/bpost-service:${{ github.sha }} ./backend/bpost
+          docker push ghcr.io/${{ github.repository_owner }}/bpost-service:${{ github.sha }}
 
       - name: Log in to Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Log in to Azure Container Registry
-        uses: azure/docker-login@v2
+      - name: Deploy bpost-service to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
         with:
-          login-server: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+          appSourcePath: ${{ github.workspace }}/backend/bpost
+          registryUrl: ghcr.io
+          registryUsername: ${{ github.actor }}
+          registryPassword: ${{ secrets.GITHUB_TOKEN }}
+          containerAppName: bpost-service
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: ghcr.io/${{ github.repository_owner }}/bpost-service:${{ github.sha }}
+          ingress: internal
+          targetPort: 8080
+        # ACA ingress reminder: set bpost-service ingress to "Internal" (Limited to VNet).
+
+  build_and_deploy_gateway_service:
+    name: Build and Deploy Gateway Service
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push gateway-service image
         run: |
-          docker build --file ./gateway/Dockerfile --tag ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/gateway-service:${{ github.sha }} ./gateway
-          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/gateway-service:${{ github.sha }}
+          docker build --file ./gateway/Dockerfile --tag ghcr.io/${{ github.repository_owner }}/gateway-service:${{ github.sha }} ./gateway
+          docker push ghcr.io/${{ github.repository_owner }}/gateway-service:${{ github.sha }}
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy gateway-service to Azure Container Apps
         uses: azure/container-apps-deploy-action@v2
         with:
           appSourcePath: ${{ github.workspace }}/gateway
-          registryUrl: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io
-          registryUsername: ${{ secrets.ACR_USERNAME }}
-          registryPassword: ${{ secrets.ACR_PASSWORD }}
+          registryUrl: ghcr.io
+          registryUsername: ${{ github.actor }}
+          registryPassword: ${{ secrets.GITHUB_TOKEN }}
           containerAppName: gateway-service
           resourceGroup: ${{ env.RESOURCE_GROUP }}
-          imageToDeploy: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/gateway-service:${{ github.sha }}
+          imageToDeploy: ghcr.io/${{ github.repository_owner }}/gateway-service:${{ github.sha }}
+          ingress: external
+          targetPort: 80
+          environmentVariables: FRONTEND_PORT=80 BACKEND_PORT=80 OAUTH2_PROXY_PORT=80
         # ACA ingress reminder: set gateway-service ingress to "External".
+
+  deploy_oauth2_proxy:
+    name: Deploy OAuth2 Proxy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy oauth2-proxy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          registryUrl: quay.io
+          containerAppName: oauth2-proxy
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+          ingress: internal
+          targetPort: 4180
+          environmentVariables: >
+            SUPABASE_PROJECT_ID=${{ secrets.SUPABASE_PROJECT_ID }}
+            OAUTH2_PROXY_CLIENT_ID=${{ secrets.OAUTH2_PROXY_CLIENT_ID }}
+            OAUTH2_PROXY_CLIENT_SECRET=${{ secrets.OAUTH2_PROXY_CLIENT_SECRET }}
+            OAUTH2_PROXY_COOKIE_SECRET=${{ secrets.OAUTH2_PROXY_COOKIE_SECRET }}
+
+  deploy_redis:
+    name: Deploy Redis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Redis to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          registryUrl: docker.io
+          containerAppName: redis
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: redis:7.2-alpine
+          ingress: internal
+          targetPort: 6379

@@ -1,7 +1,7 @@
 FROM nginx:1.25.4-alpine
 
-# Copy the custom Nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+# Copy the custom Nginx template configuration
+COPY nginx.conf.template /etc/nginx/templates/nginx.conf.template
 
 # Expose port 80 for proxy routing
 EXPOSE 80

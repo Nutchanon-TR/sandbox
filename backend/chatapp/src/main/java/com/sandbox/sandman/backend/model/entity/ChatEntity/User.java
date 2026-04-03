@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.ZonedDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "users", schema = "chat")
@@ -26,6 +27,9 @@ public class User {
 
     @Column(nullable = false, length = 20)
     private String role = "USER";
+
+    @Column(name = "supabase_uid", unique = true)
+    private UUID supabaseUid;
 
     @Column(name = "created_at")
     private ZonedDateTime createdAt;

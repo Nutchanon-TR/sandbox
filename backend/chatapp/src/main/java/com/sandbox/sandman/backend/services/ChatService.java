@@ -12,7 +12,6 @@ import com.sandbox.sandman.backend.repositories.ChatRepository.RoomRepository;
 import com.sandbox.sandman.backend.repositories.ChatRepository.UserRepository;
 
 // Spring AI Imports
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -32,19 +31,18 @@ public class ChatService {
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
     private final AiContextRepository aiContextRepository;
-
-    private final ChatClient chatClient;
+    private final GroqAiClient groqAiClient;
 
     public ChatService(MessageRepository messageRepository,
                        RoomRepository roomRepository,
                        UserRepository userRepository,
                        AiContextRepository aiContextRepository,
-                       ChatClient.Builder chatClientBuilder) {
+                       GroqAiClient groqAiClient) {
         this.messageRepository = messageRepository;
         this.roomRepository = roomRepository;
         this.userRepository = userRepository;
         this.aiContextRepository = aiContextRepository;
-        this.chatClient = chatClientBuilder.build();
+        this.groqAiClient = groqAiClient;
     }
 
     // [Phase 2 Prototype]: Cache this method to avoid DB hits
@@ -116,9 +114,9 @@ public class ChatService {
             }
         }
 
-        // Call AI model
+        // Call AI model (with Circuit Breaker via GroqAiClient)
         Prompt prompt = new Prompt(aiPromptMessages);
-        String aiReply = chatClient.prompt(prompt).call().content();
+        String aiReply = groqAiClient.chat(prompt);
 
         // Save AI reply to DB
         Message aiMessageEntity = new Message();
