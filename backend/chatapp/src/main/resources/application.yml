@@ -4,8 +4,8 @@ spring:
   datasource:
     driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://db.xabewjiiewyhhjfekazv.supabase.co:5432/postgres
-    username: ${SUPABASE_DB_USERNAME}
-    password: ${SUPABASE_DB_PASSWORD}
+    username: ${SUPABASE_DB_USERNAME:postgres}
+    password: ${SUPABASE_DB_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: none
@@ -16,7 +16,7 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
   ai:
     openai:
-      api-key: ${GROK_API_KEY}
+      api-key: ${GROK_API_KEY:placeholder}
       base-url: "https://api.groq.com/openai"
       chat:
         options:
@@ -66,7 +66,7 @@ app:
       dinner: v1/api/dinner
       chat-app: v1/api/chat-app
   supabase:
-    url: https://xabewjiiewyhhjfekazv.supabase.co
-    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY}
+    url: ${SUPABASE_UPL:}
+    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
     storage:
       bucket-name: images
