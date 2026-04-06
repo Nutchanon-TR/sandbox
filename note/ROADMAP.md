@@ -16,6 +16,9 @@
 - `[x]` **Integrate Redis with Dinner Service:** นำแคชไปประยุกต์ใช้เพื่อเก็บผลลัพธ์ Supplier Orders ที่ถูกดึงมาบ่อยๆ (เพื่อเสิร์ฟไวขึ้น)
 - `[x]` **Redis Security:** เพิ่ม `--requirepass` ให้ Redis และเอา port 6379 ออกจาก host (เข้าถึงได้เฉพาะใน internal network)
 
+> **⚠️ Warning — Cache Invalidation ยังหยาบ:**
+> `ChatService.getAiResponse()` ใช้ `@CacheEvict(value = "chatHistory", allEntries = true)` ซึ่งจะล้าง cache ของ **ทุกห้อง** เมื่อมีข้อความใหม่ในห้องใดห้องหนึ่ง ตอนนี้พอรับได้เพราะเป็น 1 user : 1 room แต่ถ้า scale ขึ้นต้องเปลี่ยนเป็นล้างเฉพาะ room ที่เปลี่ยนแปลง (ใช้ `RedisTemplate` ลบ key ด้วย pattern `chatHistory::roomId_*` แทน)
+
 ## Phase 3: Virtual Machine Sandbox & Build
 เป้าหมาย: จำลองสภาพแวดล้อมคล้ายจริงและแก้ไขข้อจำกัดการ Build ออฟไลน์ โดยการรันโปรเจกต์บนระบบเซิร์ฟเวอร์จำลอง (Virtual Machine)
 - `[ ]` **Provision a Virtual Machine:** เตรียมและตั้งค่าระบบปฏิบัติการผ่าน VM พร้อมติดตั้งเครื่องมือพื้นฐาน (`Docker`, `Docker Compose`, `Git`)
