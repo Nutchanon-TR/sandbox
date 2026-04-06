@@ -11,7 +11,7 @@ import {
     SunOutlined
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
-import { theme as antdTheme, Breadcrumb, Layout, Menu } from "antd"; // Import theme จาก antd
+import { theme as antdTheme, Breadcrumb, Layout, Menu } from "antd";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useEffect, useState } from "react";
@@ -151,12 +151,12 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                                     sessionStorage.setItem("sidebar-collapsed", JSON.stringify(false));
                                 }
                             }}
-                            // ปิด border ของ Menu เพื่อความเนียน
+                            // Remove Menu border for a cleaner look
                             style={{ borderRight: 0 }}
                         />
                     </div>
 
-                    {/* ส่วนล่าง: ปุ่มที่ต้องการให้อยู่ติดขอบล่างเสมอ */}
+                    {/* Bottom section: buttons pinned to the bottom */}
                     <div className="absolute inset-x-0 bottom-0 p-4">
                         <div>
                             <SidebarButton

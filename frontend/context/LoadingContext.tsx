@@ -59,10 +59,10 @@ export default function LoadingWrapper({ children }: { children: React.ReactNode
                     role="status"
                     aria-live="polite"
                     aria-busy={!ready}
-                    className={`fixed inset-0 z-[9999] flex items-center justify-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm transition-opacity duration-300 ${exiting ? 'opacity-0' : 'opacity-100'}`}>
+                    className={`fixed inset-0 z-[9999] flex items-center justify-center bg-surface/95 backdrop-blur-sm transition-opacity duration-300 ${exiting ? 'opacity-0' : 'opacity-100'}`}>
                     <div className="flex flex-col items-center gap-4 p-6">
                         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-                        <span className="text-sm text-gray-700 dark:text-gray-200">Loading…</span>
+                        <span className="text-sm text-text-secondary">Loading…</span>
                     </div>
                 </div>
             )}

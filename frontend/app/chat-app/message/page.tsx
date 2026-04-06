@@ -8,7 +8,6 @@ import { useChangeTitle } from "@/utils/breadCrumbUtil";
 import { fetchApi } from '@/utils/api';
 import { API_SANDBOX } from '@/constants/api/ApiSandbox';
 import { useNotification } from '@/context/NotificationContext';
-import { useTheme } from "@/context/ThemeContext";
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import {
     MoreOutlined,
@@ -72,7 +71,6 @@ export default function MessagePage() {
     const notification = useNotification();
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
-    const { theme } = useTheme();
     const { data: session, status } = useSupabaseSession();
 
     useChangeTitle(TITLE.CHAT_APP, "MESSAGE");
@@ -227,8 +225,6 @@ export default function MessagePage() {
         }
     };
 
-    const isDark = theme === "dark";
-
     if (isResolving || status === 'loading') {
         return (
             <div className="flex h-full items-center justify-center">
@@ -246,20 +242,20 @@ export default function MessagePage() {
     }
 
     return (
-        <div className={`flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border shadow-sm ${theme === "dark" ? "dark border-slate-800 bg-slate-950" : "border-slate-200 bg-white"}`}>
+        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-border-main bg-background shadow-sm">
             <div
-                className="sticky top-0 z-20 flex items-center justify-between border-b bg-white px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:border-slate-800 dark:bg-slate-900 dark:supports-[backdrop-filter]:bg-slate-900/85"
+                className="sticky top-0 z-20 flex items-center justify-between border-b border-border-main bg-surface px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface/80"
             >
                 <Space size="middle">
                     <Badge dot color="green" offset={[-5, 35]}>
                         <Avatar
                             src="/ai_avatar.png"
                             size={42}
-                            className="border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800"
+                            className="border border-border-secondary bg-muted"
                         />
                     </Badge>
                     <div className="flex flex-col">
-                        <Text strong className="text-lg leading-none !text-slate-900 dark:!text-slate-100">
+                        <Text strong className="text-lg leading-none !text-foreground">
                             AI Assistant
                         </Text>
                         <Text type="success" className="mt-1 text-xs font-medium">
@@ -268,16 +264,16 @@ export default function MessagePage() {
                     </div>
                 </Space>
                 <Space size="small">
-                    <Button type="text" className="!text-slate-500 hover:!bg-slate-100 dark:!text-slate-400 dark:hover:!bg-slate-800" icon={<PhoneOutlined />} />
-                    <Button type="text" className="!text-slate-500 hover:!bg-slate-100 dark:!text-slate-400 dark:hover:!bg-slate-800" icon={<VideoCameraOutlined />} />
-                    <Button type="text" className="!text-slate-500 hover:!bg-slate-100 dark:!text-slate-400 dark:hover:!bg-slate-800" icon={<MoreOutlined />} />
+                    <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<PhoneOutlined />} />
+                    <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<VideoCameraOutlined />} />
+                    <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<MoreOutlined />} />
                 </Space>
             </div>
 
             <div
                 ref={scrollContainerRef}
                 onScroll={handleScroll}
-                className="flex-1 overflow-y-auto bg-slate-50 px-4 py-5 dark:bg-slate-950 md:px-6"
+                className="flex-1 overflow-y-auto bg-background px-4 py-5 md:px-6"
             >
                 {isLoadingMore && (
                     <div className="flex justify-center py-3">
@@ -287,14 +283,14 @@ export default function MessagePage() {
 
                 {messages.length === 0 && !isLoading && (
                     <div
-                        className="mx-auto mt-20 flex max-w-md flex-col items-center justify-center text-center text-slate-500 dark:text-slate-400"
+                        className="mx-auto mt-20 flex max-w-md flex-col items-center justify-center text-center text-text-secondary"
                     >
                         <Image
                             src="/ai_avatar.png"
                             alt="AI Avatar"
                             width={80}
                             height={80}
-                            className={isDark ? 'mb-4 opacity-60' : 'mb-4 opacity-45'}
+                            className="mb-4 opacity-45 dark:opacity-60"
                         />
                         <p className="m-0">Say hello to start the conversation!</p>
                     </div>
@@ -311,14 +307,14 @@ export default function MessagePage() {
                                     <Avatar
                                         src="/ai_avatar.png"
                                         size={32}
-                                        className="shrink-0 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800"
+                                        className="shrink-0 border border-border-secondary bg-muted"
                                     />
                                 )}
 
                                 <div
                                     className={`rounded-3xl p-3 shadow-sm ${msg.role === 'USER'
                                         ? 'rounded-br-md bg-blue-600 text-white dark:bg-blue-500'
-                                        : 'rounded-bl-md border border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'
+                                        : 'rounded-bl-md border border-border-main bg-surface text-foreground'
                                         }`}
                                 >
                                     <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">
@@ -335,14 +331,14 @@ export default function MessagePage() {
                                 <Avatar
                                     src="/ai_avatar.png"
                                     size={32}
-                                    className="border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800"
+                                    className="border border-border-secondary bg-muted"
                                 />
                                 <div
-                                    className="flex items-center gap-1 rounded-3xl rounded-bl-md border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                                    className="flex items-center gap-1 rounded-3xl rounded-bl-md border border-border-main bg-surface p-4 shadow-sm"
                                 >
-                                    <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s] dark:bg-slate-500" />
-                                    <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s] dark:bg-slate-500" />
-                                    <div className="h-2 w-2 animate-bounce rounded-full bg-slate-400 dark:bg-slate-500" />
+                                    <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60 [animation-delay:-0.3s]" />
+                                    <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60 [animation-delay:-0.15s]" />
+                                    <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60" />
                                 </div>
                             </div>
                         </div>
@@ -353,7 +349,7 @@ export default function MessagePage() {
             </div>
 
             <div
-                className="sticky bottom-0 z-20 border-t bg-white px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/85 dark:border-slate-800 dark:bg-slate-900 dark:supports-[backdrop-filter]:bg-slate-900/85 md:px-6"
+                className="sticky bottom-0 z-20 border-t border-border-main bg-surface px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface/85 md:px-6"
             >
                 <div className="mx-auto flex w-full max-w-4xl items-center gap-2">
                     <Input
@@ -363,7 +359,7 @@ export default function MessagePage() {
                         onPressEnter={handleSendMessage}
                         placeholder="Type a message..."
                         disabled={isLoading}
-                        className="rounded-full border-slate-200 !bg-slate-100 px-5 text-slate-900 placeholder:!text-slate-400 hover:!border-slate-300 focus:!border-blue-500 dark:!border-slate-700 dark:!bg-slate-950 dark:!text-slate-100 dark:placeholder:!text-slate-500"
+                        className="rounded-full !border-border-secondary !bg-muted px-5 !text-foreground placeholder:!text-text-secondary hover:!border-border-main focus:!border-accent"
                     />
                     <Button
                         type="primary"

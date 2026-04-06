@@ -30,21 +30,41 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
+
+    // Toggle Tailwind dark mode class automatically
+    if (theme === "dark") {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
+
     const themeVariables = theme === "dark"
       ? {
           background: "#09111f",
           foreground: "#f3f7ff",
           accent: "#3c9ae8",
+          surface: "#111a2c",
+          "surface-hover": "#17233a",
+          muted: "#0f1829",
+          border: "#1f3655",
+          "border-secondary": "#162947",
+          "text-secondary": "#9fb3c8",
         }
       : {
           background: "#eef3fb",
           foreground: "#14213d",
           accent: "#1677ff",
+          surface: "#ffffff",
+          "surface-hover": "#f8fbff",
+          muted: "#f1f5f9",
+          border: "#d8e3f0",
+          "border-secondary": "#e8eef5",
+          "text-secondary": "#5f6c85",
         };
 
-    root.style.setProperty("--background", themeVariables.background);
-    root.style.setProperty("--foreground", themeVariables.foreground);
-    root.style.setProperty("--accent", themeVariables.accent);
+    Object.entries(themeVariables).forEach(([key, value]) => {
+      root.style.setProperty(`--${key}`, value);
+    });
     root.style.colorScheme = theme;
   }, [theme]);
 

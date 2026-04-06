@@ -7,9 +7,9 @@ const api = axios.create({
   },
 });
 
-// (Optional) เพิ่ม Interceptors สำหรับจัดการ Request/Response
+// (Optional) Add Interceptors for Request/Response handling
 api.interceptors.request.use((config) => {
-  // เช่น ใส่ Token อัตโนมัติ
+  // e.g. Attach token automatically
   // const token = localStorage.getItem('token');
   // if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
