@@ -281,22 +281,19 @@ export default function MessagePage() {
                     </div>
                 )}
 
-                {messages.length === 0 && !isLoading && (
-                    <div
-                        className="mx-auto mt-20 flex max-w-md flex-col items-center justify-center text-center text-text-secondary"
-                    >
-                        <Image
-                            src="/ai_avatar.png"
-                            alt="AI Avatar"
-                            width={80}
-                            height={80}
-                            className="mb-4 opacity-45 dark:opacity-60"
-                        />
-                        <p className="m-0">Say hello to start the conversation!</p>
-                    </div>
-                )}
-
-                <div className="flex min-h-full flex-col justify-end gap-4">
+                <div className={`flex min-h-full flex-col ${messages.length === 0 && !isLoading ? 'items-center justify-center' : 'justify-end'} gap-4`}>
+                    {messages.length === 0 && !isLoading && (
+                        <div className="flex max-w-md flex-col items-center text-center text-text-secondary">
+                            <Image
+                                src="/ai_avatar.png"
+                                alt="AI Avatar"
+                                width={80}
+                                height={80}
+                                className="mb-4 opacity-45 dark:opacity-60"
+                            />
+                            <p className="m-0">Say hello to start the conversation!</p>
+                        </div>
+                    )}
                     {messages.map((msg, idx) => (
                         <div
                             key={idx}

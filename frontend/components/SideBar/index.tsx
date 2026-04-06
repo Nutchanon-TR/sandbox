@@ -115,25 +115,22 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
             >
                 <div className="relative h-screen">
                     <Header
-                        className="flex items-center justify-center relative"
+                        className="relative flex items-center justify-center"
                         style={{ padding: 0, background: colorBgContainer }}
                     >
                         <Link href="/">
-                            <div className={`flex items-center space-x-2 font-bold text-lg transition-colors duration-300 ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+                            <div className="flex items-center space-x-2 text-lg font-bold text-foreground transition-colors duration-300">
                                 <CodeSandboxOutlined className="text-2xl" />
                                 {!collapsed && <span>SandBox</span>}
                             </div>
                         </Link>
                         <button
                             onClick={handleToggleCollapse}
-                            className={`transition-all duration-300 ease-in-out transform z-50 flex items-center justify-center cursor-pointer absolute ${collapsed
-                                ? `-right-5 w-10 h-10 rounded-sm text-sm shadow-md border-none`
-                                : "-right-2 text-sm w-12 h-12 border-none"
+                            className={`absolute z-50 flex cursor-pointer items-center justify-center border-none bg-transparent text-foreground transition-all duration-300 ease-in-out ${collapsed
+                                ? "-right-5 h-10 w-10 rounded-sm text-sm shadow-md"
+                                : "-right-2 h-12 w-12 text-sm"
                                 }`}
-                            style={{
-                                border: 'none',
-                                boxShadow: 'none',
-                            }}>
+                        >
                             {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                         </button>
                     </Header>
