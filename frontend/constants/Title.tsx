@@ -1,13 +1,9 @@
 import React from "react";
 import {
     CoffeeOutlined,
-    FileTextOutlined,
     HomeOutlined,
-    MessageOutlined,
     ReadOutlined,
     RobotOutlined,
-    ShopOutlined,
-    UserOutlined,
 } from "@ant-design/icons";
 import { TitleDetail } from "@/interface/common/TitleDetail";
 
@@ -69,11 +65,5 @@ export const TITLE: Record<string, TitleDetail> = {
                 urlPath: "/chat-app/social",
             }
         ],
-    },
-    PROFILE: {
-        key: "PROFILE",
-        title: "Profile",
-        urlPath: "/profile",
-        icon: <UserOutlined />,
     },
 };

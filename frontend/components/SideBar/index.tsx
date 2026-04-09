@@ -11,13 +11,14 @@ import {
     MenuFoldOutlined,
     MenuUnfoldOutlined,
     MoonOutlined,
-    SunOutlined
+    SunOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { theme as antdTheme, Breadcrumb, Layout, Menu } from "antd";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useEffect, useState } from "react";
+import ProfilePopover from "../Profile";
 import SubSideBar from "../SubSideBar";
 import { SidebarButton } from "../common/Button";
 
@@ -258,23 +259,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                     </div>
 
                     <div className="mr-6">
-                        {session?.user ? (
-                            <div className="flex">
-                                {(session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture) && (
-                                    <img
-                                        src={session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture}
-                                        alt="Profile"
-                                        className="h-12 w-12 rounded-full border-4 border-white shadow-md dark:border-gray-700"
-                                    />
-                                )}
-                            </div>
-                        ) : (
-                            <img
-                                src="/default-profile.png"
-                                alt="Default Profile"
-                                className="h-16 w-16 rounded-full border-4 border-white shadow-md dark:border-gray-700"
-                            />
-                        )}
+                        <ProfilePopover session={session} supabase={supabase} />
                     </div>
                 </Header>
                 <Content className={`${collapsed ? 'ml-10' : 'ml-6'} my-6 flex flex-col overflow-auto`}>
@@ -292,3 +277,4 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         </Layout>
     );
 }
+
