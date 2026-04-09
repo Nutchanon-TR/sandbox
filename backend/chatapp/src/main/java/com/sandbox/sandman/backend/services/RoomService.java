@@ -4,7 +4,6 @@ import com.sandbox.sandman.backend.model.dto.ChatDto.RoomCreateRequestDto;
 import com.sandbox.sandman.backend.model.dto.ChatDto.RoomDto;
 import com.sandbox.sandman.backend.model.entity.ChatEntity.AiContext;
 import com.sandbox.sandman.backend.model.entity.ChatEntity.Room;
-import com.sandbox.sandman.backend.model.entity.ChatEntity.User;
 import com.sandbox.sandman.backend.repositories.ChatRepository.AiContextRepository;
 import com.sandbox.sandman.backend.repositories.ChatRepository.RoomRepository;
 import com.sandbox.sandman.backend.repositories.ChatRepository.UserRepository;
@@ -41,14 +40,19 @@ public class RoomService {
 
     @Transactional
     public RoomDto createRoom(Long userId, RoomCreateRequestDto request) {
-        User user = userRepository.findById(userId)
+        userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Room room = new Room();
-        room.setName(request.getName());
         room.setIsGroup(request.getIsGroup());
         room.setCreatedBy(userId);
-        room.setAiModel(request.getAiModel());
+
+        if (Boolean.TRUE.equals(request.getIsGroup())) {
+            room.setName(request.getName());  // group room ใช้ชื่อที่ตั้ง
+        } else {
+            room.setName(null);               // AI room ไม่ต้องมีชื่อ ใช้ ai_name แทน
+            room.setAiModel(request.getAiModel());
+        }
         Room savedRoom = roomRepository.save(room);
 
         // Add creator as member
@@ -64,24 +68,15 @@ public class RoomService {
                 }
             }
         } else {
-            // AI room: add AI bot as member
-            User aiUser = userRepository.findByRole("AI")
-                    .orElseGet(() -> {
-                        User ai = new User();
-                        ai.setUsername("ai_assistant");
-                        ai.setEmail("ai@sandbox.local");
-                        ai.setPasswordHash("no-password");
-                        ai.setRole("AI");
-                        return userRepository.save(ai);
-                    });
-            addRoomMember(savedRoom.getId(), aiUser.getId());
-
-            // Create AI context (system prompt) for this room
+            // AI room: create ai_context (no AI user needed)
+            String aiName = request.getName() != null ? request.getName() : "AI Assistant";
             String systemPrompt = request.getSystemPrompt() != null
                     ? request.getSystemPrompt()
                     : "You are a helpful AI assistant. Respond concisely and helpfully.";
+
             AiContext aiContext = new AiContext();
             aiContext.setRoom(savedRoom);
+            aiContext.setAiName(aiName);
             aiContext.setSystemText(systemPrompt);
             aiContextRepository.save(aiContext);
         }
@@ -96,9 +91,19 @@ public class RoomService {
     }
 
     private RoomDto toDto(Room room) {
+        String displayName;
+        if (Boolean.TRUE.equals(room.getIsGroup())) {
+            displayName = room.getName();
+        } else {
+            // AI room → ใช้ ai_name จาก ai_context
+            displayName = aiContextRepository.findByRoomId(room.getId())
+                    .map(AiContext::getAiName)
+                    .orElse("AI Assistant");
+        }
+
         return new RoomDto(
                 room.getId(),
-                room.getName(),
+                displayName,
                 room.getIsGroup(),
                 room.getAiModel(),
                 room.getCreatedAt()

@@ -12,7 +12,6 @@ import com.sandbox.sandman.backend.repositories.ChatRepository.MessageRepository
 import com.sandbox.sandman.backend.repositories.ChatRepository.RoomRepository;
 import com.sandbox.sandman.backend.repositories.ChatRepository.UserRepository;
 
-// Spring AI Imports
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -56,13 +55,11 @@ public class ChatService {
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int VECTOR_SEARCH_LIMIT = 5;
 
-    // [Phase 2 Prototype]: Cache paginated history (key includes beforeId + limit)
     @Cacheable(value = "chatHistory", key = "#roomId + '_' + #beforeId + '_' + #limit")
     public MessageHistoryResponse getChatHistoryByRoom(Long roomId, Long beforeId, int limit) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
 
-        // Fetch one extra record to determine if there are more messages
         int fetchSize = limit + 1;
         List<Message> raw;
         if (beforeId == null) {
@@ -73,21 +70,22 @@ public class ChatService {
 
         boolean hasMore = raw.size() > limit;
         List<Message> page = hasMore ? raw.subList(0, limit) : raw;
-
-        // Results come back newest-first; reverse to oldest-first for the client
         Collections.reverse(page);
 
+        // Get ai_name for this room (if it's an AI room)
+        String aiName = aiContextRepository.findByRoomId(roomId)
+                .map(AiContext::getAiName)
+                .orElse("AI Assistant");
+
         List<MessageDto> dtos = page.stream()
-                .map(this::convertToDto)
+                .map(msg -> convertToDto(msg, aiName))
                 .collect(Collectors.toList());
 
         return new MessageHistoryResponse(dtos, hasMore);
     }
 
-    // [Phase 2 Prototype]: Evict all paginated cache entries for the room when new message arrives
     @CacheEvict(value = "chatHistory", allEntries = true)
     public String getAiResponse(ChatRequestDto request) {
-        // STEP 1: Validate and find room
         Long reqRoomId = request.getRoomId();
         if (reqRoomId == null) {
             throw new RuntimeException("Room ID is required");
@@ -95,7 +93,6 @@ public class ChatService {
         Room room = roomRepository.findById(reqRoomId)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
 
-        // STEP 2: Validate and find sender
         Long reqSenderId = request.getSenderId();
         if (reqSenderId == null) {
             throw new RuntimeException("Sender ID is required");
@@ -103,35 +100,29 @@ public class ChatService {
         User user = userRepository.findById(reqSenderId)
                 .orElseThrow(() -> new RuntimeException("Sender not found"));
 
-        // STEP 3: Save user's message to DB
+        // Save user's message
         Message userMessage = new Message();
         userMessage.setRoom(room);
         userMessage.setSender(user);
+        userMessage.setIsAi(false);
         userMessage.setContent(request.getMessage());
         messageRepository.save(userMessage);
 
-        // STEP 3.5: Embed user's message asynchronously
+        // Embed user's message
         embeddingService.embedAndSave(userMessage);
 
-        // STEP 4: Get AI context (system prompt) from room
-        User aiUser = getOrCreateAiChatBot();
+        // Get AI context from room
         AiContext aiContext = aiContextRepository.findByRoomId(room.getId())
                 .orElseThrow(() -> new RuntimeException("AI context not configured for this room"));
-        String systemText = aiContext.getSystemText();
 
-        // STEP 5: Call AI and save reply
-        return callAiAndSaveReply(room, aiUser, systemText, request.getMessage());
+        return callAiAndSaveReply(room, aiContext, request.getMessage());
     }
 
-    /**
-     * Builds the AI prompt from chat history + vector search context,
-     * sends it to the AI model, saves the reply, and returns it.
-     */
-    private String callAiAndSaveReply(Room room, User aiUser, String systemText, String userQuery) {
+    private String callAiAndSaveReply(Room room, AiContext aiContext, String userQuery) {
         List<org.springframework.ai.chat.messages.Message> aiPromptMessages = new ArrayList<>();
 
         // System prompt
-        aiPromptMessages.add(new SystemMessage(systemText));
+        aiPromptMessages.add(new SystemMessage(aiContext.getSystemText()));
 
         // Vector search: find semantically similar past messages as extra context
         List<Long> similarIds = embeddingService.searchSimilarMessages(userQuery, room.getId(), VECTOR_SEARCH_LIMIT);
@@ -139,7 +130,10 @@ public class ChatService {
             List<Message> similarMessages = messageRepository.findAllById(similarIds);
             StringBuilder contextBuilder = new StringBuilder("Relevant past messages:\n");
             for (Message msg : similarMessages) {
-                contextBuilder.append("- ").append(msg.getSender().getUsername())
+                String senderLabel = Boolean.TRUE.equals(msg.getIsAi())
+                        ? aiContext.getAiName()
+                        : (msg.getSender() != null ? msg.getSender().getDisplayName() : "Unknown");
+                contextBuilder.append("- ").append(senderLabel)
                         .append(": ").append(msg.getContent()).append("\n");
             }
             aiPromptMessages.add(new SystemMessage(contextBuilder.toString()));
@@ -150,51 +144,47 @@ public class ChatService {
         Collections.reverse(history);
 
         for (Message msg : history) {
-            if (msg.getSender().getId().equals(aiUser.getId())) {
+            if (Boolean.TRUE.equals(msg.getIsAi())) {
                 aiPromptMessages.add(new AssistantMessage(msg.getContent()));
             } else {
                 aiPromptMessages.add(new UserMessage(msg.getContent()));
             }
         }
 
-        // Call AI model (with Circuit Breaker via GroqAiClient)
+        // Call AI model
         Prompt prompt = new Prompt(aiPromptMessages);
         String aiReply = groqAiClient.chat(prompt);
 
-        // Save AI reply to DB
+        // Save AI reply (sender_id = NULL, is_ai = TRUE)
         Message aiMessageEntity = new Message();
         aiMessageEntity.setRoom(room);
-        aiMessageEntity.setSender(aiUser);
+        aiMessageEntity.setSender(null);
+        aiMessageEntity.setIsAi(true);
         aiMessageEntity.setContent(aiReply);
         messageRepository.save(aiMessageEntity);
 
-        // Embed AI reply too
+        // Embed AI reply
         embeddingService.embedAndSave(aiMessageEntity);
 
         return aiReply;
     }
 
-    private MessageDto convertToDto(Message message) {
+    private MessageDto convertToDto(Message message, String aiName) {
         MessageDto dto = new MessageDto();
         dto.setId(message.getId());
         dto.setRoomId(message.getRoom().getId());
-        dto.setSenderId(message.getSender().getId());
-        dto.setSenderUsername(message.getSender().getUsername());
-        dto.setSenderRole(message.getSender().getRole());
+        dto.setIsAi(message.getIsAi());
+
+        if (Boolean.TRUE.equals(message.getIsAi())) {
+            dto.setSenderId(null);
+            dto.setSenderName(aiName);
+        } else {
+            dto.setSenderId(message.getSender() != null ? message.getSender().getId() : null);
+            dto.setSenderName(message.getSender() != null ? message.getSender().getDisplayName() : "Unknown");
+        }
+
         dto.setContent(message.getContent());
         dto.setCreatedAt(message.getCreatedAt());
         return dto;
-    }
-
-    private User getOrCreateAiChatBot() {
-        return userRepository.findByRole("AI")
-                .orElseGet(() -> {
-                    User ai = new User();
-                    ai.setUsername("ai_assistant");
-                    ai.setEmail("ai@sandbox.local");
-                    ai.setPasswordHash("no-password");
-                    ai.setRole("AI");
-                    return userRepository.save(ai);
-                });
     }
 }

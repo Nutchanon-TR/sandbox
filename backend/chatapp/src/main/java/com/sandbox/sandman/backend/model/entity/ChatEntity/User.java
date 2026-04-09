@@ -16,20 +16,11 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
-    private String username;
-
-    @Column(nullable = false, unique = true, length = 100)
-    private String email;
-
-    @Column(name = "password_hash", nullable = false, length = 255)
-    private String passwordHash;
-
-    @Column(nullable = false, length = 20)
-    private String role = "USER";
-
-    @Column(name = "supabase_uid", unique = true)
+    @Column(name = "supabase_uid", nullable = false, unique = true)
     private UUID supabaseUid;
+
+    @Column(name = "display_name", nullable = false, length = 100)
+    private String displayName;
 
     @Column(name = "created_at")
     private ZonedDateTime createdAt;

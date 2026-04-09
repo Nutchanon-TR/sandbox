@@ -18,11 +18,7 @@ public class UserController {
 
     @PostMapping("/user/resolve")
     public ResponseEntity<UserResolveResponseDto> resolveUser(@RequestBody UserResolveRequestDto request) {
-        UserResolveResponseDto response = userResolutionService.resolveUser(
-                request.getSupabaseUid(),
-                request.getEmail(),
-                request.getUsername()
-        );
+        UserResolveResponseDto response = userResolutionService.resolveUser(request.getSupabaseUid());
         return ResponseEntity.ok(response);
     }
 }

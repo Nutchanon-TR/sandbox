@@ -20,8 +20,11 @@ public class Message {
     private Room room;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sender_id", nullable = false)
-    private User sender;
+    @JoinColumn(name = "sender_id")
+    private User sender;  // NULL when AI sends
+
+    @Column(name = "is_ai", nullable = false)
+    private Boolean isAi = false;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;

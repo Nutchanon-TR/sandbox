@@ -6,10 +6,10 @@ import java.time.ZonedDateTime;
 @Data
 public class MessageDto {
     private Long id;
-    private Long senderId;
-    private String senderUsername;
-    private String senderRole;
     private Long roomId;
+    private Long senderId;          // NULL when AI
+    private String senderName;      // display_name or ai_name
+    private Boolean isAi;
     private String content;
     private ZonedDateTime createdAt;
 }

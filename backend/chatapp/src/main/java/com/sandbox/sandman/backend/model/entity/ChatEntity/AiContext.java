@@ -18,6 +18,9 @@ public class AiContext {
     @JoinColumn(name = "room_id", nullable = false, unique = true)
     private Room room;
 
+    @Column(name = "ai_name", nullable = false, length = 100)
+    private String aiName = "AI Assistant";
+
     @Column(name = "system_text", nullable = false, columnDefinition = "TEXT")
     private String systemText;
 }

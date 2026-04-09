@@ -18,22 +18,17 @@ public class UserResolutionService {
     }
 
     @Transactional
-    public UserResolveResponseDto resolveUser(String supabaseUidStr, String email, String username) {
+    public UserResolveResponseDto resolveUser(String supabaseUidStr) {
         UUID supabaseUid = UUID.fromString(supabaseUidStr);
 
         User user = userRepository.findBySupabaseUid(supabaseUid)
-                .orElseGet(() -> createUser(supabaseUid, email, username));
+                .orElseGet(() -> {
+                    User newUser = new User();
+                    newUser.setSupabaseUid(supabaseUid);
+                    newUser.setDisplayName("User"); // Default to prevent constraint error
+                    return userRepository.save(newUser);
+                });
 
         return new UserResolveResponseDto(user.getId());
-    }
-
-    private User createUser(UUID supabaseUid, String email, String username) {
-        User user = new User();
-        user.setSupabaseUid(supabaseUid);
-        user.setEmail(email);
-        user.setUsername(username);
-        user.setPasswordHash("supabase-auth");
-        user.setRole("USER");
-        return userRepository.save(user);
     }
 }
