@@ -46,7 +46,7 @@ graph TD
             OAuth2Proxy["oauth2-proxy\nJWT Validation Sidecar"]
 
             Nginx -->|"every request\nforward to validate"| OAuth2Proxy
-            OAuth2Proxy -->|"✅ valid\ninject X-User-Id\ninject X-User-Role"| Nginx
+            OAuth2Proxy -->|"✅ valid\ninject X-User-Id"| Nginx
             OAuth2Proxy -->|"❌ invalid → 401"| Nginx
         end
 
@@ -63,10 +63,10 @@ graph TD
         Redis[("⚡ Redis Container\nmin replicas = 1")]
         Secret["🔑 ACA Built-in Secrets\nDB URL · API Keys"]
 
-        Nginx -->|"/ + X-User-* headers"| FE
-        Nginx -->|"/api/chat + X-User-* headers"| Chat
-        Nginx -->|"/api/dinner + X-User-* headers"| Dinner
-        Nginx -->|"/api/bpost + X-User-* headers"| Bpost
+        Nginx -->|"/"| FE
+        Nginx -->|"/v1/api/chat-app/ + X-User-Id"| Chat
+        Nginx -->|"/v1/api/dinner/ + X-User-Id"| Dinner
+        Nginx -->|"/v1/api/b-post/ + X-User-Id"| Bpost
 
         Chat -.->|read secrets| Secret
         Dinner -.->|read secrets| Secret

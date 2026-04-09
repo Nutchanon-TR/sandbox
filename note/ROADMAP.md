@@ -32,7 +32,7 @@
 เป้าหมาย: เติมเต็มพลังงานขับเคลื่อนแชตตามแผนการค้นหาเวกเตอร์
 - `[x]` **Fix Hardcoded User Context:** แก้ Chat UI (`message/page.tsx`) ที่ตอนนี้ hardcode `ROOM_ID=1` และ `USER_ID=1` ให้ดึงค่าจริงจาก Supabase Session แทน (เพิ่ม `/user/resolve` endpoint + `useSupabaseSession` hook)
 - `[x]` **Activate `pgvector`:** เปิดและทดสอบ Extension `pgvector` บนฐานข้อมูล Supabase PostgreSQL (SQL อยู่ใน `database/03_pgvector_schema.sql`)
-- `[ ]` **Implement Vector Search:** เขียนฟีเจอร์สำหรับค้นหาเนื้อหาหรือบริบทแบบ Vector ใน Chat Service (เลื่อนไว้ก่อน — รอตัดสินใจ embedding approach)
+- `[ ]` **Implement Vector Search:** เขียนฟีเจอร์สำหรับค้นหาเนื้อหาหรือบริบทแบบ Vector ใน Chat Service — ตัดสินใจใช้ `intfloat/multilingual-e5-small` (384 dim, รองรับไทย+อังกฤษ) เรียกผ่าน HuggingFace Inference API, embed ตอน insert message แล้ว query ด้วย cosine similarity (`<=>`) เพื่อส่ง context ให้ Groq
 - `[x]` **Connect to Groq:** รับประกันการตั้งค่า API Call สำหรับใช้โมเดล Llama 3 (Groq API) ให้ทนทานต่อ Request ขาดการเชื่อมต่อ (Circuit Breaker) — ใช้ Resilience4j + `GroqAiClient`
 
 ## Phase 5: Observability (New Relic)

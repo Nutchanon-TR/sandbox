@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE IF NOT EXISTS chat.message_embeddings (
     id BIGSERIAL PRIMARY KEY,
     message_id BIGINT NOT NULL REFERENCES chat.messages(id) ON DELETE CASCADE,
-    embedding vector(384),  -- 384 dimensions สำหรับ all-MiniLM-L6-v2
+    embedding vector(384),  -- 384 dimensions สำหรับ multilingual-e5-small (รองรับภาษาไทย + อังกฤษ)
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(message_id)
 );
