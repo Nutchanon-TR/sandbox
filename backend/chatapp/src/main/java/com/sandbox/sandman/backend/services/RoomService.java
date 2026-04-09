@@ -110,15 +110,16 @@ public class RoomService {
 
     private RoomDto toDto(Room room) {
         String displayName;
+        String aiAvatarUrl = null;
         if (Boolean.TRUE.equals(room.getIsGroup())) {
             displayName = room.getName();
         } else {
-            // AI room → ใช้ ai_name จาก ai_context
+            // AI room → ใช้ ai_name + avatar_url จาก ai_context
             Long aiId = getAiIdForRoom(room.getId());
             if (aiId != null) {
-                displayName = aiContextRepository.findById(aiId)
-                        .map(AiContext::getAiName)
-                        .orElse("AI Assistant");
+                AiContext aiContext = aiContextRepository.findById(aiId).orElse(null);
+                displayName = aiContext != null ? aiContext.getAiName() : "AI Assistant";
+                aiAvatarUrl = aiContext != null ? aiContext.getAvatarUrl() : null;
             } else {
                 displayName = "AI Assistant";
             }
@@ -129,6 +130,7 @@ public class RoomService {
                 displayName,
                 room.getIsGroup(),
                 room.getAiModel(),
+                aiAvatarUrl,
                 room.getCreatedAt()
         );
     }

@@ -337,6 +337,7 @@ export default function MessagePage() {
 
     // ── Render ──
     const roomSubtitle = getRoomSubtitle(selectedRoom);
+    const aiAvatarSrc = selectedRoom?.aiAvatarUrl || '/ai_avatar.png';
 
     return (
         <div className={`flex h-full min-h-0 flex-1 overflow-hidden rounded-[28px] border bg-background shadow-sm ${BORDER.main}`}>
@@ -356,7 +357,7 @@ export default function MessagePage() {
                             <Space size="middle">
                                 <Badge dot color="green" offset={[-5, 35]}>
                                     <Avatar
-                                        src="/ai_avatar.png"
+                                        src={aiAvatarSrc}
                                         size={42}
                                         className={`border bg-muted ${BORDER.secondary}`}
                                     />
@@ -401,7 +402,7 @@ export default function MessagePage() {
                                         {messages.length === 0 && !isSending && (
                                             <div className="flex max-w-md flex-col items-center text-center text-text-secondary">
                                                 <Image
-                                                    src="/ai_avatar.png"
+                                                    src={aiAvatarSrc}
                                                     alt="AI Avatar"
                                                     width={80}
                                                     height={80}
@@ -422,7 +423,7 @@ export default function MessagePage() {
                                                     <div className="flex max-w-[85%] items-end gap-2 md:max-w-[72%]">
                                                         {ai && (
                                                             <Avatar
-                                                                src="/ai_avatar.png"
+                                                                src={aiAvatarSrc}
                                                                 size={32}
                                                                 className={`shrink-0 border bg-muted ${BORDER.secondary}`}
                                                             />
@@ -446,7 +447,7 @@ export default function MessagePage() {
                                             <div className="flex justify-start">
                                                 <div className="flex max-w-[70%] items-end gap-2">
                                                     <Avatar
-                                                        src="/ai_avatar.png"
+                                                        src={aiAvatarSrc}
                                                         size={32}
                                                         className={`border bg-muted ${BORDER.secondary}`}
                                                     />

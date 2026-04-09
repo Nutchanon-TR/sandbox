@@ -29,5 +29,6 @@ export interface RoomSummary {
     name: string;
     isGroup: boolean;
     aiModel?: string | null;
+    aiAvatarUrl?: string | null;
     createdAt?: string;
 }

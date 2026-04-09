@@ -20,4 +20,7 @@ public class AiContext {
 
     @Column(name = "system_text", nullable = false, columnDefinition = "TEXT")
     private String systemText;
+
+    @Column(name = "avatar_url", columnDefinition = "TEXT")
+    private String avatarUrl;
 }
