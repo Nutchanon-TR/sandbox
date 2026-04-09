@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(*)"
+      "Bash(*)",
+      "mcp__supabase__list_tables",
+      "mcp__postman__list_collections"
     ]
   }
 }

@@ -5,34 +5,27 @@ import { TITLE } from "@/constants/Title";
 import { useChangeTitle } from "@/utils/breadCrumbUtil";
 import { useTheme } from "@/context/ThemeContext";
 import {
-    BgColorsOutlined,
-    IdcardOutlined,
-    LockOutlined,
+    CheckCircleOutlined,
+    ClockCircleOutlined,
     LoginOutlined,
     LogoutOutlined,
     MailOutlined,
     SafetyCertificateOutlined,
-    UserOutlined,
 } from "@ant-design/icons";
 import {
     Alert,
     Avatar,
     Button,
     Card,
-    Col,
-    Descriptions,
     Divider,
-    Flex,
-    Row,
     Skeleton,
     Space,
-    Statistic,
     Tag,
     Typography,
     theme,
 } from "antd";
 
-const { Paragraph, Text, Title } = Typography;
+const { Text, Title } = Typography;
 
 export default function ProfilePage() {
     useChangeTitle(TITLE.PROFILE);
@@ -65,210 +58,156 @@ export default function ProfilePage() {
         .map((part) => part.charAt(0).toUpperCase())
         .join("") || "U";
 
-    const heroBackground = currentTheme === "dark"
-        ? "linear-gradient(135deg, rgba(17,26,44,0.98) 0%, rgba(21,50,91,0.94) 55%, rgba(12,20,35,0.98) 100%)"
-        : "linear-gradient(135deg, #f8fbff 0%, #edf5ff 48%, #dceeff 100%)";
-
-    const panelStyle = {
-        border: `1px solid ${token.colorBorderSecondary}`,
-        boxShadow: token.boxShadowSecondary,
-    };
-
     const handleSignOut = async () => {
         await supabase.auth.signOut();
         window.location.href = "/login";
     };
 
-    const handleLogSession = () => {
-        console.log("Session Data:", session);
-    };
-
     if (status === "loading") {
         return (
-            <Card style={panelStyle}>
-                <Skeleton
-                    active
-                    avatar={{ size: 96, shape: "circle" }}
-                    paragraph={{ rows: 6 }}
-                    title={{ width: "35%" }}
-                />
-            </Card>
+            <div className="mx-auto w-full max-w-md pt-12">
+                <Card className="border-border-secondary bg-surface shadow-sm">
+                    <Skeleton
+                        active
+                        avatar={{ size: 96, shape: "circle" }}
+                        paragraph={{ rows: 4 }}
+                        title={{ width: "50%" }}
+                    />
+                </Card>
+            </div>
         );
     }
 
     if (!user) {
         return (
-            <Alert
-                message="You are not logged in"
-                description="Please sign in again to view your profile details."
-                type="warning"
-                showIcon
-                action={
-                    <Button type="primary" onClick={() => { window.location.href = "/login"; }}>
-                        Go to Login
-                    </Button>
-                }
-            />
+            <div className="mx-auto w-full max-w-md pt-12">
+                <Alert
+                    message="You are not logged in"
+                    description="Please sign in again to view your profile details."
+                    type="warning"
+                    showIcon
+                    action={
+                        <Button type="primary" onClick={() => { window.location.href = "/login"; }}>
+                            Go to Login
+                        </Button>
+                    }
+                />
+            </div>
         );
     }
 
     return (
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-            <Card
-                bordered={false}
-                style={{
-                    ...panelStyle,
-                    background: heroBackground,
-                    overflow: "hidden",
-                }}
-            >
-                <Flex
-                    gap={24}
-                    align="center"
-                    wrap="wrap"
-                    justify="space-between"
-                >
-                    <Flex gap={20} align="center" wrap="wrap">
-                        <Avatar
-                            size={104}
-                            src={image}
-                            style={{
-                                backgroundColor: image ? undefined : token.colorPrimary,
-                                color: token.colorWhite,
-                                fontSize: 34,
-                                border: `4px solid ${token.colorBgContainer}`,
-                            }}
+        <div className="flex h-full w-full items-start justify-center p-5">
+            {/* Profile Card */}
+            <Card className="w-full max-w-md border-border-secondary bg-surface shadow-sm">
+                <div className="flex flex-col items-center gap-4 pb-2 pt-4">
+                    <Avatar
+                        size={100}
+                        src={image}
+                        style={{
+                            backgroundColor: image ? undefined : token.colorPrimary,
+                            color: token.colorWhite,
+                            fontSize: 34,
+                            border: `3px solid ${token.colorBorderSecondary}`,
+                        }}
+                    >
+                        {!image ? initials : null}
+                    </Avatar>
+
+                    <div className="flex flex-col items-center gap-1">
+                        <Title level={3} style={{ margin: 0 }}>
+                            {name}
+                        </Title>
+                        <Text className="text-text-secondary">{user.email}</Text>
+                    </div>
+
+                    <Space size={[6, 6]} wrap className="justify-center">
+                        <Tag
+                            bordered={false}
+                            icon={<SafetyCertificateOutlined />}
+                            color={currentTheme === "dark" ? "blue" : "processing"}
                         >
-                            {!image ? initials : null}
-                        </Avatar>
-
-                        <Space direction="vertical" size={6}>
-                            <Tag
-                                bordered={false}
-                                icon={<SafetyCertificateOutlined />}
-                                color={currentTheme === "dark" ? "blue" : "processing"}
-                            >
-                                Authenticated session
-                            </Tag>
-                            <Title level={2} style={{ margin: 0, color: token.colorText }}>
-                                {name}
-                            </Title>
-                            <Paragraph
-                                style={{
-                                    margin: 0,
-                                    color: token.colorTextSecondary,
-                                    maxWidth: 560,
-                                }}
-                            >
-                                Your account overview is now rendered with Ant Design components and
-                                inherits the same theme tokens as the rest of the app.
-                            </Paragraph>
-                            <Space size={[8, 8]} wrap>
-                                <Tag icon={<MailOutlined />}>
-                                    {user.email}
-                                </Tag>
-                                <Tag icon={<LoginOutlined />}>
-                                    {providerLabel}
-                                </Tag>
-                                <Tag icon={<BgColorsOutlined />}>
-                                    {currentTheme === "dark" ? "Dark theme" : "Light theme"}
-                                </Tag>
-                            </Space>
-                        </Space>
-                    </Flex>
-
-                    <Space wrap>
-                        <Button icon={<LockOutlined />} onClick={handleLogSession}>
-                            Log Session
-                        </Button>
-                        <Button danger type="primary" icon={<LogoutOutlined />} onClick={handleSignOut}>
-                            Logout
-                        </Button>
+                            Authenticated
+                        </Tag>
+                        <Tag bordered={false} icon={<LoginOutlined />}>
+                            {providerLabel}
+                        </Tag>
                     </Space>
-                </Flex>
+                </div>
+
+                <Divider style={{ margin: "16px 0" }} />
+
+                {/* Details */}
+                <div className="flex flex-col gap-3 px-1">
+                    <DetailRow
+                        icon={<MailOutlined style={{ color: token.colorPrimary }} />}
+                        label="Email"
+                        value={user.email || "N/A"}
+                    />
+                    <DetailRow
+                        icon={<CheckCircleOutlined style={{ color: token.colorSuccess }} />}
+                        label="Email Verified"
+                        value={
+                            user.email_confirmed_at
+                                ? <Tag color="success" bordered={false}>Verified</Tag>
+                                : <Tag color="warning" bordered={false}>Pending</Tag>
+                        }
+                    />
+                    <DetailRow
+                        icon={<LoginOutlined style={{ color: token.colorPrimary }} />}
+                        label="Provider"
+                        value={providerLabel}
+                    />
+                    <DetailRow
+                        icon={<ClockCircleOutlined style={{ color: token.colorTextSecondary }} />}
+                        label="Last Sign In"
+                        value={
+                            user.last_sign_in_at
+                                ? new Date(user.last_sign_in_at).toLocaleString()
+                                : "N/A"
+                        }
+                    />
+                </div>
+
+                <Divider style={{ margin: "16px 0" }} />
+
+                {/* User ID */}
+                <div className="px-1">
+                    <Text className="text-xs text-text-secondary">User ID</Text>
+                    <div className="mt-1">
+                        <Text code copyable className="text-xs">
+                            {user.id}
+                        </Text>
+                    </div>
+                </div>
+
+                <Divider style={{ margin: "16px 0" }} />
+
+                <Button
+                    danger
+                    type="primary"
+                    icon={<LogoutOutlined />}
+                    onClick={handleSignOut}
+                    block
+                    size="large"
+                >
+                    Sign Out
+                </Button>
             </Card>
+        </div>
+    );
+}
 
-            <Row gutter={[16, 16]}>
-                <Col xs={24} md={8}>
-                    <Card style={panelStyle}>
-                        <Statistic title="Authentication" value="Active" prefix={<SafetyCertificateOutlined />} />
-                    </Card>
-                </Col>
-                <Col xs={24} md={8}>
-                    <Card style={panelStyle}>
-                        <Statistic title="Provider" value={providerLabel} prefix={<LoginOutlined />} />
-                    </Card>
-                </Col>
-                <Col xs={24} md={8}>
-                    <Card style={panelStyle}>
-                        <Statistic title="Theme Mode" value={currentTheme === "dark" ? "Dark" : "Light"} prefix={<BgColorsOutlined />} />
-                    </Card>
-                </Col>
-            </Row>
-
-            <Row gutter={[16, 16]}>
-                <Col xs={24} xl={15}>
-                    <Card title="Account Details" style={panelStyle}>
-                        <Descriptions
-                            column={{ xs: 1, sm: 1, md: 2 }}
-                            labelStyle={{ color: token.colorTextSecondary, fontWeight: 600 }}
-                            contentStyle={{ color: token.colorText }}
-                        >
-                            <Descriptions.Item label="Display Name">{name}</Descriptions.Item>
-                            <Descriptions.Item label="Email">{user.email || "N/A"}</Descriptions.Item>
-                            <Descriptions.Item label="User ID">
-                                <Text code copyable>
-                                    {user.id}
-                                </Text>
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Primary Provider">
-                                {providerLabel}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Email Verified">
-                                {user.email_confirmed_at ? (
-                                    <Tag color="success">Verified</Tag>
-                                ) : (
-                                    <Tag color="warning">Pending</Tag>
-                                )}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Last Sign In">
-                                {user.last_sign_in_at
-                                    ? new Date(user.last_sign_in_at).toLocaleString()
-                                    : "N/A"}
-                            </Descriptions.Item>
-                        </Descriptions>
-                    </Card>
-                </Col>
-
-                <Col xs={24} xl={9}>
-                    <Card title="Session Summary" style={panelStyle}>
-                        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                            <Flex align="center" justify="space-between">
-                                <Space>
-                                    <UserOutlined style={{ color: token.colorPrimary }} />
-                                    <Text strong>Identity</Text>
-                                </Space>
-                                <Tag color="processing">Supabase</Tag>
-                            </Flex>
-                            <Paragraph style={{ margin: 0, color: token.colorTextSecondary }}>
-                                Profile information is read directly from the current Supabase session,
-                                so updates to OAuth metadata show here without extra mapping.
-                            </Paragraph>
-                            <Divider style={{ margin: "8px 0" }} />
-                            <Space direction="vertical" size={8}>
-                                <Text>
-                                    <MailOutlined style={{ color: token.colorPrimary, marginRight: 8 }} />
-                                    {user.email || "No email"}
-                                </Text>
-                                <Text>
-                                    <IdcardOutlined style={{ color: token.colorPrimary, marginRight: 8 }} />
-                                    {user.id}
-                                </Text>
-                            </Space>
-                        </Space>
-                    </Card>
-                </Col>
-            </Row>
+function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
+    return (
+        <div className="flex items-center justify-between gap-3">
+            <Space size={8}>
+                {icon}
+                <Text className="text-text-secondary">{label}</Text>
+            </Space>
+            <div className="text-right">
+                {typeof value === "string" ? <Text strong>{value}</Text> : value}
+            </div>
         </div>
     );
 }
