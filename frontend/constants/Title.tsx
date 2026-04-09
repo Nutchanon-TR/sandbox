@@ -61,7 +61,7 @@ export const TITLE: Record<string, TitleDetail> = {
                 key: "MESSAGE",
                 title: "Message",
                 urlPath: "/chat-app/message",
-                isSubMenu: true,
+                isSubSideBar: true,
             },
             {
                 key: "SOCIAL",

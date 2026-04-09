@@ -28,6 +28,7 @@ interface Message {
     senderId?: number;
     senderUsername?: string;
     senderRole?: string;
+    isAi?: boolean;
     content: string;
     createdAt?: string;
     role?: 'AI' | 'USER';
@@ -68,6 +69,17 @@ function getErrorMessage(error: unknown, fallbackMessage: string) {
     }
 
     return fallbackMessage;
+}
+
+function isAiMessage(message: Message) {
+    return message.isAi === true || message.senderRole?.toUpperCase() === 'AI' || message.role === 'AI';
+}
+
+function normalizeMessage(message: Message): Message {
+    return {
+        ...message,
+        role: isAiMessage(message) ? 'AI' : 'USER',
+    };
 }
 
 export default function MessagePage() {
@@ -212,10 +224,7 @@ export default function MessagePage() {
                 { limit: 20 },
                 { roomId: activeRoomId }
             );
-            const history: Message[] = response.messages.map((msg): Message => ({
-                ...msg,
-                role: msg.senderRole === 'AI' ? 'AI' : 'USER',
-            }));
+            const history = response.messages.map(normalizeMessage);
             setMessages(history);
             setHasMore(response.hasMore);
             setOldestMessageId(history.length > 0 ? (history[0].id ?? null) : null);
@@ -243,10 +252,7 @@ export default function MessagePage() {
                 { beforeId: oldestMessageId, limit: 20 },
                 { roomId: activeRoomId }
             );
-            const olderMessages: Message[] = response.messages.map((msg): Message => ({
-                ...msg,
-                role: msg.senderRole === 'AI' ? 'AI' : 'USER',
-            }));
+            const olderMessages = response.messages.map(normalizeMessage);
 
             setMessages((previous) => [...olderMessages, ...previous]);
             setHasMore(response.hasMore);
@@ -285,6 +291,9 @@ export default function MessagePage() {
                 ? `AI model: ${selectedRoom.aiModel}`
                 : undefined)
         : undefined;
+    const mainBorderClass = 'border-slate-300 dark:border-border-main';
+    const secondaryBorderClass = 'border-slate-300 dark:border-border-secondary';
+    const inputBorderClass = '!border-slate-300 dark:!border-border-secondary hover:!border-slate-400 dark:hover:!border-border-main';
 
     const handleSendMessage = async () => {
         if (!inputText.trim() || isLoading || activeRoomId === null || currentUserId === null) return;
@@ -340,7 +349,7 @@ export default function MessagePage() {
     }
 
     return (
-        <div className="flex h-full min-h-0 flex-1 overflow-hidden rounded-[28px] border border-border-main bg-background shadow-sm">
+        <div className={`flex h-full min-h-0 flex-1 overflow-hidden rounded-[28px] border bg-background shadow-sm ${mainBorderClass}`}>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 {isRoomsLoading ? (
                     <div className="flex flex-1 items-center justify-center px-6">
@@ -355,13 +364,13 @@ export default function MessagePage() {
                     </div>
                 ) : (
                     <>
-                        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-border-main bg-surface px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface/80">
+                        <div className={`sticky top-0 z-20 flex items-center justify-between border-b bg-surface px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface/80 ${mainBorderClass}`}>
                             <Space size="middle">
                                 <Badge dot color="green" offset={[-5, 35]}>
                                     <Avatar
                                         src="/ai_avatar.png"
                                         size={42}
-                                        className="border border-border-secondary bg-muted"
+                                        className={`border bg-muted ${secondaryBorderClass}`}
                                     />
                                 </Badge>
                                 <div className="flex flex-col">
@@ -413,33 +422,37 @@ export default function MessagePage() {
                                             </div>
                                         )}
 
-                                        {messages.map((message, index) => (
-                                            <div
-                                                key={index}
-                                                className={`flex flex-col ${message.role === 'USER' ? 'items-end' : 'items-start'}`}
-                                            >
-                                                <div className="flex max-w-[85%] items-end gap-2 md:max-w-[72%]">
-                                                    {message.role === 'AI' && (
-                                                        <Avatar
-                                                            src="/ai_avatar.png"
-                                                            size={32}
-                                                            className="shrink-0 border border-border-secondary bg-muted"
-                                                        />
-                                                    )}
+                                        {messages.map((message, index) => {
+                                            const aiMessage = isAiMessage(message);
 
-                                                    <div
-                                                        className={`rounded-3xl p-3 shadow-sm ${message.role === 'USER'
-                                                            ? 'rounded-br-md bg-blue-600 text-white dark:bg-blue-500'
-                                                            : 'rounded-bl-md border border-border-main bg-surface text-foreground'
-                                                            }`}
-                                                    >
-                                                        <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">
-                                                            {message.content}
-                                                        </p>
+                                            return (
+                                                <div
+                                                    key={index}
+                                                    className={`flex flex-col ${aiMessage ? 'items-start' : 'items-end'}`}
+                                                >
+                                                    <div className="flex max-w-[85%] items-end gap-2 md:max-w-[72%]">
+                                                        {aiMessage && (
+                                                            <Avatar
+                                                                src="/ai_avatar.png"
+                                                                size={32}
+                                                                className={`shrink-0 border bg-muted ${secondaryBorderClass}`}
+                                                            />
+                                                        )}
+
+                                                        <div
+                                                            className={`rounded-3xl p-3 shadow-sm ${aiMessage
+                                                                ? `rounded-bl-md border bg-surface text-foreground ${mainBorderClass}`
+                                                                : 'rounded-br-md bg-blue-600 text-white dark:bg-blue-500'
+                                                                }`}
+                                                        >
+                                                            <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">
+                                                                {message.content}
+                                                            </p>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
 
                                         {isLoading && (
                                             <div className="flex justify-start">
@@ -447,9 +460,9 @@ export default function MessagePage() {
                                                     <Avatar
                                                         src="/ai_avatar.png"
                                                         size={32}
-                                                        className="border border-border-secondary bg-muted"
+                                                        className={`border bg-muted ${secondaryBorderClass}`}
                                                     />
-                                                    <div className="flex items-center gap-1 rounded-3xl rounded-bl-md border border-border-main bg-surface p-4 shadow-sm">
+                                                    <div className={`flex items-center gap-1 rounded-3xl rounded-bl-md border bg-surface p-4 shadow-sm ${mainBorderClass}`}>
                                                         <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60 [animation-delay:-0.3s]" />
                                                         <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60 [animation-delay:-0.15s]" />
                                                         <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60" />
@@ -464,7 +477,7 @@ export default function MessagePage() {
                             )}
                         </div>
 
-                        <div className="sticky bottom-0 z-20 border-t border-border-main bg-surface px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface/85 md:px-6">
+                        <div className={`sticky bottom-0 z-20 border-t bg-surface px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface/85 md:px-6 ${mainBorderClass}`}>
                             <div className="mx-auto flex w-full max-w-4xl items-center gap-2">
                                 <Input
                                     size="large"
@@ -473,7 +486,7 @@ export default function MessagePage() {
                                     onPressEnter={handleSendMessage}
                                     placeholder="Type a message..."
                                     disabled={isLoading || isHistoryLoading}
-                                    className="rounded-full !border-border-secondary !bg-muted px-5 !text-foreground placeholder:!text-text-secondary hover:!border-border-main focus:!border-accent"
+                                    className={`rounded-full !bg-muted px-5 !text-foreground placeholder:!text-text-secondary focus:!border-accent ${inputBorderClass}`}
                                 />
                                 <Button
                                     type="primary"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Badge, Empty, Skeleton, Typography } from "antd";
 import { SubSideBarItem } from "@/interface/common/SubSideBarItem";
 
@@ -22,6 +23,18 @@ export default function SubSideBar({
     loading = false,
     emptyText = "No items found",
 }: SubSideBarProps) {
+    useEffect(() => {
+        if (loading || items.length === 0) return;
+
+        const hasSelectedItem = selectedKey !== undefined && items.some((item) => item.key === selectedKey);
+        if (hasSelectedItem) return;
+
+        const firstEnabledItem = items.find((item) => !item.disabled);
+        if (firstEnabledItem) {
+            onSelect(firstEnabledItem.key);
+        }
+    }, [items, loading, onSelect, selectedKey]);
+
     return (
         <aside className="flex h-full min-h-0 w-full flex-col bg-surface/70">
             <div className="border-b border-border-main px-5 py-4">

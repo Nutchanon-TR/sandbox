@@ -54,6 +54,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
     const { data: session, supabase } = useSupabaseSession();
     const { breadCrumb, currentTitle, setCurrentTitle, subSideBarConfig } = useLayoutContext();
     const [collapsed, setCollapsed] = useState(false);
+    const [openKeys, setOpenKeys] = useState<string[]>([]);
     const { theme, toggleTheme } = useTheme();
     const { token: { colorBgContainer, borderRadiusLG } } = antdTheme.useToken();
     const pathname = usePathname();
@@ -65,15 +66,17 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         }
     }, []);
 
+    const setCollapsedState = (nextState: boolean) => {
+        setCollapsed(nextState);
+        sessionStorage.setItem("sidebar-collapsed", JSON.stringify(nextState));
+    };
+
     const handleToggleCollapse = () => {
-        setCollapsed((prev) => {
-            const newState = !prev;
-            sessionStorage.setItem("sidebar-collapsed", JSON.stringify(newState));
-            return newState;
-        });
+        setCollapsedState(!collapsed);
     };
 
     const mapTitleDetailToMenuItem = (item: TitleDetail): MenuItem => {
+        const itemKey = item.key || item.urlPath || item.title;
         const labelNode = item.urlPath ? (
             <Link href={item.urlPath} onClick={() => setCurrentTitle([item])}>{item.title}</Link>
         ) : (
@@ -81,16 +84,22 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         );
 
         return {
-            key: item.key || item.urlPath || item.title,
+            key: itemKey,
             icon: item.icon,
             label: labelNode,
             children: item.subTitles ? item.subTitles.map(mapTitleDetailToMenuItem) : undefined,
+            onTitleClick: item.subTitles ? () => {
+                if (collapsed) {
+                    setCollapsedState(false);
+                    setOpenKeys([String(itemKey)]);
+                }
+            } : undefined,
         } as MenuItem;
     };
 
     const menuItems = Object.values(TITLE).map(mapTitleDetailToMenuItem);
     const activeTitle = findMatchedTitle(Object.values(TITLE), pathname);
-    const shouldRenderSubMenu = activeTitle?.isSubMenu === true && subSideBarConfig !== null;
+    const shouldRenderSubMenu = activeTitle?.isSubSideBar === true && subSideBarConfig !== null;
 
     const getSelectedKeys = () => {
         let matchedKey = "";
@@ -136,6 +145,10 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         return openKeys;
     };
 
+    useEffect(() => {
+        setOpenKeys(getOpenKeys());
+    }, [pathname]);
+
     if (pathname === '/login') return <>{children}</>;
 
     return (
@@ -172,13 +185,17 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                         <Menu
                             theme={theme === "dark" ? "dark" : "light"}
                             selectedKeys={getSelectedKeys()}
-                            defaultOpenKeys={getOpenKeys()}
+                            openKeys={openKeys}
                             mode="inline"
                             items={menuItems}
                             onClick={() => {
                                 if (collapsed) {
-                                    setCollapsed(false);
-                                    sessionStorage.setItem("sidebar-collapsed", JSON.stringify(false));
+                                    setCollapsedState(false);
+                                }
+                            }}
+                            onOpenChange={(keys) => {
+                                if (!collapsed) {
+                                    setOpenKeys(keys.map(String));
                                 }
                             }}
                             style={{ borderRight: 0 }}

@@ -10,7 +10,7 @@ import { useLoadingContext } from "@/context/LoadingContext";
 import { useNotification } from "@/context/NotificationContext";
 import { useTheme } from "@/context/ThemeContext";
 import { PageResponse } from "@/interface/common/PageResponse";
-import { SupplierOrder } from "@/interface/sandbox/SupplierOrder";
+import { SupplierOrder } from "@/interface/Dinner";
 import { fetchApi } from "@/utils/api";
 import { useChangeTitle } from "@/utils/breadCrumbUtil";
 
