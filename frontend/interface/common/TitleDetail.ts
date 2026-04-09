@@ -7,4 +7,5 @@ export interface TitleDetail {
     icon?: React.ReactNode;
     key?: string; // Used for Antd Menu Key
     subTitles?: TitleDetail[]; // For nested sub-menus
+    isSubMenu?: boolean; // Render the secondary sidebar when this route is active
 }

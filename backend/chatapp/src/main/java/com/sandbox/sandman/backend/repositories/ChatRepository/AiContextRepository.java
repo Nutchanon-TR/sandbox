@@ -9,5 +9,4 @@ import java.util.Optional;
 
 @Repository
 public interface AiContextRepository extends JpaRepository<AiContext, Long> {
-    Optional<AiContext> findByRoomId(Long roomId);
 }

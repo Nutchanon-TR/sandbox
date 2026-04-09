@@ -119,3 +119,8 @@ interface RoomDto {
 - สิ่งที่แสดงใน sidebar คือ **รายชื่อห้อง**
 - `page.tsx` เป็นผู้ควบคุม state ของ room list, selected room และการ fetch history
 - `SubSideBar` ทำหน้าที่เป็น UI shell เท่านั้น
+
+
+comment: 
+1.อ่าน  report REPORT_SubSidebar มาหน่อย ใน chatapp subSideBar ต้องการให้ไปอ่าน /room/list/{userId} จาก be และลิสชื่อออกมา
+2.แก้ REPORT_SubSidebar.md ตามที่ว่ามาในข้อ1

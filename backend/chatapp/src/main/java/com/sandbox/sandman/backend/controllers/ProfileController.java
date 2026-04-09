@@ -6,7 +6,7 @@ import com.sandbox.sandman.backend.services.ProfileService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@RestController
+@RestController("userProfileController")
 @RequestMapping("${app.api.prefix.chat-app}")
 public class ProfileController {
 

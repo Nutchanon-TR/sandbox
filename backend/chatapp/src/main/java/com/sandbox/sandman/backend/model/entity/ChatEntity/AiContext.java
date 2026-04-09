@@ -14,9 +14,6 @@ public class AiContext {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "room_id", nullable = false, unique = true)
-    private Room room;
 
     @Column(name = "ai_name", nullable = false, length = 100)
     private String aiName = "AI Assistant";

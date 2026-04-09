@@ -1,20 +1,24 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Avatar, Badge, Button, Input, Space, Spin, Typography } from 'antd';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Avatar, Badge, Button, Empty, Input, Space, Spin, Typography } from 'antd';
 import Image from 'next/image';
-import { TITLE } from "@/constants/Title";
-import { useChangeTitle } from "@/utils/breadCrumbUtil";
-import { fetchApi } from '@/utils/api';
-import { API_SANDBOX } from '@/constants/api/ApiSandbox';
-import { useNotification } from '@/context/NotificationContext';
-import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import {
     MoreOutlined,
     PhoneOutlined,
+    RobotOutlined,
     SendOutlined,
+    TeamOutlined,
     VideoCameraOutlined,
 } from "@ant-design/icons";
+import { TITLE } from "@/constants/Title";
+import { API_SANDBOX } from '@/constants/api/ApiSandbox';
+import { useNotification } from '@/context/NotificationContext';
+import { useSupabaseSession } from '@/hooks/useSupabaseSession';
+import { fetchApi } from '@/utils/api';
+import { useChangeTitle } from "@/utils/breadCrumbUtil";
+import { useChangeSubSideBar } from '@/utils/subSideBarUtil';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 const { Text } = Typography;
 
@@ -43,6 +47,14 @@ interface UserResolveResponse {
     roomId: number;
 }
 
+interface RoomSummary {
+    id: number;
+    name: string;
+    isGroup: boolean;
+    aiModel?: string | null;
+    createdAt?: string;
+}
+
 function getErrorMessage(error: unknown, fallbackMessage: string) {
     if (typeof error === "object" && error !== null && "response" in error) {
         const response = (error as { response?: { data?: { message?: unknown } } }).response;
@@ -59,11 +71,14 @@ function getErrorMessage(error: unknown, fallbackMessage: string) {
 }
 
 export default function MessagePage() {
+    const [rooms, setRooms] = useState<RoomSummary[]>([]);
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+    const [isRoomsLoading, setIsRoomsLoading] = useState(false);
     const [isResolving, setIsResolving] = useState(true);
-    const [roomId, setRoomId] = useState<number | null>(null);
+    const [resolvedRoomId, setResolvedRoomId] = useState<number | null>(null);
     const [currentUserId, setCurrentUserId] = useState<number | null>(null);
     const [hasMore, setHasMore] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -72,10 +87,12 @@ export default function MessagePage() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const { data: session, status } = useSupabaseSession();
+    const pathname = usePathname();
+    const router = useRouter();
+    const searchParams = useSearchParams();
 
     useChangeTitle(TITLE.CHAT_APP, "MESSAGE");
 
-    // Resolve Supabase session → chat user ID + room ID
     useEffect(() => {
         if (status === 'loading') return;
         if (status === 'unauthenticated' || !session?.user) {
@@ -96,7 +113,7 @@ export default function MessagePage() {
                     }
                 );
                 setCurrentUserId(response.userId);
-                setRoomId(response.roomId);
+                setResolvedRoomId(response.roomId);
             } catch (error: unknown) {
                 console.error('Failed to resolve user:', error);
                 notification.error({
@@ -111,21 +128,89 @@ export default function MessagePage() {
         void resolveUser();
     }, [session, status, notification]);
 
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages, isLoading]);
+    const fetchRooms = useCallback(async () => {
+        if (currentUserId === null) return;
 
-    const scrollToBottom = () => {
+        setIsRoomsLoading(true);
+        try {
+            const response = await fetchApi<RoomSummary[]>(
+                API_SANDBOX.CHAT_APP_ROOM_LIST,
+                {},
+                { userId: currentUserId }
+            );
+
+            setRooms(response);
+            if (response.length === 0) {
+                setMessages([]);
+                setHasMore(false);
+                setOldestMessageId(null);
+            }
+        } catch (error: unknown) {
+            console.error('Failed to fetch rooms:', error);
+            notification.error({
+                message: 'Error',
+                description: getErrorMessage(error, 'Failed to fetch room list'),
+            });
+        } finally {
+            setIsRoomsLoading(false);
+        }
+    }, [currentUserId, notification]);
+
+    useEffect(() => {
+        void fetchRooms();
+    }, [fetchRooms]);
+
+    useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
+    }, [messages, isLoading, isHistoryLoading]);
+
+    const roomIdFromQuery = searchParams.get("roomId");
+    const activeRoomId = roomIdFromQuery && !Number.isNaN(Number(roomIdFromQuery))
+        ? Number(roomIdFromQuery)
+        : resolvedRoomId;
+    const selectedRoom = rooms.find((room) => room.id === activeRoomId) ?? null;
+    const roomItems = useMemo(() => rooms.map((room) => ({
+        key: room.id,
+        label: room.name,
+        description: room.isGroup ? 'Group room' : room.aiModel || undefined,
+        icon: room.isGroup ? <TeamOutlined /> : <RobotOutlined />,
+    })), [rooms]);
+
+    const handleSelectRoom = useCallback((key: string | number) => {
+        const nextParams = new URLSearchParams(searchParams.toString());
+        nextParams.set("roomId", String(key));
+        router.replace(`${pathname}?${nextParams.toString()}`);
+
+        setMessages([]);
+        setHasMore(false);
+        setOldestMessageId(null);
+    }, [pathname, router, searchParams]);
+
+    const subSideBarConfig = useMemo(() => ({
+        title: "Rooms",
+        items: roomItems,
+        selectedKey: activeRoomId ?? undefined,
+        emptyText: "No rooms available",
+        loading: isRoomsLoading || isResolving,
+        onSelect: handleSelectRoom,
+    }), [activeRoomId, handleSelectRoom, isResolving, isRoomsLoading, roomItems]);
+
+    useChangeSubSideBar(subSideBarConfig);
 
     const fetchHistory = useCallback(async () => {
-        if (roomId === null) return;
+        if (activeRoomId === null) {
+            setMessages([]);
+            setHasMore(false);
+            setOldestMessageId(null);
+            return;
+        }
+
+        setIsHistoryLoading(true);
         try {
             const response = await fetchApi<MessageHistoryResponse>(
                 API_SANDBOX.CHAT_APP_HISTORY,
                 { limit: 20 },
-                { roomId }
+                { roomId: activeRoomId }
             );
             const history: Message[] = response.messages.map((msg): Message => ({
                 ...msg,
@@ -140,31 +225,36 @@ export default function MessagePage() {
                 message: 'Error',
                 description: getErrorMessage(error, 'Failed to fetch chat history'),
             });
+        } finally {
+            setIsHistoryLoading(false);
         }
-    }, [notification, roomId]);
+    }, [activeRoomId, notification]);
 
     const loadMoreMessages = useCallback(async () => {
-        if (roomId === null || !hasMore || isLoadingMore || oldestMessageId === null) return;
+        if (activeRoomId === null || !hasMore || isLoadingMore || oldestMessageId === null) return;
+
         setIsLoadingMore(true);
         const container = scrollContainerRef.current;
-        const prevScrollHeight = container?.scrollHeight ?? 0;
+        const previousScrollHeight = container?.scrollHeight ?? 0;
+
         try {
             const response = await fetchApi<MessageHistoryResponse>(
                 API_SANDBOX.CHAT_APP_HISTORY,
                 { beforeId: oldestMessageId, limit: 20 },
-                { roomId }
+                { roomId: activeRoomId }
             );
-            const older: Message[] = response.messages.map((msg): Message => ({
+            const olderMessages: Message[] = response.messages.map((msg): Message => ({
                 ...msg,
                 role: msg.senderRole === 'AI' ? 'AI' : 'USER',
             }));
-            setMessages((prev) => [...older, ...prev]);
+
+            setMessages((previous) => [...olderMessages, ...previous]);
             setHasMore(response.hasMore);
-            setOldestMessageId(older.length > 0 ? (older[0].id ?? null) : null);
-            // Restore scroll position so the view doesn't jump
+            setOldestMessageId(olderMessages.length > 0 ? (olderMessages[0].id ?? null) : null);
+
             requestAnimationFrame(() => {
                 if (container) {
-                    container.scrollTop = container.scrollHeight - prevScrollHeight;
+                    container.scrollTop = container.scrollHeight - previousScrollHeight;
                 }
             });
         } catch (error: unknown) {
@@ -176,10 +266,10 @@ export default function MessagePage() {
         } finally {
             setIsLoadingMore(false);
         }
-    }, [roomId, hasMore, isLoadingMore, oldestMessageId, notification]);
+    }, [activeRoomId, hasMore, isLoadingMore, oldestMessageId, notification]);
 
-    const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-        if (e.currentTarget.scrollTop === 0 && hasMore && !isLoadingMore) {
+    const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+        if (event.currentTarget.scrollTop === 0 && hasMore && !isLoadingMore) {
             void loadMoreMessages();
         }
     }, [hasMore, isLoadingMore, loadMoreMessages]);
@@ -188,32 +278,40 @@ export default function MessagePage() {
         void fetchHistory();
     }, [fetchHistory]);
 
-    const handleSendMessage = async () => {
-        if (!inputText.trim() || isLoading || roomId === null || currentUserId === null) return;
+    const roomSubtitle = selectedRoom
+        ? (selectedRoom.isGroup
+            ? 'Group chat'
+            : selectedRoom.aiModel
+                ? `AI model: ${selectedRoom.aiModel}`
+                : undefined)
+        : undefined;
 
-        const newMsg: Message = {
+    const handleSendMessage = async () => {
+        if (!inputText.trim() || isLoading || activeRoomId === null || currentUserId === null) return;
+
+        const outgoingMessage: Message = {
             content: inputText,
             role: 'USER',
             senderId: currentUserId,
-            roomId: roomId,
+            roomId: activeRoomId,
         };
 
-        setMessages((prev) => [...prev, newMsg]);
+        setMessages((previous) => [...previous, outgoingMessage]);
         setInputText('');
         setIsLoading(true);
 
         try {
             const response = await fetchApi<ChatResponse>(API_SANDBOX.CHAT_APP_MESSAGE, {
-                roomId: roomId,
+                roomId: activeRoomId,
                 senderId: currentUserId,
-                message: newMsg.content,
+                message: outgoingMessage.content,
             });
 
-            const aiMsg: Message = {
+            const aiMessage: Message = {
                 content: response.reply,
                 role: 'AI',
             };
-            setMessages((prev) => [...prev, aiMsg]);
+            setMessages((previous) => [...previous, aiMessage]);
         } catch (error: unknown) {
             console.error('Failed to send message:', error);
             notification.error({
@@ -233,7 +331,7 @@ export default function MessagePage() {
         );
     }
 
-    if (status === 'unauthenticated' || roomId === null || currentUserId === null) {
+    if (status === 'unauthenticated' || currentUserId === null) {
         return (
             <div className="flex h-full items-center justify-center text-slate-500">
                 <p>Please log in to use the chat.</p>
@@ -242,132 +340,154 @@ export default function MessagePage() {
     }
 
     return (
-        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-border-main bg-background shadow-sm">
-            <div
-                className="sticky top-0 z-20 flex items-center justify-between border-b border-border-main bg-surface px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface/80"
-            >
-                <Space size="middle">
-                    <Badge dot color="green" offset={[-5, 35]}>
-                        <Avatar
-                            src="/ai_avatar.png"
-                            size={42}
-                            className="border border-border-secondary bg-muted"
+        <div className="flex h-full min-h-0 flex-1 overflow-hidden rounded-[28px] border border-border-main bg-background shadow-sm">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                {isRoomsLoading ? (
+                    <div className="flex flex-1 items-center justify-center px-6">
+                        <Spin size="large" />
+                    </div>
+                ) : activeRoomId === null || selectedRoom === null ? (
+                    <div className="flex flex-1 items-center justify-center px-6">
+                        <Empty
+                            description="No rooms available"
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
                         />
-                    </Badge>
-                    <div className="flex flex-col">
-                        <Text strong className="text-lg leading-none !text-foreground">
-                            AI Assistant
-                        </Text>
-                        <Text type="success" className="mt-1 text-xs font-medium">
-                            Active now
-                        </Text>
                     </div>
-                </Space>
-                <Space size="small">
-                    <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<PhoneOutlined />} />
-                    <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<VideoCameraOutlined />} />
-                    <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<MoreOutlined />} />
-                </Space>
-            </div>
-
-            <div
-                ref={scrollContainerRef}
-                onScroll={handleScroll}
-                className="flex-1 overflow-y-auto bg-background px-4 py-5 md:px-6"
-            >
-                {isLoadingMore && (
-                    <div className="flex justify-center py-3">
-                        <Spin size="small" />
-                    </div>
-                )}
-
-                <div className={`flex min-h-full flex-col ${messages.length === 0 && !isLoading ? 'items-center justify-center' : 'justify-end'} gap-4`}>
-                    {messages.length === 0 && !isLoading && (
-                        <div className="flex max-w-md flex-col items-center text-center text-text-secondary">
-                            <Image
-                                src="/ai_avatar.png"
-                                alt="AI Avatar"
-                                width={80}
-                                height={80}
-                                className="mb-4 opacity-45 dark:opacity-60"
-                            />
-                            <p className="m-0">Say hello to start the conversation!</p>
-                        </div>
-                    )}
-                    {messages.map((msg, idx) => (
-                        <div
-                            key={idx}
-                            className={`flex flex-col ${msg.role === 'USER' ? 'items-end' : 'items-start'}`}
-                        >
-                            <div className="flex max-w-[85%] items-end gap-2 md:max-w-[72%]">
-                                {msg.role === 'AI' && (
+                ) : (
+                    <>
+                        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-border-main bg-surface px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface/80">
+                            <Space size="middle">
+                                <Badge dot color="green" offset={[-5, 35]}>
                                     <Avatar
                                         src="/ai_avatar.png"
-                                        size={32}
-                                        className="shrink-0 border border-border-secondary bg-muted"
+                                        size={42}
+                                        className="border border-border-secondary bg-muted"
                                     />
-                                )}
-
-                                <div
-                                    className={`rounded-3xl p-3 shadow-sm ${msg.role === 'USER'
-                                        ? 'rounded-br-md bg-blue-600 text-white dark:bg-blue-500'
-                                        : 'rounded-bl-md border border-border-main bg-surface text-foreground'
-                                        }`}
-                                >
-                                    <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">
-                                        {msg.content}
-                                    </p>
+                                </Badge>
+                                <div className="flex flex-col">
+                                    <Text strong className="text-lg leading-none !text-foreground">
+                                        {selectedRoom.name}
+                                    </Text>
+                                    {roomSubtitle && (
+                                        <Text type="secondary" className="mt-1 text-xs font-medium">
+                                            {roomSubtitle}
+                                        </Text>
+                                    )}
                                 </div>
-                            </div>
+                            </Space>
+                            <Space size="small">
+                                <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<PhoneOutlined />} />
+                                <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<VideoCameraOutlined />} />
+                                <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<MoreOutlined />} />
+                            </Space>
                         </div>
-                    ))}
 
-                    {isLoading && (
-                        <div className="flex justify-start">
-                            <div className="flex max-w-[70%] items-end gap-2">
-                                <Avatar
-                                    src="/ai_avatar.png"
-                                    size={32}
-                                    className="border border-border-secondary bg-muted"
+                        <div
+                            ref={scrollContainerRef}
+                            onScroll={handleScroll}
+                            className="flex-1 overflow-y-auto bg-background px-4 py-5 md:px-6"
+                        >
+                            {isHistoryLoading ? (
+                                <div className="flex h-full items-center justify-center">
+                                    <Spin size="large" />
+                                </div>
+                            ) : (
+                                <>
+                                    {isLoadingMore && (
+                                        <div className="flex justify-center py-3">
+                                            <Spin size="small" />
+                                        </div>
+                                    )}
+
+                                    <div className={`flex min-h-full flex-col gap-4 ${messages.length === 0 && !isLoading ? 'items-center justify-center' : 'justify-end'}`}>
+                                        {messages.length === 0 && !isLoading && (
+                                            <div className="flex max-w-md flex-col items-center text-center text-text-secondary">
+                                                <Image
+                                                    src="/ai_avatar.png"
+                                                    alt="AI Avatar"
+                                                    width={80}
+                                                    height={80}
+                                                    className="mb-4 opacity-45 dark:opacity-60"
+                                                />
+                                                <p className="m-0">Say hello to start the conversation!</p>
+                                            </div>
+                                        )}
+
+                                        {messages.map((message, index) => (
+                                            <div
+                                                key={index}
+                                                className={`flex flex-col ${message.role === 'USER' ? 'items-end' : 'items-start'}`}
+                                            >
+                                                <div className="flex max-w-[85%] items-end gap-2 md:max-w-[72%]">
+                                                    {message.role === 'AI' && (
+                                                        <Avatar
+                                                            src="/ai_avatar.png"
+                                                            size={32}
+                                                            className="shrink-0 border border-border-secondary bg-muted"
+                                                        />
+                                                    )}
+
+                                                    <div
+                                                        className={`rounded-3xl p-3 shadow-sm ${message.role === 'USER'
+                                                            ? 'rounded-br-md bg-blue-600 text-white dark:bg-blue-500'
+                                                            : 'rounded-bl-md border border-border-main bg-surface text-foreground'
+                                                            }`}
+                                                    >
+                                                        <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">
+                                                            {message.content}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                        {isLoading && (
+                                            <div className="flex justify-start">
+                                                <div className="flex max-w-[70%] items-end gap-2">
+                                                    <Avatar
+                                                        src="/ai_avatar.png"
+                                                        size={32}
+                                                        className="border border-border-secondary bg-muted"
+                                                    />
+                                                    <div className="flex items-center gap-1 rounded-3xl rounded-bl-md border border-border-main bg-surface p-4 shadow-sm">
+                                                        <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60 [animation-delay:-0.3s]" />
+                                                        <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60 [animation-delay:-0.15s]" />
+                                                        <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div ref={messagesEndRef} />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <div className="sticky bottom-0 z-20 border-t border-border-main bg-surface px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface/85 md:px-6">
+                            <div className="mx-auto flex w-full max-w-4xl items-center gap-2">
+                                <Input
+                                    size="large"
+                                    value={inputText}
+                                    onChange={(event) => setInputText(event.target.value)}
+                                    onPressEnter={handleSendMessage}
+                                    placeholder="Type a message..."
+                                    disabled={isLoading || isHistoryLoading}
+                                    className="rounded-full !border-border-secondary !bg-muted px-5 !text-foreground placeholder:!text-text-secondary hover:!border-border-main focus:!border-accent"
                                 />
-                                <div
-                                    className="flex items-center gap-1 rounded-3xl rounded-bl-md border border-border-main bg-surface p-4 shadow-sm"
-                                >
-                                    <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60 [animation-delay:-0.3s]" />
-                                    <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60 [animation-delay:-0.15s]" />
-                                    <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60" />
-                                </div>
+                                <Button
+                                    type="primary"
+                                    shape="circle"
+                                    size="large"
+                                    icon={<SendOutlined />}
+                                    onClick={handleSendMessage}
+                                    disabled={!inputText.trim() || isLoading || isHistoryLoading}
+                                    className="flex items-center justify-center"
+                                />
                             </div>
                         </div>
-                    )}
-
-                    <div ref={messagesEndRef} />
-                </div>
-            </div>
-
-            <div
-                className="sticky bottom-0 z-20 border-t border-border-main bg-surface px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface/85 md:px-6"
-            >
-                <div className="mx-auto flex w-full max-w-4xl items-center gap-2">
-                    <Input
-                        size="large"
-                        value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        onPressEnter={handleSendMessage}
-                        placeholder="Type a message..."
-                        disabled={isLoading}
-                        className="rounded-full !border-border-secondary !bg-muted px-5 !text-foreground placeholder:!text-text-secondary hover:!border-border-main focus:!border-accent"
-                    />
-                    <Button
-                        type="primary"
-                        shape="circle"
-                        size="large"
-                        icon={<SendOutlined />}
-                        onClick={handleSendMessage}
-                        disabled={!inputText.trim() || isLoading}
-                        className="flex items-center justify-center"
-                    />
-                </div>
+                    </>
+                )}
             </div>
         </div>
     );

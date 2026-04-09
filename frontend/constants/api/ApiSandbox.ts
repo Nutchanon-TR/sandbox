@@ -19,6 +19,10 @@ export const API_SANDBOX: Record<string, ApiDetail> = {
         path: `${contextPath}/v1/api/chat-app/message/history/{roomId}`,
         method: 'GET',
     },
+    CHAT_APP_ROOM_LIST: {
+        path: `${contextPath}/v1/api/chat-app/room/list/{userId}`,
+        method: 'GET',
+    },
     CHAT_APP_RESOLVE_USER: {
         path: `${contextPath}/v1/api/chat-app/user/resolve`,
         method: 'POST',

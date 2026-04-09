@@ -68,17 +68,19 @@ public class RoomService {
                 }
             }
         } else {
-            // AI room: create ai_context (no AI user needed)
+            // AI room: create ai_context
             String aiName = request.getName() != null ? request.getName() : "AI Assistant";
             String systemPrompt = request.getSystemPrompt() != null
                     ? request.getSystemPrompt()
                     : "You are a helpful AI assistant. Respond concisely and helpfully.";
 
             AiContext aiContext = new AiContext();
-            aiContext.setRoom(savedRoom);
             aiContext.setAiName(aiName);
             aiContext.setSystemText(systemPrompt);
-            aiContextRepository.save(aiContext);
+            AiContext savedAi = aiContextRepository.save(aiContext);
+            
+            // Add AI as room member
+            addRoomAi(savedRoom.getId(), savedAi.getId());
         }
 
         return toDto(savedRoom);
@@ -90,15 +92,36 @@ public class RoomService {
                 roomId, userId);
     }
 
+    private void addRoomAi(Long roomId, Long aiId) {
+        jdbcTemplate.update(
+                "INSERT INTO chat.room_members (room_id, ai_id) VALUES (?, ?)",
+                roomId, aiId);
+    }
+
+    private Long getAiIdForRoom(Long roomId) {
+        try {
+            return jdbcTemplate.queryForObject(
+                    "SELECT ai_id FROM chat.room_members WHERE room_id = ? AND ai_id IS NOT NULL LIMIT 1",
+                    Long.class, roomId);
+        } catch (org.springframework.dao.EmptyResultDataAccessException e) {
+            return null;
+        }
+    }
+
     private RoomDto toDto(Room room) {
         String displayName;
         if (Boolean.TRUE.equals(room.getIsGroup())) {
             displayName = room.getName();
         } else {
             // AI room → ใช้ ai_name จาก ai_context
-            displayName = aiContextRepository.findByRoomId(room.getId())
-                    .map(AiContext::getAiName)
-                    .orElse("AI Assistant");
+            Long aiId = getAiIdForRoom(room.getId());
+            if (aiId != null) {
+                displayName = aiContextRepository.findById(aiId)
+                        .map(AiContext::getAiName)
+                        .orElse("AI Assistant");
+            } else {
+                displayName = "AI Assistant";
+            }
         }
 
         return new RoomDto(

@@ -1,10 +1,13 @@
 "use client";
+
 import { TITLE } from "@/constants/Title";
 import { useLayoutContext } from "@/context/LayoutContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { TitleDetail } from "@/interface/common/TitleDetail";
 import {
     CodeSandboxOutlined,
+    LogoutOutlined,
     MenuFoldOutlined,
     MenuUnfoldOutlined,
     MoonOutlined,
@@ -15,20 +18,43 @@ import { theme as antdTheme, Breadcrumb, Layout, Menu } from "antd";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useEffect, useState } from "react";
+import SubSideBar from "../SubSideBar";
 import { SidebarButton } from "../common/Button";
-import { LogoutOutlined } from "@ant-design/icons";
-import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 
 const { Header, Content, Sider } = Layout;
 
 type MenuItem = Required<MenuProps>["items"][number];
 
+function findMatchedTitle(items: TitleDetail[], pathname: string): TitleDetail | null {
+    let matchedItem: TitleDetail | null = null;
+    let maxMatchLength = 0;
+
+    const visit = (nodes: TitleDetail[]) => {
+        for (const item of nodes) {
+            if (item.urlPath) {
+                const pathLower = pathname.toLowerCase();
+                const urlPathLower = item.urlPath.toLowerCase();
+                if (pathLower.startsWith(urlPathLower) && urlPathLower.length > maxMatchLength) {
+                    matchedItem = item;
+                    maxMatchLength = urlPathLower.length;
+                }
+            }
+
+            if (item.subTitles) {
+                visit(item.subTitles);
+            }
+        }
+    };
+
+    visit(items);
+    return matchedItem;
+}
+
 export default function Sidebar({ children }: { children: React.ReactNode }) {
     const { data: session, supabase } = useSupabaseSession();
-    const { breadCrumb, currentTitle } = useLayoutContext();
+    const { breadCrumb, currentTitle, setCurrentTitle, subSideBarConfig } = useLayoutContext();
     const [collapsed, setCollapsed] = useState(false);
     const { theme, toggleTheme } = useTheme();
-    const { setCurrentTitle } = useLayoutContext();
     const { token: { colorBgContainer, borderRadiusLG } } = antdTheme.useToken();
     const pathname = usePathname();
 
@@ -53,6 +79,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         ) : (
             item.title
         );
+
         return {
             key: item.key || item.urlPath || item.title,
             icon: item.icon,
@@ -60,13 +87,16 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
             children: item.subTitles ? item.subTitles.map(mapTitleDetailToMenuItem) : undefined,
         } as MenuItem;
     };
+
     const menuItems = Object.values(TITLE).map(mapTitleDetailToMenuItem);
+    const activeTitle = findMatchedTitle(Object.values(TITLE), pathname);
+    const shouldRenderSubMenu = activeTitle?.isSubMenu === true && subSideBarConfig !== null;
 
     const getSelectedKeys = () => {
         let matchedKey = "";
         let maxMatchLength = 0;
+
         const findKey = (items: TitleDetail[]) => {
-            if (!items) return;
             for (const item of items) {
                 if (item.urlPath) {
                     const pathLower = pathname.toLowerCase();
@@ -76,21 +106,23 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                         maxMatchLength = urlPathLower.length;
                     }
                 }
+
                 if (item.subTitles) {
                     findKey(item.subTitles);
                 }
             }
         };
+
         findKey(Object.values(TITLE));
         return matchedKey ? [matchedKey] : (menuItems[0]?.key ? [String(menuItems[0].key)] : []);
     };
 
     const getOpenKeys = () => {
         const openKeys: string[] = [];
+
         const findOpenKey = (items: TitleDetail[], parentKey?: string) => {
             for (const item of items) {
                 const pathLower = pathname.toLowerCase();
-                // Check if current page is within a sub-menu
                 if (item.urlPath && pathLower.includes(item.urlPath.toLowerCase())) {
                     if (parentKey) openKeys.push(parentKey);
                 }
@@ -99,11 +131,12 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                 }
             }
         };
+
         findOpenKey(Object.values(TITLE));
         return openKeys;
     };
 
-    if (pathname === '/login') return (<> {children} </>);
+    if (pathname === '/login') return <>{children}</>;
 
     return (
         <Layout className="h-screen">
@@ -148,12 +181,10 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                                     sessionStorage.setItem("sidebar-collapsed", JSON.stringify(false));
                                 }
                             }}
-                            // Remove Menu border for a cleaner look
                             style={{ borderRight: 0 }}
                         />
                     </div>
 
-                    {/* Bottom section: buttons pinned to the bottom */}
                     <div className="absolute inset-x-0 bottom-0 p-4">
                         <div>
                             <SidebarButton
@@ -176,33 +207,47 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                 </div>
             </Sider>
 
+            {shouldRenderSubMenu && (
+                <Sider
+                    width={288}
+                    theme={theme === "dark" ? "dark" : "light"}
+                    style={{ background: colorBgContainer, borderRight: "1px solid rgba(148, 163, 184, 0.14)" }}
+                >
+                    <SubSideBar
+                        title={subSideBarConfig.title}
+                        items={subSideBarConfig.items}
+                        selectedKey={subSideBarConfig.selectedKey}
+                        loading={subSideBarConfig.loading}
+                        emptyText={subSideBarConfig.emptyText}
+                        onSelect={subSideBarConfig.onSelect}
+                    />
+                </Sider>
+            )}
+
             <Layout>
                 <Header
                     className={`${collapsed ? 'ml-10' : 'ml-6'} shadow-sm flex items-center justify-between transition-colors duration-300`}
                     style={{ padding: '45px 0', background: colorBgContainer, borderRadius: '10px' }}
                 >
-                    {/* Left: Breadcrumb + Title */}
                     <div className="ml-6">
                         <Breadcrumb
                             items={breadCrumb}
                             separator="/"
                             style={{ fontSize: '15px', fontWeight: '500', padding: '0 0 7px 0' }}
                         />
-                        <h2 className="text-xl font-bold uppercase m-0 leading-none">
+                        <h2 className="m-0 text-xl font-bold uppercase leading-none">
                             {currentTitle.length > 0 ? currentTitle[currentTitle.length - 1].title : ""}
                         </h2>
                     </div>
 
-                    {/* Right: Profile Image */}
                     <div className="mr-6">
                         {session?.user ? (
                             <div className="flex">
-                                {/* <p className="content-center mr-3 text-xl font-semibold text-gray-800 dark:text-gray-100">{session.user.name}</p> */}
                                 {(session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture) && (
                                     <img
                                         src={session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture}
                                         alt="Profile"
-                                        className="w-12 h-12 rounded-full shadow-md border-4 border-white dark:border-gray-700"
+                                        className="h-12 w-12 rounded-full border-4 border-white shadow-md dark:border-gray-700"
                                     />
                                 )}
                             </div>
@@ -210,14 +255,14 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
                             <img
                                 src="/default-profile.png"
                                 alt="Default Profile"
-                                className="w-16 h-16 rounded-full shadow-md border-4 border-white dark:border-gray-700"
+                                className="h-16 w-16 rounded-full border-4 border-white shadow-md dark:border-gray-700"
                             />
                         )}
                     </div>
                 </Header>
                 <Content className={`${collapsed ? 'ml-10' : 'ml-6'} my-6 flex flex-col overflow-auto`}>
                     <div
-                        className="p-6 flex-1 shadow-sm transition-colors duration-300 flex flex-col"
+                        className="flex flex-1 flex-col p-6 shadow-sm transition-colors duration-300"
                         style={{
                             background: colorBgContainer,
                             borderRadius: borderRadiusLG,

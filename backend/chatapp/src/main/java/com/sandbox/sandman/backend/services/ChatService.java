@@ -11,7 +11,7 @@ import com.sandbox.sandman.backend.repositories.ChatRepository.AiContextReposito
 import com.sandbox.sandman.backend.repositories.ChatRepository.MessageRepository;
 import com.sandbox.sandman.backend.repositories.ChatRepository.RoomRepository;
 import com.sandbox.sandman.backend.repositories.ChatRepository.UserRepository;
-
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -37,19 +37,22 @@ public class ChatService {
     private final AiContextRepository aiContextRepository;
     private final GroqAiClient groqAiClient;
     private final EmbeddingService embeddingService;
+    private final JdbcTemplate jdbcTemplate;
 
     public ChatService(MessageRepository messageRepository,
                        RoomRepository roomRepository,
                        UserRepository userRepository,
                        AiContextRepository aiContextRepository,
                        GroqAiClient groqAiClient,
-                       EmbeddingService embeddingService) {
+                       EmbeddingService embeddingService,
+                       JdbcTemplate jdbcTemplate) {
         this.messageRepository = messageRepository;
         this.roomRepository = roomRepository;
         this.userRepository = userRepository;
         this.aiContextRepository = aiContextRepository;
         this.groqAiClient = groqAiClient;
         this.embeddingService = embeddingService;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     private static final int DEFAULT_PAGE_SIZE = 20;
@@ -73,9 +76,10 @@ public class ChatService {
         Collections.reverse(page);
 
         // Get ai_name for this room (if it's an AI room)
-        String aiName = aiContextRepository.findByRoomId(roomId)
-                .map(AiContext::getAiName)
-                .orElse("AI Assistant");
+        Long aiId = getAiIdForRoom(roomId);
+        final String aiName = (aiId != null)
+                ? aiContextRepository.findById(aiId).map(AiContext::getAiName).orElse("AI Assistant")
+                : "AI Assistant";
 
         List<MessageDto> dtos = page.stream()
                 .map(msg -> convertToDto(msg, aiName))
@@ -112,7 +116,11 @@ public class ChatService {
         embeddingService.embedAndSave(userMessage);
 
         // Get AI context from room
-        AiContext aiContext = aiContextRepository.findByRoomId(room.getId())
+        Long aiId = getAiIdForRoom(room.getId());
+        if (aiId == null) {
+            throw new RuntimeException("AI context not configured for this room");
+        }
+        AiContext aiContext = aiContextRepository.findById(aiId)
                 .orElseThrow(() -> new RuntimeException("AI context not configured for this room"));
 
         return callAiAndSaveReply(room, aiContext, request.getMessage());
@@ -186,5 +194,15 @@ public class ChatService {
         dto.setContent(message.getContent());
         dto.setCreatedAt(message.getCreatedAt());
         return dto;
+    }
+
+    private Long getAiIdForRoom(Long roomId) {
+        try {
+            return jdbcTemplate.queryForObject(
+                    "SELECT ai_id FROM chat.room_members WHERE room_id = ? AND ai_id IS NOT NULL LIMIT 1",
+                    Long.class, roomId);
+        } catch (org.springframework.dao.EmptyResultDataAccessException e) {
+            return null;
+        }
     }
 }
