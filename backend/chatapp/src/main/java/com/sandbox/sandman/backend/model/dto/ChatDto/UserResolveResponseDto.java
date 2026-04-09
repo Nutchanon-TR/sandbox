@@ -7,5 +7,4 @@ import lombok.Data;
 @AllArgsConstructor
 public class UserResolveResponseDto {
     private Long userId;
-    private Long roomId;
 }

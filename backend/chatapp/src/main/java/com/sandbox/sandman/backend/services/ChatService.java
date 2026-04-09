@@ -37,20 +37,24 @@ public class ChatService {
     private final UserRepository userRepository;
     private final AiContextRepository aiContextRepository;
     private final GroqAiClient groqAiClient;
+    private final EmbeddingService embeddingService;
 
     public ChatService(MessageRepository messageRepository,
                        RoomRepository roomRepository,
                        UserRepository userRepository,
                        AiContextRepository aiContextRepository,
-                       GroqAiClient groqAiClient) {
+                       GroqAiClient groqAiClient,
+                       EmbeddingService embeddingService) {
         this.messageRepository = messageRepository;
         this.roomRepository = roomRepository;
         this.userRepository = userRepository;
         this.aiContextRepository = aiContextRepository;
         this.groqAiClient = groqAiClient;
+        this.embeddingService = embeddingService;
     }
 
     private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int VECTOR_SEARCH_LIMIT = 5;
 
     // [Phase 2 Prototype]: Cache paginated history (key includes beforeId + limit)
     @Cacheable(value = "chatHistory", key = "#roomId + '_' + #beforeId + '_' + #limit")
@@ -106,6 +110,9 @@ public class ChatService {
         userMessage.setContent(request.getMessage());
         messageRepository.save(userMessage);
 
+        // STEP 3.5: Embed user's message asynchronously
+        embeddingService.embedAndSave(userMessage);
+
         // STEP 4: Get AI context (system prompt) from room
         User aiUser = getOrCreateAiChatBot();
         AiContext aiContext = aiContextRepository.findByRoomId(room.getId())
@@ -113,20 +120,32 @@ public class ChatService {
         String systemText = aiContext.getSystemText();
 
         // STEP 5: Call AI and save reply
-        return callAiAndSaveReply(room, aiUser, systemText);
+        return callAiAndSaveReply(room, aiUser, systemText, request.getMessage());
     }
 
     /**
-     * Builds the AI prompt from chat history and system context,
+     * Builds the AI prompt from chat history + vector search context,
      * sends it to the AI model, saves the reply, and returns it.
      */
-    private String callAiAndSaveReply(Room room, User aiUser, String systemText) {
-        // Build prompt messages
-        org.springframework.ai.chat.messages.Message systemMessage = new SystemMessage(systemText);
-
+    private String callAiAndSaveReply(Room room, User aiUser, String systemText, String userQuery) {
         List<org.springframework.ai.chat.messages.Message> aiPromptMessages = new ArrayList<>();
-        aiPromptMessages.add(systemMessage);
 
+        // System prompt
+        aiPromptMessages.add(new SystemMessage(systemText));
+
+        // Vector search: find semantically similar past messages as extra context
+        List<Long> similarIds = embeddingService.searchSimilarMessages(userQuery, room.getId(), VECTOR_SEARCH_LIMIT);
+        if (!similarIds.isEmpty()) {
+            List<Message> similarMessages = messageRepository.findAllById(similarIds);
+            StringBuilder contextBuilder = new StringBuilder("Relevant past messages:\n");
+            for (Message msg : similarMessages) {
+                contextBuilder.append("- ").append(msg.getSender().getUsername())
+                        .append(": ").append(msg.getContent()).append("\n");
+            }
+            aiPromptMessages.add(new SystemMessage(contextBuilder.toString()));
+        }
+
+        // Recent chat history
         List<Message> history = messageRepository.findTopNByRoomId(room.getId(), PageRequest.of(0, DEFAULT_PAGE_SIZE));
         Collections.reverse(history);
 
@@ -148,6 +167,9 @@ public class ChatService {
         aiMessageEntity.setSender(aiUser);
         aiMessageEntity.setContent(aiReply);
         messageRepository.save(aiMessageEntity);
+
+        // Embed AI reply too
+        embeddingService.embedAndSave(aiMessageEntity);
 
         return aiReply;
     }
