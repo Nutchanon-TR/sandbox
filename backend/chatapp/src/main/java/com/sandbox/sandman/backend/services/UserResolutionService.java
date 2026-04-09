@@ -66,6 +66,8 @@ public class UserResolutionService {
         Room room = new Room();
         room.setName(user.getUsername() + " & AI");
         room.setIsGroup(false);
+        room.setCreatedBy(user.getId());
+        room.setAiModel("llama3-8b-8192");
         Room savedRoom = roomRepository.save(room);
 
         // Insert room_members via JDBC (no JPA entity for junction table)

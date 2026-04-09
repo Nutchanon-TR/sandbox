@@ -106,10 +106,10 @@ public class ChatService {
         userMessage.setContent(request.getMessage());
         messageRepository.save(userMessage);
 
-        // STEP 4: Get AI context (system prompt) from DB
+        // STEP 4: Get AI context (system prompt) from room
         User aiUser = getOrCreateAiChatBot();
-        AiContext aiContext = aiContextRepository.findByUserId(aiUser.getId())
-                .orElseThrow(() -> new RuntimeException("AI context not configured for this chatbot"));
+        AiContext aiContext = aiContextRepository.findByRoomId(room.getId())
+                .orElseThrow(() -> new RuntimeException("AI context not configured for this room"));
         String systemText = aiContext.getSystemText();
 
         // STEP 5: Call AI and save reply

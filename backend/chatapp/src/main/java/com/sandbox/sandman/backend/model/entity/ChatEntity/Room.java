@@ -21,6 +21,12 @@ public class Room {
     @Column(name = "is_group")
     private Boolean isGroup = false;
 
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "ai_model", length = 100)
+    private String aiModel;
+
     @Column(name = "created_at")
     private ZonedDateTime createdAt;
 

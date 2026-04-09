@@ -15,8 +15,8 @@ public class AiContext {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
-    private User user;
+    @JoinColumn(name = "room_id", nullable = false, unique = true)
+    private Room room;
 
     @Column(name = "system_text", nullable = false, columnDefinition = "TEXT")
     private String systemText;
