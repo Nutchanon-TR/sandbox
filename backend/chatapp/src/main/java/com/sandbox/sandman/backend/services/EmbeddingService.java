@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 public class EmbeddingService {
 
     private static final Logger log = LoggerFactory.getLogger(EmbeddingService.class);
-    private static final String HF_API_URL = "https://api-inference.huggingface.co/pipeline/feature-extraction/intfloat/multilingual-e5-small";
+    private static final String HF_API_URL = "https://router.huggingface.co/hf-inference/models/intfloat/multilingual-e5-small/pipeline/feature-extraction";
 
     private final JdbcTemplate jdbcTemplate;
     private final RestTemplate restTemplate;
@@ -78,6 +78,7 @@ public class EmbeddingService {
     private float[] embed(String text) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         if (hfApiKey != null && !hfApiKey.isBlank()) {
             headers.setBearerAuth(hfApiKey);
         }
@@ -89,10 +90,9 @@ public class EmbeddingService {
                 HF_API_URL, HttpMethod.POST, request, double[].class);
 
         double[] doubles = response.getBody();
-        if (doubles == null) {
+        if (doubles == null || doubles.length == 0) {
             throw new RuntimeException("Empty response from HuggingFace API");
         }
-
         float[] result = new float[doubles.length];
         for (int i = 0; i < doubles.length; i++) {
             result[i] = (float) doubles[i];
