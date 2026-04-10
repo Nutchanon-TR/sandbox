@@ -25,7 +25,7 @@ import {
 import { fetchApi } from '@/utils/api';
 import { useChangeTitle } from "@/utils/breadCrumbUtil";
 import { useChangeSubSideBar } from '@/utils/subSideBarUtil';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 const { Text } = Typography;
 
@@ -71,7 +71,6 @@ export default function MessagePage() {
     // ── Auth & routing ──
     const { data: session, status } = useSupabaseSession();
     const pathname = usePathname();
-    const router = useRouter();
     const searchParams = useSearchParams();
     const notification = useNotification();
 
@@ -82,6 +81,7 @@ export default function MessagePage() {
 
     const [currentUserId, setCurrentUserId] = useState<number | null>(null);
     const [resolvedRoomId, setResolvedRoomId] = useState<number | null>(null);
+    const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
 
     const [isResolving, setIsResolving] = useState(true);
     const [isRoomsLoading, setIsRoomsLoading] = useState(false);
@@ -96,11 +96,14 @@ export default function MessagePage() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-    // ── Derived: active room ──
+    // ── Derive initial room from URL query ──
     const roomIdFromQuery = searchParams.get("roomId");
-    const activeRoomId = roomIdFromQuery && !Number.isNaN(Number(roomIdFromQuery))
+    const initialRoomId = roomIdFromQuery && !Number.isNaN(Number(roomIdFromQuery))
         ? Number(roomIdFromQuery)
-        : resolvedRoomId;
+        : null;
+
+    // ── Active room: selectedRoomId (user click) > URL query > resolvedRoomId ──
+    const activeRoomId = selectedRoomId ?? initialRoomId ?? resolvedRoomId;
     const selectedRoom = rooms.find((room) => room.id === activeRoomId) ?? null;
 
     // ── Title ──
@@ -221,14 +224,17 @@ export default function MessagePage() {
     })), [rooms]);
 
     const handleSelectRoom = useCallback((key: string | number) => {
+        const roomId = Number(key);
+        setSelectedRoomId(roomId);
+
         const nextParams = new URLSearchParams(searchParams.toString());
         nextParams.set("roomId", String(key));
-        router.replace(`${pathname}?${nextParams.toString()}`);
+        window.history.replaceState(null, "", `${pathname}?${nextParams.toString()}`);
 
         setMessages([]);
         setHasMore(false);
         setOldestMessageId(null);
-    }, [pathname, router, searchParams]);
+    }, [pathname, searchParams]);
 
     const subSideBarConfig = useMemo(() => ({
         title: "Rooms",

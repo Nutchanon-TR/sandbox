@@ -82,7 +82,8 @@ chat.ai_context  (1:1 กับ rooms)
 ├── id          BIGSERIAL PK
 ├── room_id     FK → rooms.id  UNIQUE NOT NULL
 ├── ai_name     VARCHAR(100) DEFAULT 'AI Assistant'
-└── system_text TEXT NOT NULL
+├── system_text TEXT NOT NULL
+└── avatar_url  TEXT NULLABLE  → URL รูป avatar ของ AI (เก็บใน Supabase Storage)
 
 chat.message_embeddings
 ├── id         BIGSERIAL PK
@@ -152,9 +153,10 @@ users.profiles
 [
   {
     "id": 3,
-    "name": "AI Assistant",
+    "name": "Kealith",
     "isGroup": false,
     "aiModel": "llama-3.3-70b-versatile",
+    "aiAvatarUrl": "https://<supabase>/storage/v1/object/public/images/ai-avatars/kealith.png",
     "createdAt": "2025-01-01T10:00:00Z"
   },
   {
@@ -162,12 +164,14 @@ users.profiles
     "name": "Study Group",
     "isGroup": true,
     "aiModel": null,
+    "aiAvatarUrl": null,
     "createdAt": "2025-01-02T12:00:00Z"
   }
 ]
 ```
 
-> AI room จะใช้ `ai_name` จาก `ai_context` เป็น display name แทน `rooms.name`
+> - AI room จะใช้ `ai_name` จาก `ai_context` เป็น display name แทน `rooms.name`
+> - `aiAvatarUrl` ดึงจาก `ai_context.avatar_url` — ถ้าเป็น group room หรือยังไม่ได้ตั้งรูปจะเป็น `null`
 
 #### `POST /v1/api/chat-app/room/create/{userId}`
 
@@ -193,7 +197,7 @@ users.profiles
 ```
 
 **Logic (RoomService):**
-- **AI Room:** สร้าง Room (`is_group=false`) → เพิ่ม creator เป็น member → สร้าง `ai_context`
+- **AI Room:** สร้าง Room (`is_group=false`) → เพิ่ม creator เป็น member → สร้าง `ai_context` (พร้อม `avatar_url` ถ้ามี)
 - **Group Room:** สร้าง Room (`is_group=true`) → เพิ่ม creator + memberIds ทั้งหมด
 
 ---
@@ -401,12 +405,27 @@ user ส่งข้อความ
 
 ---
 
+## Supabase Storage
+
+รูป avatar ของ AI เก็บใน Supabase Storage bucket `images` (public)
+
+| ไฟล์ | Path ใน Storage | ใช้โดย |
+|------|----------------|--------|
+| AI avatar (Kealith) | `images/ai-avatars/kealith.png` | `ai_context.avatar_url` → Frontend แสดงรูป AI ในหน้าแชท |
+
+**Public URL format:** `https://<project>.supabase.co/storage/v1/object/public/images/ai-avatars/<name>.png`
+
+> Frontend ดึง `aiAvatarUrl` จาก response ของ `GET /room/list/{userId}` — ถ้า `null` จะ fallback เป็น `/ai_avatar.png` (static)
+
+---
+
 ## สิ่งที่ยังไม่ได้ทำ (Backlog)
 
 | รายการ | สถานะ |
 |--------|-------|
 | **CORS production domain** | `WebConfig` ยังใส่แค่ localhost — ต้อง add production domain |
 | **pgvector activation บน Supabase** | SQL พร้อมแล้วใน `database/03_pgvector_schema.sql` — รอรันบน Supabase จริง |
-| **Frontend ยังใช้ roomId จาก resolve** | `page.tsx` ยังส่ง `roomId` ใน request แต่ backend resolve ไม่คืน roomId แล้ว — ต้อง update FE ให้ดึง room list แยก |
+| ~~**Frontend ยังใช้ roomId จาก resolve**~~ | ✅ แก้แล้ว — FE ใช้ room list แยก + local state `selectedRoomId` เป็น source of truth |
 | ~~**จำกัด history ก่อนส่ง Prompt**~~ | ✅ เสร็จแล้ว — ส่งแค่ 20 message ล่าสุด |
 | ~~**Vector Search (RAG)**~~ | ✅ Implement แล้วผ่าน HuggingFace API + pgvector |
+| ~~**AI avatar hardcode**~~ | ✅ แก้แล้ว — รูป AI เก็บใน Supabase Storage, map ผ่าน `ai_context.avatar_url` |
