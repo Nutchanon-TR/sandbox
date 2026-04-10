@@ -178,7 +178,7 @@ export default function MessagePage() {
     useEffect(() => { void fetchRooms(); }, [fetchRooms]);
 
     // ── Step 3: Fetch chat history when room changes ──
-    const fetchHistory = useCallback(async () => {
+/*  */    useEffect(() => {
         if (activeRoomId == null) {
             setMessages([]);
             setHasMore(false);
@@ -186,29 +186,35 @@ export default function MessagePage() {
             return;
         }
 
+        let ignore = false;
         setIsHistoryLoading(true);
-        try {
-            const response = await fetchApi<MessageHistoryResponse>(
-                API_SANDBOX.CHAT_APP_HISTORY,
-                { limit: 20 },
-                { roomId: activeRoomId }
-            );
-            const history = response.messages.map(normalizeMessage);
-            setMessages(history);
-            setHasMore(response.hasMore);
-            setOldestMessageId(history.length > 0 ? (history[0].id ?? null) : null);
-        } catch (error: unknown) {
-            console.error('[ChatApp] Failed to fetch chat history:', error);
-            notification.error({
-                message: 'Error',
-                description: getErrorMessage(error, 'Failed to fetch chat history'),
-            });
-        } finally {
-            setIsHistoryLoading(false);
-        }
-    }, [activeRoomId, notification]);
 
-    useEffect(() => { void fetchHistory(); }, [fetchHistory]);
+        fetchApi<MessageHistoryResponse>(
+            API_SANDBOX.CHAT_APP_HISTORY,
+            { limit: 20 },
+            { roomId: activeRoomId }
+        )
+            .then((response) => {
+                if (ignore) return;
+                const history = response.messages.map(normalizeMessage);
+                setMessages(history);
+                setHasMore(response.hasMore);
+                setOldestMessageId(history.length > 0 ? (history[0].id ?? null) : null);
+            })
+            .catch((error: unknown) => {
+                if (ignore) return;
+                console.error('[ChatApp] Failed to fetch chat history:', error);
+                notification.error({
+                    message: 'Error',
+                    description: getErrorMessage(error, 'Failed to fetch chat history'),
+                });
+            })
+            .finally(() => {
+                if (!ignore) setIsHistoryLoading(false);
+            });
+
+        return () => { ignore = true; };
+    }, [activeRoomId, notification]);
 
     // ── Auto-scroll to bottom on new messages ──
     useEffect(() => {

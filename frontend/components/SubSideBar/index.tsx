@@ -75,12 +75,12 @@ export default function SubSideBar({
                                 <button
                                     key={item.key}
                                     type="button"
-                                    onClick={() => onSelect(item.key)}
-                                    disabled={item.disabled}
+                                    onClick={() => { if (!isSelected) onSelect(item.key); }}
+                                    disabled={item.disabled || isSelected}
                                     className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-3 text-left transition-all ${isSelected
                                         ? "border-blue-200 bg-blue-50 shadow-sm dark:border-blue-500/50 dark:bg-blue-500/10"
                                         : "border-transparent bg-background hover:border-border-main hover:bg-muted"
-                                        } ${item.disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                                        } ${item.disabled ? "cursor-not-allowed opacity-60" : isSelected ? "cursor-default" : "cursor-pointer"}`}
                                 >
                                     {item.icon && (
                                         <div className="mt-0.5 text-base text-text-secondary">
