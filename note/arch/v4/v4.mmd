@@ -1,0 +1,191 @@
+graph TD
+
+    %% ══════════════════════════════════════════════════════════════
+    %%  V4 Architecture — "As-Built" (2026-04-12)
+    %%  อัปเดตจาก v3 ให้ตรงกับโค้ดจริง
+    %%  ✅ = ทำแล้ว / ใช้งานได้   🚧 = มีโค้ดแต่ยังไม่ทำงาน   ⬜ = ยังไม่เริ่ม
+    %% ══════════════════════════════════════════════════════════════
+
+    %% ══════════════════════════════════════════
+    %%  BLOCK 1 — CI/CD Pipeline  ✅ (โค้ดพร้อม, รอ Azure Secrets)
+    %% ══════════════════════════════════════════
+    subgraph CICD ["🚀 CI/CD Pipeline ✅"]
+        direction LR
+        Dev(["👨‍💻 Developer"])
+        GHA["⚙️ GitHub Actions\naca-deploy.yml\ntrigger: push main"]
+        GHCR[("📦 GHCR\nDocker Images")]
+        ACADeploy(["🚢 Deploy to ACA\nazure/container-apps-deploy-action@v2"])
+
+        Dev -->|push code| GHA
+        GHA -->|build & push image\nทุก service แยก job| GHCR
+        GHCR -->|pull & rolling update| ACADeploy
+    end
+
+    %% ══════════════════════════════════════════
+    %%  BLOCK 2 — Auth Flow  ✅
+    %% ══════════════════════════════════════════
+    subgraph AuthFlow ["🔐 Login Flow ✅"]
+        direction LR
+        UserLogin(["🌐 User"])
+        SupabaseAuth["🔑 Supabase Auth\nOIDC Provider\n(OAuth: Google etc.)"]
+        JWTToken(["🎫 Supabase JWT\n{ sub, email, role }"])
+
+        UserLogin -->|"① OAuth login"| SupabaseAuth
+        SupabaseAuth -->|"② issue JWT"| JWTToken
+        JWTToken -->|"③ stored in FE cookie\nsent on every request"| UserLogin
+    end
+
+    %% ══════════════════════════════════════════
+    %%  BLOCK 3 — Network & Runtime
+    %% ══════════════════════════════════════════
+    User(["🌐 User\n(Browser)"])
+    Admin(["🔐 Admin\napp_metadata.role = admin"])
+
+    subgraph Cloudflare ["🛡️ Cloudflare ⬜ ยังไม่เปิด"]
+        CF["DNS · WAF · Rate Limit · DDoS"]
+    end
+
+    subgraph Runtime ["☁️ Runtime Environment\n(Docker Compose local / Azure ACA planned)"]
+
+        subgraph Gateway ["🔀 Ingress Layer — Nginx ✅"]
+            Nginx["Nginx 1.25\nExternal · port 80\nnginx.conf.template (envsubst)"]
+            OAuth2Proxy["oauth2-proxy v7.6\n🚧 auth_request ยัง comment"]
+
+            Nginx -.->|"auth_request /oauth2/auth\n(ยัง COMMENT อยู่)"| OAuth2Proxy
+            OAuth2Proxy -.->|"✅/❌ + X-User-Id\n(ยังไม่ inject)"| Nginx
+        end
+
+        OAuth2Proxy -.->|"verify JWT\nJWKS endpoint"| SupabaseAuthVerify["🔑 Supabase Auth\nJWKS Endpoint"]
+
+        subgraph Services ["📦 Microservices (Internal Network)"]
+            direction LR
+            FE["🖼️ Next.js 15\nStandalone Build\nport 3000"]
+            Chat["💬 Chat Service\nSpring Boot 3\nport 8080"]
+            Dinner["🍽️ Dinner Service\nSpring Boot 3\nport 8080"]
+            Bpost["📸 B-Post Service\nSpring Boot 3\nport 8080"]
+        end
+
+        Redis[("⚡ Redis 7.2-alpine\nrequirepass ✅\nno host port ✅")]
+        Secret["🔑 Secrets\n.env (local) / ACA Secrets (prod)"]
+
+        %% ── Nginx Routing ──
+        Nginx -->|"/"| FE
+        Nginx -->|"/v1/api/chat-app/"| Chat
+        Nginx -->|"/v1/api/dinner/"| Dinner
+        Nginx -->|"/v1/api/b-post/"| Bpost
+
+        %% ── Secrets ──
+        Chat -.->|env_file: .env| Secret
+        Dinner -.->|env_file: .env| Secret
+        Bpost -.->|env_file: .env| Secret
+
+        %% ── FE → Backend (local dev) ──
+        FE -.->|"Axios baseURL\nlocalhost:8080 (local dev)\nหรือ NEXT_PUBLIC_API_URL (prod)"| Chat
+
+        %% ── Redis Cache ──
+        Chat -->|"① check cache\n@Cacheable"| Redis
+        Redis -.->|cache hit| Chat
+        Chat -->|"② miss → query DB"| SupabasePG
+        Chat -.->|"③ write cache"| Redis
+        Chat -.->|"@CacheEvict allEntries\n⚠️ ล้างทุกห้อง"| Redis
+        Dinner -->|"cache read/write\n@Cacheable"| Redis
+    end
+
+    %% ══════════════════════════════════════════
+    %%  BLOCK 4 — Supabase  ✅
+    %% ══════════════════════════════════════════
+    subgraph Supabase ["🔥 Supabase ✅"]
+        direction LR
+        SupabasePG[("🐘 PostgreSQL\nschema: chat, dinner, public\npooler: aws-ap-northeast-1")]
+        Vec[("🔮 pgvector\ncosine similarity\n🚧 มี schema แต่ embed ยังไม่ทำงาน")]
+        Storage[("🖼️ Supabase Storage\nBucket: images")]
+    end
+
+    %% ══════════════════════════════════════════
+    %%  BLOCK 5 — External AI Services
+    %% ══════════════════════════════════════════
+    Groq["⚡ Groq API ✅\nLlama 3.3 70b-versatile\nResilience4j Circuit Breaker"]
+    HuggingFace["🤗 HuggingFace Inference API 🚧\nintfloat/multilingual-e5-small\n384 dim · Thai+EN\n⚠️ double[] bug → embed ไม่ทำงาน"]
+
+    %% ══════════════════════════════════════════
+    %%  BLOCK 6 — Observability  ⬜
+    %% ══════════════════════════════════════════
+    subgraph Observability ["📊 New Relic ⬜ ยังไม่เริ่ม"]
+        NR["APM · Logs · Distributed Tracing\nAlert · Dashboard"]
+    end
+
+    %% ══════════════════════════════════════════
+    %%  Connections
+    %% ══════════════════════════════════════════
+
+    %% ── Entry ──
+    User -->|"HTTPS + JWT"| CF
+    Admin -->|"HTTPS + JWT\n(role=admin)"| CF
+    CF --> Nginx
+
+    %% ── DB & Storage ──
+    Chat -->|"read/write\nchat.messages · chat.rooms\nchat.room_members · chat.ai_context"| SupabasePG
+    Chat -->|"vector search (cosine <=>)\n🚧 blocked by embed bug"| Vec
+    Dinner -->|"read/write\ndinner.suppliers · dinner.orders"| SupabasePG
+    Bpost -->|"upload via service_role key"| Storage
+    FE -.->|"<img> remote pattern"| Storage
+
+    %% ── External AI ──
+    Chat -->|"LLM inference\nGroqAiClient"| Groq
+    Chat -->|"embed message\nEmbeddingService\n🚧 double[] bug"| HuggingFace
+
+    %% ── Observability (planned) ──
+    FE -.->|"⬜ planned"| NR
+    Chat -.->|"⬜ planned"| NR
+    Dinner -.->|"⬜ planned"| NR
+    Bpost -.->|"⬜ planned"| NR
+
+    %% ── CI/CD ──
+    ACADeploy -.->|"rolling deploy\n⬜ รอ Azure subscription + secrets"| Runtime
+
+    %% ══════════════════════════════════════════
+    %%  Chat Service Detail (v4 new)
+    %% ══════════════════════════════════════════
+    subgraph ChatDetail ["💬 Chat Service — Endpoint Map ✅"]
+        direction TB
+        EP1["POST /message\nส่งข้อความ + AI reply"]
+        EP2["GET /message/history/:roomId\nดึงประวัติ + pagination"]
+        EP3["GET /room/list/:userId\nรายการห้อง"]
+        EP4["POST /room/create/:userId\nสร้างห้องใหม่"]
+        EP5["POST /user/resolve\nSupabase UID → app user"]
+        EP6["GET /profile/:uid\nPOST /profile"]
+    end
+
+    Chat -.-> ChatDetail
+
+    %% ══════════════════════════════════════════
+    %%  Styling
+    %% ══════════════════════════════════════════
+    classDef actor      fill:#FBEAF0,stroke:#993556,stroke-width:2px,color:#72243E,font-weight:bold
+    classDef security   fill:#FAECE7,stroke:#993C1D,stroke-width:2px,color:#712B13
+    classDef compute    fill:#E6F1FB,stroke:#185FA5,stroke-width:2px,color:#0C447C
+    classDef cache      fill:#FAEEDA,stroke:#854F0B,stroke-width:2px,color:#633806
+    classDef database   fill:#E1F5EE,stroke:#0F6E56,stroke-width:2px,color:#085041
+    classDef auth       fill:#FFF3E0,stroke:#E65100,stroke-width:2px,color:#BF360C
+    classDef llm        fill:#EEEDFE,stroke:#534AB7,stroke-width:2px,color:#3C3489
+    classDef cicd       fill:#F1EFE8,stroke:#5F5E5A,stroke-width:2px,color:#444441
+    classDef observe    fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20
+    classDef blocked    fill:#FFF9C4,stroke:#F57F17,stroke-width:2px,color:#E65100,stroke-dasharray: 5 5
+    classDef notstarted fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px,color:#757575,stroke-dasharray: 5 5
+    classDef endpoint   fill:#E8EAF6,stroke:#3F51B5,stroke-width:1px,color:#283593
+
+    class User,Admin,UserLogin actor
+    class CF security
+    class Nginx security
+    class OAuth2Proxy blocked
+    class FE,Chat,Dinner,Bpost compute
+    class Redis cache
+    class SupabasePG,Storage database
+    class Vec blocked
+    class SupabaseAuth,SupabaseAuthVerify,JWTToken,Secret auth
+    class Groq llm
+    class HuggingFace blocked
+    class Dev,GHA,GHCR,ACADeploy cicd
+    class NR notstarted
+    class EP1,EP2,EP3,EP4,EP5,EP6 endpoint
+    class ChatDetail endpoint

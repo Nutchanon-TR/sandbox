@@ -2,7 +2,7 @@
 
 โปรเจกต์นี้เป็น sandbox สำหรับลองฟีเจอร์หลายแบบในสถาปัตยกรรมแบบ microservice โดยแยก concern ระหว่าง frontend, backend service และ data layer ให้ชัด เพื่อใช้ทดลอง flow จริงตั้งแต่ login, dashboard, chat กับ AI ไปจนถึงการเชื่อมต่อ Supabase
 
-![Architecture](./Architecture.svg)
+> Architecture Diagrams อยู่ที่ `note/arch/v3/` (SVG + Mermaid)
 
 ## จุดประสงค์ของโปรเจกต์
 
@@ -10,39 +10,41 @@
 - ทดลอง frontend dashboard ด้วย Next.js + Ant Design
 - ทดลอง authentication ด้วย Supabase OAuth
 - ทดลอง backend API ด้วย Spring Boot + JPA
-- ทดลอง AI chat flow ผ่าน Spring AI และ provider ที่เปิด OpenAI-compatible API
+- ทดลอง AI chat flow ผ่าน Groq API (Llama 3.3) + Resilience4j Circuit Breaker
+- ทดลอง vector search ด้วย pgvector + HuggingFace Embedding
 - ทดลอง object storage ผ่าน Supabase Storage
+- ทดลอง API Gateway ด้วย Nginx + OAuth2 Proxy
+- ทดลอง caching ด้วย Redis
 
 ## สถาปัตยกรรมโดยรวม
 
-ระบบถูกแบ่งเป็น 4 ส่วนหลัก
+ระบบถูกแบ่งเป็น 6 ส่วนหลัก
 
-1. `frontend/`
-   Next.js App Router สำหรับ UI, route protection, theme, breadcrumb และเรียก backend ผ่าน Axios
+1. **`frontend/`** — Next.js App Router สำหรับ UI, route protection, theme, breadcrumb และเรียก backend ผ่าน Next.js Rewrites (proxy)
 
-2. `backend/chat/`
-   Spring Boot service สำหรับ chat history, AI response และ report/upload image
+2. **`backend/chatapp/`** — Spring Boot service สำหรับ chat history, AI response (Groq), vector search (pgvector + HuggingFace), room management และ user profile
 
-3. `backend/dinner/`
-   Spring Boot service สำหรับ supplier order dashboard
+3. **`backend/dinner/`** — Spring Boot service สำหรับ supplier order dashboard + Redis cache
 
-4. `backend/bpost/`
-   Spring Boot service สำหรับรับฝากและอัปโหลดรูปภาพ (Storage Image) ขึ้น Supabase Storage อย่างปลอดภัย
+4. **`backend/bpost/`** — Spring Boot service สำหรับอัปโหลดรูปภาพขึ้น Supabase Storage
 
-5. `database/`
-   SQL สำหรับ schema ตัวอย่างของโดเมน `chat` และ `dinner`
+5. **`gateway/`** — Nginx reverse proxy เป็น single entry point (port 80) + OAuth2 Proxy sidecar สำหรับ JWT validation
 
-> หมายเหตุ: ใน repo มีโฟลเดอร์ `backend/dinner/chat/` ที่เป็นชุดไฟล์ซ้ำอีกชุดหนึ่ง ปัจจุบันเอกสารนี้อ้างอิง service หลักจาก `backend/chat/`, `backend/dinner/` และ `backend/bpost/`
+6. **`note/`** — เอกสาร, architecture diagrams, bug report และ roadmap
 
 ## Tech Stack
 
-- Frontend: Next.js 15, React 19, TypeScript, Ant Design, Tailwind, Axios
-- Auth: Supabase Auth (OAuth)
-- Backend: Spring Boot 3, Spring Data JPA, Spring AI
-- AI: OpenAI-compatible endpoint ผ่าน `spring.ai.openai.*` และตั้งค่า base URL ไปที่ Groq
-- Database: PostgreSQL บน Supabase
-- File Storage: Supabase Storage
-- Build/Runtime: Dockerfile แยก frontend และ backend แต่ละ service
+- **Frontend:** Next.js 15, React 19, TypeScript, Ant Design, Tailwind, Axios
+- **Auth:** Supabase Auth (OAuth)
+- **Backend:** Spring Boot 3, Spring Data JPA
+- **AI:** Groq API (Llama 3.3 70b) ผ่าน `GroqAiClient` + Resilience4j Circuit Breaker
+- **Embedding:** HuggingFace Inference API (`intfloat/multilingual-e5-small`, 384 dim)
+- **Database:** PostgreSQL บน Supabase + pgvector extension
+- **Cache:** Redis 7.2 (Alpine) — ใช้กับ ChatApp และ Dinner
+- **File Storage:** Supabase Storage
+- **Gateway:** Nginx 1.25 + OAuth2 Proxy v7.6
+- **Containerization:** Docker + Docker Compose
+- **CI/CD:** GitHub Actions → GHCR → Azure Container Apps
 
 ## Service Boundary
 
@@ -53,87 +55,75 @@
 - แสดง UI ทั้งระบบ
 - ตรวจ session ด้วย Supabase
 - redirect ผู้ใช้ที่ยังไม่ login ไป `/login`
-- เรียก backend API ผ่าน `NEXT_PUBLIC_API_URL`
+- เรียก backend API ผ่าน Next.js Rewrites (proxy `/v1/api/*` ไป backend)
 - มี context กลางสำหรับ theme, notification, loading และ breadcrumb
 
 หน้าใช้งานหลักในปัจจุบัน
 
-- `/login` สำหรับ OAuth login
-- `/` หน้า home
-- `/profile` หน้า profile จาก Supabase session
-
-ส่วนของระบบย่อย (ตามโครงสร้าง Sidebar ใหม่) มีกลุ่มการทำงานหลัก ดังนี้:
-- **B-Post (บล็อกและโซเชียล):** `/b-post/blog`, `/b-post/socials`, `/b-post/messages`
-- **Dinner (ระบบสั่งอาหารซัพพลายเออร์):** `/dinner/supplier`
-- **Chat App (คุยกับ AI):** `/chat-app/message`, `/chat-app/social`
+- `/login` — OAuth login
+- `/` — Home
+- **B-Post:** `/b-post/blog` (อัปโหลดรูป), `/b-post/socials`, `/b-post/messages`
+- **Dinner:** `/dinner/supplier` (supplier order dashboard)
+- **Chat App:** `/chat-app/message` (chat กับ AI, มี sub-sidebar เลือกห้อง), `/chat-app/social`
 
 *(บางหน้าอาจจะยังเป็น placeholder รอการพัฒนาในอนาคต)*
 
-### 2. Chat Service
+### 2. Chat Service (`backend/chatapp`)
 
 รับผิดชอบ
 
-- ดึงประวัติแชตตาม room
-- รับข้อความจาก user
-- บันทึกข้อความลงฐานข้อมูล
+- จัดการห้องแชต (สร้าง, ดึงรายการ)
+- ดึงประวัติแชตตาม room (pagination)
+- รับข้อความจาก user, บันทึก, สร้าง embedding แล้วค้นหา context ด้วย vector search
 - โหลด system prompt จากตาราง `chat.ai_context`
-- ส่ง prompt ไปหาโมเดล AI
+- ส่ง prompt + context ไป Groq API (Llama 3.3)
 - บันทึกคำตอบของ AI กลับลงฐานข้อมูล
+- Resolve Supabase UID → app user
+- จัดการ user profile
 
 endpoint หลัก
 
-- `GET /v1/api/chat/history/{roomId}`
-- `POST /v1/api/chat`
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/v1/api/chat-app/message/history/{roomId}` | โหลดประวัติแชต |
+| `POST` | `/v1/api/chat-app/message` | ส่งข้อความและรับคำตอบจาก AI |
+| `GET` | `/v1/api/chat-app/room/list/{userId}` | ดึงรายการห้องของ user |
+| `POST` | `/v1/api/chat-app/room/create/{userId}` | สร้างห้องแชตใหม่ |
+| `POST` | `/v1/api/chat-app/user/resolve` | Resolve Supabase UID → app user |
+| `GET` | `/v1/api/chat-app/profile/{supabaseUid}` | ดึง user profile |
+| `POST` | `/v1/api/chat-app/profile` | สร้าง/อัปเดต user profile |
 
-request สำหรับ chat
-
-```json
-{
-  "roomId": 1,
-  "senderId": 1,
-  "message": "Hello"
-}
-```
-
-response
-
-```json
-{
-  "reply": "..."
-}
-```
-
-### 3. Dinner Service
+### 3. Dinner Service (`backend/dinner`)
 
 รับผิดชอบ
 
 - อ่านข้อมูล supplier order จาก schema `dinner`
 - ทำ pagination จาก query parameter
-- ส่งผลลัพธ์กลับในรูป `PageResponse`
+- Redis cache สำหรับ supplier orders ที่ถูกดึงบ่อย
 
 endpoint หลัก
 
-- `GET /v1/api/supplier-order/inquiry?page=1&size=10`
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/v1/api/dinner/supplier/inquiry?page=1&size=10` | โหลด supplier orders แบบแบ่งหน้า |
 
-response จะอยู่ในรูป
+### 4. B-Post Service (`backend/bpost`)
 
-```json
-{
-  "content": [],
-  "page": 1,
-  "size": 10,
-  "totalElements": 0,
-  "totalPages": 0
-}
-```
+รับผิดชอบ
 
-### 4. B-Post Service (Report / Storage Flow)
+- รับฝากอัปโหลดไฟล์ภาพขึ้น Supabase Storage ผ่าน service role key
 
-ระบบ backend มี API สำหรับเป็นตัวรับฝากอัปโหลดไฟล์ภาพขึ้น Supabase Storage โดยอาศัย B-Post Service เป็นหน่วยจัดการไฟล์ภาพ
+endpoint หลัก
 
-- `POST /v1/api/bpost/upload-image`
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/v1/api/b-post/blog/upload-image` | อัปโหลดรูปภาพไป Supabase Storage |
 
-flow นี้มีอยู่ฝั่ง backend แล้ว แต่ frontend ยังไม่ได้เชื่อมต่อจริงครบทั้งหน้าใช้งาน
+### 5. Gateway (`gateway/`)
+
+- Nginx เป็น single entry point (port 80)
+- Routing: `/` → frontend, `/v1/api/chat-app/` → chat-service, `/v1/api/dinner/` → dinner-service, `/v1/api/b-post/` → bpost-service
+- OAuth2 Proxy sidecar สำหรับ JWT validation (ยัง comment อยู่ใน nginx.conf.template)
 
 ## End-to-End Flow
 
@@ -150,151 +140,148 @@ flow นี้มีอยู่ฝั่ง backend แล้ว แต่ fron
 ### Flow 2: Supplier Dashboard
 
 1. ผู้ใช้เปิด `/dinner/supplier`
-2. หน้า React เรียก `GET /v1/api/supplier-order/inquiry`
-3. `SupplierOrderController` รับ pagination request
-4. `SupplierOrderService` เรียก native query จาก `SupplierRepository`
-5. backend join ตาราง `dinner.suppliers` กับ `dinner.orders`
-6. frontend แสดงผลเป็น table, filter, search และ stat card
-
-สิ่งที่ทดลองใน flow นี้
-
-- server pagination
-- frontend filtering บนข้อมูลที่อยู่ใน page ปัจจุบัน
-- reusable API utility
-- notification/loading state
+2. หน้า React เรียก `GET /v1/api/dinner/supplier/inquiry`
+3. backend ตรวจ Redis cache ก่อน — ถ้า hit ส่งกลับทันที
+4. ถ้า cache miss: query database, join `dinner.suppliers` กับ `dinner.orders`, cache ผลลัพธ์
+5. frontend แสดงผลเป็น table, filter, search และ stat card
 
 ### Flow 3: AI Chat
 
 1. ผู้ใช้เปิด `/chat-app/message`
-2. frontend โหลด history ด้วย `GET /v1/api/chat/history/1`
-3. backend อ่านข้อความใน room และ map เป็น DTO
-4. เมื่อผู้ใช้ส่งข้อความ frontend ยิง `POST /v1/api/chat`
-5. backend validate `roomId` และ `senderId`
+2. frontend resolve Supabase UID → app user ผ่าน `/user/resolve`
+3. frontend โหลด room list ผ่าน `/room/list/{userId}`
+4. เมื่อเลือกห้อง โหลด history ด้วย `/message/history/{roomId}`
+5. เมื่อผู้ใช้ส่งข้อความ frontend ยิง `POST /message`
 6. backend บันทึกข้อความของ user ลงตาราง `chat.messages`
-7. backend หา AI user หรือสร้างใหม่ถ้ายังไม่มี
-8. backend โหลด system prompt จาก `chat.ai_context`
-9. backend รวม system prompt + chat history ทั้งห้องเป็น prompt เดียว
-10. backend เรียก AI model ผ่าน Spring AI
-11. backend บันทึกข้อความตอบกลับของ AI ลงฐานข้อมูล
-12. frontend แสดง reply ในหน้าจอ chat
-
-สิ่งที่ทดลองใน flow นี้
-
-- conversational history
-- system prompt จากฐานข้อมูล
-- AI integration แบบ backend-driven
-- persistence ของข้อความในห้องสนทนา
+7. backend สร้าง embedding ผ่าน HuggingFace API แล้วบันทึกลง `chat.message_embeddings`
+8. backend ค้นหา context ที่เกี่ยวข้องด้วย vector similarity search (cosine)
+9. backend โหลด system prompt จาก `chat.ai_context`
+10. backend รวม system prompt + context + chat history เป็น prompt เดียว
+11. backend เรียก Groq API (Llama 3.3) ผ่าน Resilience4j Circuit Breaker
+12. backend บันทึกข้อความตอบกลับของ AI ลงฐานข้อมูล
+13. frontend แสดง reply ในหน้าจอ chat
 
 ### Flow 4: Image Upload (B-Post)
 
-1. client ส่ง multipart file ไปที่ `/v1/api/bpost/upload-image`
+1. client ส่ง multipart file ไปที่ `/v1/api/b-post/blog/upload-image`
 2. backend สร้างชื่อไฟล์ใหม่ด้วย UUID
 3. backend ใช้ service role key ยิง REST ไป Supabase Storage
-4. backend ส่งไฟล์กลับเป็น `ByteArrayResource`
-
-flow นี้เป็น sandbox สำหรับทดลอง storage integration มากกว่าจะเป็น feature ที่ผูกกับ UI หลักในตอนนี้
+4. backend ส่งผลลัพธ์กลับ
 
 ## โครงสร้างโฟลเดอร์
 
 ```text
 Sandbox/
-|- frontend/                 Next.js app
+|- frontend/                 Next.js app (standalone build)
 |- backend/
 |  |- bpost/                 Storage image service
-|  |- chat/                  Chat + report/upload service
-|  |- dinner/                Supplier order service
-|  \- dinner/chat/           duplicate snapshot
-|- database/                 sample schema scripts
-|- Architecture.svg
-\- Sandbox.sql
+|  |- chatapp/               Chat + AI + vector search service
+|  \- dinner/                Supplier order service
+|- gateway/
+|  |- Dockerfile             Nginx image
+|  \- nginx.conf.template    Routing config (envsubst)
+|- note/
+|  |- arch/v3/               Architecture diagrams (SVG + Mermaid)
+|  |- docs/                  AUTH, CHATAPP, INFRA, KEYS, SUPABASE docs
+|  |- REPORT.md              Bug scan report
+|  \- ROADMAP.md             V3 Architecture checklist
+|- docker-compose.yml        Full stack orchestration
+|- .env                      Environment variables (not committed)
+\- .github/workflows/
+   \- aca-deploy.yml         CI/CD: Build → GHCR → Azure Container Apps
 ```
 
 ## Environment Variables
 
-### Frontend
-
-ต้องมีอย่างน้อย
+### Frontend (`frontend/.env.local`)
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8080
-NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+NEXT_PUBLIC_API_URL=              # ว่าง — ใช้ Next.js rewrites proxy แทน
+BACKEND_URL=http://localhost:8080 # internal proxy target (ไม่ expose ให้ browser)
 ```
 
-### Backend
-
-ทั้ง `backend/chat`, `backend/dinner` และ `backend/bpost` ใช้ชุดตัวแปรใกล้กัน
+### Backend (`.env` ที่ root — ใช้ร่วมกันผ่าน `env_file` ใน docker-compose)
 
 ```env
 SUPABASE_DB_USERNAME=...
 SUPABASE_DB_PASSWORD=...
 SUPABASE_SERVICE_ROLE_KEY=...
 GROK_API_KEY=...
+REDIS_PASSWORD=...
 ```
 
-## วิธีรันแบบ local
+## วิธีรัน
 
-### Frontend
+### Docker Compose (แนะนำ)
 
 ```bash
+# สร้าง .env จาก template แล้วใส่ค่า
+docker-compose up -d --build
+# เข้าใช้งานที่ http://localhost (ผ่าน Nginx gateway)
+```
+
+### Local Development (แยก service)
+
+```bash
+# Frontend
 cd frontend
 npm install
 npm run dev
-```
+# → http://localhost:3000
 
-### Chat Service
-
-```bash
-cd backend/chat
+# Backend (แต่ละ service)
+cd backend/chatapp   # หรือ dinner, bpost
 ./mvnw spring-boot:run
+# → http://localhost:8080
 ```
 
-### Dinner Service
-
-```bash
-cd backend/dinner
-./mvnw spring-boot:run
-```
-
-## ข้อควรรู้ก่อนรัน
-
-- ทั้ง `backend/chat`, `backend/dinner` และ `backend/bpost` ยังไม่ได้ตั้ง `server.port` แยกกันใน repo ปัจจุบัน ถ้าจะรันพร้อมกันต้องกำหนด port เพิ่มเอง
-- frontend เรียก backend ผ่าน base URL เดียวจาก `NEXT_PUBLIC_API_URL`
-- database script ใน `database/` เป็นตัวอย่าง schema/seed สำหรับโดเมนงาน แต่ config ปัจจุบันของ backend ชี้ไปที่ PostgreSQL บน Supabase
-- chat flow ต้องมีข้อมูลห้อง, user และ `chat.ai_context` อยู่ในฐานข้อมูล ไม่เช่นนั้น backend จะตอบ error
+> **หมายเหตุ:** ทั้ง 3 backend service ใช้ port 8080 เหมือนกัน ถ้ารัน local พร้อมกันต้องกำหนด `server.port` เพิ่มเอง หรือใช้ Docker Compose ซึ่ง Nginx จะ route ให้อัตโนมัติ
 
 ## API Summary
 
 | Area | Method | Path | Purpose |
-| --- | --- | --- | --- |
-| Chat | `GET` | `/v1/api/chat/history/{roomId}` | โหลดประวัติแชต |
-| Chat | `POST` | `/v1/api/chat` | ส่งข้อความและรับคำตอบจาก AI |
-| Supplier | `GET` | `/v1/api/supplier-order/inquiry` | โหลด supplier orders แบบแบ่งหน้า |
-| B-Post | `POST` | `/v1/api/bpost/upload-image` | อัปโหลดรูปภาพไป Supabase Storage |
+|------|--------|------|---------|
+| Chat | `GET` | `/v1/api/chat-app/message/history/{roomId}` | โหลดประวัติแชต |
+| Chat | `POST` | `/v1/api/chat-app/message` | ส่งข้อความและรับคำตอบจาก AI |
+| Chat | `GET` | `/v1/api/chat-app/room/list/{userId}` | ดึงรายการห้อง |
+| Chat | `POST` | `/v1/api/chat-app/room/create/{userId}` | สร้างห้องแชตใหม่ |
+| Chat | `POST` | `/v1/api/chat-app/user/resolve` | Resolve Supabase UID → app user |
+| Chat | `GET` | `/v1/api/chat-app/profile/{supabaseUid}` | ดึง user profile |
+| Chat | `POST` | `/v1/api/chat-app/profile` | สร้าง/อัปเดต profile |
+| Supplier | `GET` | `/v1/api/dinner/supplier/inquiry` | โหลด supplier orders แบบแบ่งหน้า |
+| B-Post | `POST` | `/v1/api/b-post/blog/upload-image` | อัปโหลดรูปภาพไป Supabase Storage |
 
 ## สถานะปัจจุบันของโปรเจกต์
 
-สิ่งที่ใช้งานได้ตามโค้ดตอนนี้
+สิ่งที่ใช้งานได้
 
-- Supabase OAuth login
-- protected route ฝั่ง frontend
-- profile page จาก session
-- supplier dashboard ที่ดึงข้อมูลจริงจาก backend
-- AI chat ที่บันทึก history ลงฐานข้อมูล
-- image upload API ฝั่ง backend
+- Supabase OAuth login + protected routes
+- Supplier dashboard ที่ดึงข้อมูลจริง + Redis cache
+- AI chat ที่บันทึก history, สร้างห้อง, resolve user จาก Supabase session
+- Groq API integration + Circuit Breaker (Resilience4j)
+- pgvector extension + embedding schema พร้อมใช้
+- Image upload API ผ่าน B-Post → Supabase Storage
+- Nginx gateway routing ครบทุก service
+- Docker Compose full stack
+- CI/CD pipeline (GitHub Actions → GHCR → Azure Container Apps)
+- Next.js standalone build
 
-สิ่งที่ยังดูเป็น sandbox / ยังต้องเก็บงาน
+สิ่งที่ยังต้องเก็บงาน
 
-- เมนูบางหน้าเป็น placeholder
-- `frontend/constants/api/ApiSandbox.ts` มี `UPLOAD_IMAGE` path ที่ยังไม่ตรงกับ backend ปัจจุบัน
-- Dockerfile ของ frontend คาดหวัง standalone build แต่ `next.config.ts` ยังไม่ได้เปิด `output: "standalone"`
-- ใน repo มีโค้ด backend ซ้ำบางส่วน
-- เอกสาร SQL ใน `database/` ยังไม่สะท้อน schema ใช้งานจริงทั้งหมดของ chat เช่น `role` และ `ai_context`
+- **EmbeddingService bug:** `double[]` ควรเป็น `double[][]` — embedding ไม่ทำงาน (ดูรายละเอียดที่ `note/REPORT.md`)
+- OAuth2 Proxy JWT validation ยัง comment อยู่ใน nginx config
+- ACA deploy port mapping ยังใส่ port 80 ทั้งหมดที่ gateway (ควรเป็น 3000/8080/4180)
+- เมนูบางหน้าเป็น placeholder (socials, messages, social)
+- ยังไม่มี `.env.example` สำหรับ onboarding คนใหม่
 
-## ข้อมูลจำเพาะของระบบ Supabase (Supabase Specification)
+## เอกสารเพิ่มเติม
 
-สำหรับรายละเอียดลอจิกทั้งหมดที่เกี่ยวข้องกับระบบเบื้องหลังของ Supabase ทั้งการ Authentication, Middleware, Database Connection และ Upload Storage แยกตามส่วน Frontend และ Backend สามารถอ่านแบบละเอียดเพิ่มเติมได้ที่ไฟล์ [SUPABASE.md](./SUPABASE.md)
-
-## สรุป
-
-โปรเจกต์นี้ไม่ได้ทำมาเพื่อเป็น product สำเร็จรูป แต่ทำมาเพื่อทดลอง integration หลายเรื่องในระบบเดียวโดยใช้แนวคิด microservice ได้แก่ auth, dashboard, AI chat, database access, object storage และ cross-service flow ระหว่าง frontend กับ backend หลายตัว ถ้าจะต่อยอด โปรเจกต์นี้เหมาะเป็นฐานสำหรับแยก service ให้ชัดขึ้น, เติม API gateway/service discovery, แยก config ต่อ environment และทำ deployment pipeline จริง
+- [Authentication Flow](./note/docs/AUTH.md)
+- [ChatApp Feature Design](./note/docs/CHATAPP.md)
+- [Infrastructure Setup](./note/docs/INFRA.md)
+- [API Keys Configuration](./note/docs/KEYS.md)
+- [Supabase Specification](./note/docs/SUPABASE.md)
+- [Bug Report](./note/REPORT.md)
+- [V3 Roadmap](./note/ROADMAP.md)

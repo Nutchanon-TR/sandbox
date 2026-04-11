@@ -14,7 +14,7 @@
 | `chat.room_members.ai_id` (FK → `ai_context.id`) | ✅ มี column จริง |
 | `chat.ai_context` | ✅ มีอยู่แล้ว |
 
-> **หมายเหตุ:** schema ใน `database/02_chat_schema.sql` (local) ล้าหลังกว่า Supabase จริง เช่น `room_members` มี `ai_id` แล้ว และ `ai_context` ไม่มี `room_id` column (relationship ผ่าน `room_members.ai_id` แทน)
+> **หมายเหตุ:** โฟลเดอร์ `database/` ที่เคยมี SQL schema ถูกลบออกจาก repo แล้ว — schema management ทำผ่าน Supabase โดยตรง ข้อมูล schema ปัจจุบันดูได้ที่ `note/docs/SUPABASE.md`
 
 ---
 
@@ -74,3 +74,5 @@ double[] doubles = body[0]; // embedding ของ input แรก
 ส่งข้อความ → embedAndSave() → embed() ← FAIL ตรงนี้
 AI response  → searchSimilarMessages() → embed() ← FAIL ตรงนี้
 ```
+
+> **สถานะ (2026-04-12):** Bug นี้ยังไม่ได้แก้ — `EmbeddingService.java` บรรทัด 89-90 ยังใช้ `double[].class` อยู่ ส่งผลให้ vector search ทั้ง pipeline ไม่ทำงาน (tracked ใน ROADMAP Phase 4 — Implement Vector Search)
