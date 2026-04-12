@@ -90,11 +90,11 @@ public class EmbeddingService {
         ResponseEntity<double[][]> response = restTemplate.exchange(
                 HF_API_URL, HttpMethod.POST, request, double[][].class);
 
-        double[][] body = response.getBody();
-        if (body == null || body.length == 0 || body[0].length == 0) {
+        double[][] responseBody = response.getBody();
+        if (responseBody == null || responseBody.length == 0 || responseBody[0].length == 0) {
             throw new RuntimeException("Empty response from HuggingFace API");
         }
-        double[] doubles = body[0];
+        double[] doubles = responseBody[0];
         float[] result = new float[doubles.length];
         for (int i = 0; i < doubles.length; i++) {
             result[i] = (float) doubles[i];

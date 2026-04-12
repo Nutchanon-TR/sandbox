@@ -9,6 +9,7 @@ on:
 env:
   REGISTRY: ghcr.io
   RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+  CONTAINER_APP_ENVIRONMENT: ${{ secrets.CONTAINER_APP_ENVIRONMENT }}
 
 jobs:
   build_and_deploy_frontend:
@@ -33,7 +34,12 @@ jobs:
 
       - name: Build and push frontend image
         run: |
-          docker build --file ./frontend/Dockerfile --tag ghcr.io/${LOWER_OWNER}/frontend:${{ github.sha }} ./frontend
+          docker build \
+            --file ./frontend/Dockerfile \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
+            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
+            --tag ghcr.io/${LOWER_OWNER}/frontend:${{ github.sha }} \
+            ./frontend
           docker push ghcr.io/${LOWER_OWNER}/frontend:${{ github.sha }}
 
       - name: Log in to Azure
@@ -44,11 +50,11 @@ jobs:
       - name: Deploy frontend to Azure Container Apps
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}/frontend
           registryUrl: ghcr.io
           registryUsername: ${{ github.actor }}
           registryPassword: ${{ secrets.GITHUB_TOKEN }}
           containerAppName: frontend
+          containerAppEnvironment: ${{ env.CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
           imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/frontend:${{ github.sha }}
           ingress: internal
@@ -90,11 +96,11 @@ jobs:
       - name: Deploy chat-service to Azure Container Apps
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}/backend/chatapp
           registryUrl: ghcr.io
           registryUsername: ${{ github.actor }}
           registryPassword: ${{ secrets.GITHUB_TOKEN }}
           containerAppName: chat-service
+          containerAppEnvironment: ${{ env.CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
           imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/chat-service:${{ github.sha }}
           ingress: internal
@@ -136,11 +142,11 @@ jobs:
       - name: Deploy dinner-service to Azure Container Apps
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}/backend/dinner
           registryUrl: ghcr.io
           registryUsername: ${{ github.actor }}
           registryPassword: ${{ secrets.GITHUB_TOKEN }}
           containerAppName: dinner-service
+          containerAppEnvironment: ${{ env.CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
           imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/dinner-service:${{ github.sha }}
           ingress: internal
@@ -182,11 +188,11 @@ jobs:
       - name: Deploy bpost-service to Azure Container Apps
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}/backend/bpost
           registryUrl: ghcr.io
           registryUsername: ${{ github.actor }}
           registryPassword: ${{ secrets.GITHUB_TOKEN }}
           containerAppName: bpost-service
+          containerAppEnvironment: ${{ env.CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
           imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/bpost-service:${{ github.sha }}
           ingress: internal
@@ -233,11 +239,11 @@ jobs:
       - name: Deploy gateway-service to Azure Container Apps
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}/gateway
           registryUrl: ghcr.io
           registryUsername: ${{ github.actor }}
           registryPassword: ${{ secrets.GITHUB_TOKEN }}
           containerAppName: gateway-service
+          containerAppEnvironment: ${{ env.CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
           imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/gateway-service:${{ github.sha }}
           ingress: external
@@ -259,6 +265,7 @@ jobs:
         with:
           registryUrl: quay.io
           containerAppName: oauth2-proxy
+          containerAppEnvironment: ${{ env.CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
           imageToDeploy: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
           ingress: internal
@@ -283,6 +290,7 @@ jobs:
         with:
           registryUrl: docker.io
           containerAppName: redis
+          containerAppEnvironment: ${{ env.CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
           imageToDeploy: redis:7.2-alpine
           ingress: internal
