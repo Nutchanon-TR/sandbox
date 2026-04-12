@@ -57,6 +57,66 @@
 เป้าหมาย: สร้างระบบและปกป้องฟีเจอร์จากการบริหารสิทธิ์ (Roles) ของ Supabase
 - `[ ]` **Define RLS Policies:** จัดการ Row-level Security ภายในฐานข้อมูล Supabase — ดูตัวอย่าง SQL ใน Manual M5 ใน `REPORT.md`
 - `[ ]` **Admin Implementation:** ใช้ตัวแปร `app_metadata.role = admin` ที่ฝังใน JWT Token มากรอง Component ในหน้า Frontend และ Backend ให้ใช้งานฟีเจอร์ลับได้เฉพาะบางระดับผู้ใช้งาน
+- `[ ]` **Service Access Control — `allowed_services` column:** เพิ่ม column `allowed_services text[] DEFAULT '{all}'` ลงใน table `public.users` เพื่อควบคุมว่า user แต่ละคนเข้าถึง service ใดได้บ้าง ค่าที่เป็นไปได้: `{all}`, `{chat_app}`, `{bpost}`, `{dinner}` หรือ combination เช่น `{chat_app,dinner}` — ดูรายละเอียด SQL และ arch ใน `docs/AUTH.md`
+
+  ```sql
+  -- เพิ่ม column บน Supabase SQL Editor
+  ALTER TABLE public.users
+    ADD COLUMN IF NOT EXISTS allowed_services text[] NOT NULL DEFAULT '{all}';
+
+  -- ตัวอย่าง: จำกัด user เฉพาะ chat_app
+  UPDATE public.users SET allowed_services = '{chat_app}' WHERE id = '<user_id>';
+  ```
+
+  **แนวทาง Sync เข้า JWT (แนะนำ):** ใช้ Supabase Database Function + Trigger ซิงค์ค่าเข้า `app_metadata.allowed_services` อัตโนมัติเมื่อแถวในตารางเปลี่ยน จากนั้น OAuth2Proxy inject header `X-Allowed-Services` เข้า BE → แต่ละ service อ่าน header แทนการ query DB ซ้ำ — ดู arch เพิ่มเติมใน `docs/AUTH.md`
+
+---
+
+## Auth Architecture (แนะนำ — Option B: JWT + Trigger)
+
+> รายละเอียด SQL, Spring Filter code, และการเปรียบเทียบ 3 options ดูได้ที่ `docs/AUTH.md` ส่วน 3
+
+### แนวคิดหลัก
+เก็บ permission ใน DB เป็น source of truth → sync เข้า JWT อัตโนมัติผ่าน Trigger → OAuth2Proxy กรองและ inject header → BE แต่ละตัวอ่าน header โดยไม่ต้อง query DB ซ้ำ
+
+### Flow Diagram
+
+```
+[Admin แก้ public.users.allowed_services]
+              │
+              │ Trigger auto-sync (AFTER UPDATE)
+              ▼
+[auth.users.app_metadata.allowed_services]  ← embed ใน Supabase JWT อัตโนมัติ
+              │
+              │ User login → ได้ JWT ที่มี allowed_services ฝังอยู่
+              ▼
+[Cloudflare WAF] → [Nginx] → [OAuth2Proxy]
+                                    │ validate JWT signature (JWKS จาก Supabase)
+                                    │ inject headers:
+                                    │   X-User-Id: <supabase_uid>
+                                    │   X-User-Role: <app_metadata.role>
+                                    │   X-Allowed-Services: <allowed_services>
+                                    ▼
+              ┌─────────────────────┼─────────────────────┐
+              ▼                     ▼                     ▼
+      [chatapp BE]           [bpost BE]           [dinner BE]
+     ServiceAccessFilter   ServiceAccessFilter   ServiceAccessFilter
+      ตรวจ "all"|"chat_app"  ตรวจ "all"|"bpost"   ตรวจ "all"|"dinner"
+              │                     │                     │
+           403 หรือ              403 หรือ              403 หรือ
+         ผ่านเข้า service      ผ่านเข้า service      ผ่านเข้า service
+```
+
+### Checklist การ Implement
+
+- `[ ]` สร้าง Supabase Function `sync_allowed_services_to_metadata()` + Trigger บน `public.users`
+- `[ ]` ตั้งค่า OAuth2Proxy ให้ pass JWT claims เป็น `X-Auth-Request-*` headers (Phase 1 item)
+- `[ ]` เพิ่ม `ServiceAccessFilter.java` ใน chatapp, bpost, dinner BE — อ่าน `X-Allowed-Services` header
+- `[ ]` ทดสอบ: แก้ `allowed_services` → signOut/signIn → ยืนยัน header ที่ BE ได้รับเปลี่ยนตาม
+
+### ข้อควรระวัง
+- Permission เปลี่ยนแล้วต้องรอ JWT หมดอายุ (หรือ force signOut) ก่อนมีผล — ถ้าต้องการ instant revoke ให้ call `supabase.auth.admin.signOut(userId)` ฝั่ง Server
+- ระหว่างที่ Phase 1 (OAuth2Proxy) ยังไม่ live — BE สามารถ query `public.users.allowed_services` ตรงชั่วคราวก่อน แล้วค่อย migrate ไป header-based ทีหลัง
 
 ---
 
@@ -70,4 +130,4 @@
 | 4. AI & Vector DB | 🟡 บางส่วน | pgvector ✅, Groq ✅, EmbeddingService bug แก้แล้ว ✅, รอ E2E test |
 | 5. Observability | ⬜ ยังไม่เริ่ม | รอสมัคร New Relic (Manual M4) |
 | 6. Containerization | 🟡 บางส่วน | Dockerfile ✅, CI/CD ✅, Port fix ✅, Scale-to-zero ✅, รอ Azure setup + Cloudflare |
-| 7. Role Management | ⬜ ยังไม่เริ่ม | รอทำ RLS บน Supabase (Manual M5) |
+| 7. Role Management | ⬜ ยังไม่เริ่ม | รอทำ RLS (M5) + เพิ่ม `allowed_services` column + Trigger sync JWT |

@@ -35,7 +35,143 @@
 
 ---
 
-## 3. สรุป Workflow ของระบบ Auth ที่ใช้งานจริงตอนนี้
+## 3. Service Access Control — `allowed_services`
+
+### 3.1 Schema
+
+Column นี้เก็บไว้ใน `public.users` (ไม่ใช่ `auth.users`) เพื่อให้ Service Role มีสิทธิ์แก้ไขได้โดยตรง
+
+```sql
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS allowed_services text[] NOT NULL DEFAULT '{all}';
+
+-- Constraint: ค่าที่อนุญาตคือ all, chat_app, bpost, dinner เท่านั้น
+ALTER TABLE public.users
+  ADD CONSTRAINT chk_allowed_services
+  CHECK (
+    allowed_services <@ ARRAY['all','chat_app','bpost','dinner']::text[]
+  );
+```
+
+| ค่า | ความหมาย |
+|-----|-----------|
+| `{all}` | เข้าถึงได้ทุก service |
+| `{chat_app}` | เฉพาะ Chat App |
+| `{bpost}` | เฉพาะ B-Post |
+| `{dinner}` | เฉพาะ Dinner |
+| `{chat_app,dinner}` | เข้าได้สอง service ขึ้นไป |
+
+---
+
+### 3.2 Architecture — 3 แนวทาง (เปรียบเทียบ)
+
+#### Option A: Query DB ตรงใน BE แต่ละ Request (ง่าย แต่ไม่ scale)
+```
+FE → Nginx → OAuth2Proxy (validate JWT) → BE Service
+                                               └─ query public.users.allowed_services
+                                                  ทุก request → latency สูง
+```
+- **ข้อดี:** ข้อมูลสดเสมอ, implement ง่าย
+- **ข้อเสีย:** ทุก request ต้องยิง Supabase → latency เพิ่ม, ทุก service ต้องเขียน logic ซ้ำ
+
+#### Option B: Embed ใน `app_metadata` → JWT (แนะนำสำหรับโปรเจกต์นี้) ✅
+```
+Admin แก้ allowed_services ใน DB
+     └─ Trigger/Function sync → auth.users.app_metadata.allowed_services
+                                      └─ Supabase embed ลง JWT อัตโนมัติ
+FE → Nginx → OAuth2Proxy (validate JWT + inject X-Allowed-Services header)
+                                └─ BE Service อ่าน header โดยตรง ไม่ต้อง query DB
+```
+- **ข้อดี:** ไม่ต้อง query DB ต่อ request, ทุก BE service อ่าน header ตัวเดียวกัน, OAuth2Proxy inject ให้ทันที
+- **ข้อเสีย:** ถ้าแก้ permission ต้องรอ JWT หมดอายุ (หรือบังคับ signOut) ก่อนค่าใหม่จะมีผล
+
+#### Option C: External Auth Middleware Service (Enterprise, เกินความจำเป็น)
+```
+FE → Nginx → OAuth2Proxy → Auth Middleware Service → BE
+                                 └─ cache allowed_services ใน Redis
+```
+- **ข้อดี:** ยืดหยุ่นสูงสุด
+- **ข้อเสีย:** ซับซ้อนเกินสำหรับ scope นี้
+
+---
+
+### 3.3 Implementation — Option B (แนะนำ)
+
+**Step 1: Supabase Function + Trigger (sync `allowed_services` → `app_metadata`)**
+
+```sql
+-- Function ที่จะเรียกเมื่อ allowed_services เปลี่ยน
+CREATE OR REPLACE FUNCTION sync_allowed_services_to_metadata()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  UPDATE auth.users
+    SET raw_app_meta_data = raw_app_meta_data ||
+        jsonb_build_object('allowed_services', NEW.allowed_services)
+    WHERE id = NEW.supabase_uid;
+  RETURN NEW;
+END;
+$$;
+
+-- Trigger บน public.users
+CREATE TRIGGER trg_sync_allowed_services
+  AFTER INSERT OR UPDATE OF allowed_services ON public.users
+  FOR EACH ROW EXECUTE FUNCTION sync_allowed_services_to_metadata();
+```
+
+**Step 2: OAuth2Proxy inject header**
+
+ใน `oauth2-proxy` config ให้เพิ่ม pass-through ของ claim `allowed_services` จาก JWT:
+```ini
+# oauth2-proxy.cfg
+pass-access-token = true
+set-xauthrequest = true
+# JWT claim จะถูก inject เป็น X-Auth-Request-* header อัตโนมัติ
+```
+
+**Step 3: Spring Boot Filter ในแต่ละ BE Service**
+
+```java
+@Component
+public class ServiceAccessFilter extends OncePerRequestFilter {
+    private static final String SERVICE_NAME = "chat_app"; // เปลี่ยนตาม service
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest req,
+                                    HttpServletResponse res,
+                                    FilterChain chain) throws IOException, ServletException {
+        String allowed = req.getHeader("X-Allowed-Services"); // inject โดย OAuth2Proxy
+        if (allowed == null || (!allowed.contains("all") && !allowed.contains(SERVICE_NAME))) {
+            res.sendError(HttpServletResponse.SC_FORBIDDEN, "Service access denied");
+            return;
+        }
+        chain.doFilter(req, res);
+    }
+}
+```
+
+---
+
+### 3.4 แนวทางที่แนะนำสำหรับโปรเจกต์นี้
+
+```
+[Supabase DB: public.users.allowed_services]
+        │ Trigger auto-sync
+        ▼
+[auth.users.app_metadata.allowed_services]
+        │ embed ใน JWT
+        ▼
+[OAuth2Proxy: validate JWT + inject X-Allowed-Services header]
+        │
+        ├──▶ [chat_app BE] → Filter อ่าน header → ตรวจ "all" หรือ "chat_app"
+        ├──▶ [bpost BE]    → Filter อ่าน header → ตรวจ "all" หรือ "bpost"
+        └──▶ [dinner BE]   → Filter อ่าน header → ตรวจ "all" หรือ "dinner"
+```
+
+> **Note:** ถ้า Phase 1 (OAuth2Proxy) ยังไม่ live ให้ BE แต่ละตัว query `public.users.allowed_services` โดยตรงชั่วคราวก่อน แล้วค่อย migrate ไป header-based เมื่อ gateway พร้อม
+
+---
+
+## 4. สรุป Workflow ของระบบ Auth ที่ใช้งานจริงตอนนี้
 
 ในปัจจุบันระบบ Sandbox ของเราพึ่งพา Supabase แบบเต็มรูปแบบ:
 1. ผู้ใช้กดปุ่ม Login ที่ฝั่งหน้าบ้าน
