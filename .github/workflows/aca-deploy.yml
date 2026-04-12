@@ -273,3 +273,4 @@ jobs:
           imageToDeploy: redis:7.2-alpine
           ingress: internal
           targetPort: 6379
+
