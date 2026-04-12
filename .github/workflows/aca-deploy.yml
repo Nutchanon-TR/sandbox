@@ -62,6 +62,7 @@ jobs:
           minReplicas: 0
           maxReplicas: 1
         # ACA ingress reminder: set frontend ingress to "Internal" (Gateway will route traffic).
+        # Note: NEXT_PUBLIC_* vars are baked into the image at build time — no runtime secret injection needed.
 
   build_and_deploy_chat_service:
     name: Build and Deploy Chat Service
@@ -107,7 +108,32 @@ jobs:
           targetPort: 8080
           minReplicas: 0
           maxReplicas: 1
-        # ACA ingress reminder: set chat-service ingress to "Internal" (Limited to VNet).
+
+      - name: Set secrets on chat-service
+        run: |
+          az containerapp secret set \
+            --name chat-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --secrets \
+              supabase-db-password=${{ secrets.SUPABASE_DB_PASSWORD }} \
+              supabase-url=${{ secrets.SUPABASE_URL }} \
+              supabase-service-role-key=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} \
+              grok-api-key=${{ secrets.GROK_API_KEY }} \
+              redis-password=${{ secrets.REDIS_PASSWORD }} \
+              huggingface-api-key=${{ secrets.HUGGINGFACE_API_KEY }}
+
+      - name: Bind env vars to secrets on chat-service
+        run: |
+          az containerapp update \
+            --name chat-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --set-env-vars \
+              SUPABASE_DB_PASSWORD=secretref:supabase-db-password \
+              SUPABASE_URL=secretref:supabase-url \
+              SUPABASE_SERVICE_ROLE_KEY=secretref:supabase-service-role-key \
+              GROK_API_KEY=secretref:grok-api-key \
+              REDIS_PASSWORD=secretref:redis-password \
+              HUGGINGFACE_API_KEY=secretref:huggingface-api-key
 
   build_and_deploy_dinner_service:
     name: Build and Deploy Dinner Service
@@ -153,7 +179,30 @@ jobs:
           targetPort: 8080
           minReplicas: 0
           maxReplicas: 1
-        # ACA ingress reminder: set dinner-service ingress to "Internal" (Limited to VNet).
+
+      - name: Set secrets on dinner-service
+        run: |
+          az containerapp secret set \
+            --name dinner-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --secrets \
+              supabase-db-password=${{ secrets.SUPABASE_DB_PASSWORD }} \
+              supabase-url=${{ secrets.SUPABASE_URL }} \
+              supabase-service-role-key=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} \
+              grok-api-key=${{ secrets.GROK_API_KEY }} \
+              redis-password=${{ secrets.REDIS_PASSWORD }}
+
+      - name: Bind env vars to secrets on dinner-service
+        run: |
+          az containerapp update \
+            --name dinner-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --set-env-vars \
+              SUPABASE_DB_PASSWORD=secretref:supabase-db-password \
+              SUPABASE_URL=secretref:supabase-url \
+              SUPABASE_SERVICE_ROLE_KEY=secretref:supabase-service-role-key \
+              GROK_API_KEY=secretref:grok-api-key \
+              REDIS_PASSWORD=secretref:redis-password
 
   build_and_deploy_bpost_service:
     name: Build and Deploy B-Post Service
@@ -199,7 +248,28 @@ jobs:
           targetPort: 8080
           minReplicas: 0
           maxReplicas: 1
-        # ACA ingress reminder: set bpost-service ingress to "Internal" (Limited to VNet).
+
+      - name: Set secrets on bpost-service
+        run: |
+          az containerapp secret set \
+            --name bpost-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --secrets \
+              supabase-db-password=${{ secrets.SUPABASE_DB_PASSWORD }} \
+              supabase-url=${{ secrets.SUPABASE_URL }} \
+              supabase-service-role-key=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} \
+              grok-api-key=${{ secrets.GROK_API_KEY }}
+
+      - name: Bind env vars to secrets on bpost-service
+        run: |
+          az containerapp update \
+            --name bpost-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --set-env-vars \
+              SUPABASE_DB_PASSWORD=secretref:supabase-db-password \
+              SUPABASE_URL=secretref:supabase-url \
+              SUPABASE_SERVICE_ROLE_KEY=secretref:supabase-service-role-key \
+              GROK_API_KEY=secretref:grok-api-key
 
   build_and_deploy_gateway_service:
     name: Build and Deploy Gateway Service
@@ -250,6 +320,7 @@ jobs:
           targetPort: 80
           environmentVariables: FRONTEND_PORT=3000 BACKEND_PORT=8080 OAUTH2_PROXY_PORT=4180
         # ACA ingress reminder: set gateway-service ingress to "External".
+        # Note: gateway uses plain port env vars only — no secret injection needed.
 
   deploy_oauth2_proxy:
     name: Deploy OAuth2 Proxy
@@ -295,3 +366,18 @@ jobs:
           imageToDeploy: redis:7.2-alpine
           ingress: internal
           targetPort: 6379
+
+      - name: Set Redis password secret
+        run: |
+          az containerapp secret set \
+            --name redis \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --secrets redis-password=${{ secrets.REDIS_PASSWORD }}
+
+      - name: Configure Redis with password
+        run: |
+          az containerapp update \
+            --name redis \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --set-env-vars REDIS_PASSWORD=secretref:redis-password \
+            --command '["sh", "-c", "redis-server --requirepass $REDIS_PASSWORD"]'

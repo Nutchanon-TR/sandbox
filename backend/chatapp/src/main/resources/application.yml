@@ -67,7 +67,7 @@ app:
       dinner: v1/api/dinner
       chat-app: v1/api/chat-app
   supabase:
-    url: ${SUPABASE_UPL:}
+    url: ${SUPABASE_URL:}
     service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
     storage:
       bucket-name: images
