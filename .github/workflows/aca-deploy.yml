@@ -341,11 +341,28 @@ jobs:
           imageToDeploy: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
           ingress: internal
           targetPort: 4180
-          environmentVariables: >
-            SUPABASE_PROJECT_ID=${{ secrets.SUPABASE_PROJECT_ID }}
-            OAUTH2_PROXY_CLIENT_ID=${{ secrets.OAUTH2_PROXY_CLIENT_ID }}
-            OAUTH2_PROXY_CLIENT_SECRET=${{ secrets.OAUTH2_PROXY_CLIENT_SECRET }}
-            OAUTH2_PROXY_COOKIE_SECRET=${{ secrets.OAUTH2_PROXY_COOKIE_SECRET }}
+
+      - name: Set secrets on oauth2-proxy
+        run: |
+          az containerapp secret set \
+            --name oauth2-proxy \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --secrets \
+              supabase-project-id=${{ secrets.SUPABASE_PROJECT_ID }} \
+              oauth2-proxy-client-id=${{ secrets.OAUTH2_PROXY_CLIENT_ID }} \
+              oauth2-proxy-client-secret=${{ secrets.OAUTH2_PROXY_CLIENT_SECRET }} \
+              oauth2-proxy-cookie-secret=${{ secrets.OAUTH2_PROXY_COOKIE_SECRET }}
+
+      - name: Bind env vars to secrets on oauth2-proxy
+        run: |
+          az containerapp update \
+            --name oauth2-proxy \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --set-env-vars \
+              SUPABASE_PROJECT_ID=secretref:supabase-project-id \
+              OAUTH2_PROXY_CLIENT_ID=secretref:oauth2-proxy-client-id \
+              OAUTH2_PROXY_CLIENT_SECRET=secretref:oauth2-proxy-client-secret \
+              OAUTH2_PROXY_COOKIE_SECRET=secretref:oauth2-proxy-cookie-secret
 
   deploy_redis:
     name: Deploy Redis
