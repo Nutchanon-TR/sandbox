@@ -21,12 +21,13 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.CacheEvict;
 
 @Service
 public class ChatService {
@@ -38,6 +39,7 @@ public class ChatService {
     private final GroqAiClient groqAiClient;
     private final EmbeddingService embeddingService;
     private final JdbcTemplate jdbcTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     public ChatService(MessageRepository messageRepository,
                        RoomRepository roomRepository,
@@ -45,7 +47,8 @@ public class ChatService {
                        AiContextRepository aiContextRepository,
                        GroqAiClient groqAiClient,
                        EmbeddingService embeddingService,
-                       JdbcTemplate jdbcTemplate) {
+                       JdbcTemplate jdbcTemplate,
+                       RedisTemplate<String, Object> redisTemplate) {
         this.messageRepository = messageRepository;
         this.roomRepository = roomRepository;
         this.userRepository = userRepository;
@@ -53,6 +56,7 @@ public class ChatService {
         this.groqAiClient = groqAiClient;
         this.embeddingService = embeddingService;
         this.jdbcTemplate = jdbcTemplate;
+        this.redisTemplate = redisTemplate;
     }
 
     private static final int DEFAULT_PAGE_SIZE = 20;
@@ -88,7 +92,6 @@ public class ChatService {
         return new MessageHistoryResponse(dtos, hasMore);
     }
 
-    @CacheEvict(value = "chatHistory", allEntries = true)
     public String getAiResponse(ChatRequestDto request) {
         Long reqRoomId = request.getRoomId();
         if (reqRoomId == null) {
@@ -111,6 +114,9 @@ public class ChatService {
         userMessage.setIsAi(false);
         userMessage.setContent(request.getMessage());
         messageRepository.save(userMessage);
+
+        // Evict only cache entries for this room (pattern: chatHistory::roomId_*)
+        evictRoomCache(reqRoomId);
 
         // Embed user's message
         embeddingService.embedAndSave(userMessage);
@@ -194,6 +200,13 @@ public class ChatService {
         dto.setContent(message.getContent());
         dto.setCreatedAt(message.getCreatedAt());
         return dto;
+    }
+
+    private void evictRoomCache(Long roomId) {
+        Set<String> keys = redisTemplate.keys("chatHistory::" + roomId + "_*");
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
     }
 
     private Long getAiIdForRoom(Long roomId) {

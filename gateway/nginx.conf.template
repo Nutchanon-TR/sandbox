@@ -59,11 +59,15 @@ http {
         # ----------------------------------------
         # Chat Service
         location /v1/api/chat-app/ {
-            # => Uncomment the following block to enable JWT sidecar validation
-            # auth_request /oauth2/auth;
-            # error_page 401 = /oauth2/sign_in;
-            # auth_request_set $user $upstream_http_x_auth_request_user;
-            # proxy_set_header X-User-Id $user;
+            # JWT validation via OAuth2 Proxy sidecar
+            # Prerequisites: OAUTH2_PROXY_CLIENT_ID, OAUTH2_PROXY_CLIENT_SECRET,
+            #   OAUTH2_PROXY_COOKIE_SECRET ต้องตั้งค่าใน .env / ACA Secrets
+            #   และ oauth2-proxy ต้อง configure JWKS URL ให้ชี้ไป Supabase:
+            #   https://<project-id>.supabase.co/auth/v1/.well-known/jwks.json
+            auth_request /oauth2/auth;
+            error_page 401 = /oauth2/sign_in;
+            auth_request_set $user $upstream_http_x_auth_request_user;
+            proxy_set_header X-User-Id $user;
 
             proxy_pass http://chat_backend/v1/api/chat-app/;
             proxy_set_header Host $host;
@@ -72,6 +76,11 @@ http {
 
         # Dinner Service
         location /v1/api/dinner/ {
+            auth_request /oauth2/auth;
+            error_page 401 = /oauth2/sign_in;
+            auth_request_set $user $upstream_http_x_auth_request_user;
+            proxy_set_header X-User-Id $user;
+
             proxy_pass http://dinner_backend/v1/api/dinner/;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -79,6 +88,11 @@ http {
 
         # B-Post Service (Image/Storage)
         location /v1/api/b-post/ {
+            auth_request /oauth2/auth;
+            error_page 401 = /oauth2/sign_in;
+            auth_request_set $user $upstream_http_x_auth_request_user;
+            proxy_set_header X-User-Id $user;
+
             proxy_pass http://bpost_backend/v1/api/b-post/;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;

@@ -51,6 +51,8 @@ jobs:
           imageToDeploy: ghcr.io/${{ github.repository_owner }}/frontend:${{ github.sha }}
           ingress: internal
           targetPort: 3000
+          minReplicas: 0
+          maxReplicas: 1
         # ACA ingress reminder: set frontend ingress to "Internal" (Gateway will route traffic).
 
   build_and_deploy_chat_service:
@@ -92,6 +94,8 @@ jobs:
           imageToDeploy: ghcr.io/${{ github.repository_owner }}/chat-service:${{ github.sha }}
           ingress: internal
           targetPort: 8080
+          minReplicas: 0
+          maxReplicas: 1
         # ACA ingress reminder: set chat-service ingress to "Internal" (Limited to VNet).
 
   build_and_deploy_dinner_service:
@@ -133,6 +137,8 @@ jobs:
           imageToDeploy: ghcr.io/${{ github.repository_owner }}/dinner-service:${{ github.sha }}
           ingress: internal
           targetPort: 8080
+          minReplicas: 0
+          maxReplicas: 1
         # ACA ingress reminder: set dinner-service ingress to "Internal" (Limited to VNet).
 
   build_and_deploy_bpost_service:
@@ -174,10 +180,17 @@ jobs:
           imageToDeploy: ghcr.io/${{ github.repository_owner }}/bpost-service:${{ github.sha }}
           ingress: internal
           targetPort: 8080
+          minReplicas: 0
+          maxReplicas: 1
         # ACA ingress reminder: set bpost-service ingress to "Internal" (Limited to VNet).
 
   build_and_deploy_gateway_service:
     name: Build and Deploy Gateway Service
+    needs:
+      - build_and_deploy_frontend
+      - build_and_deploy_chat_service
+      - build_and_deploy_dinner_service
+      - build_and_deploy_bpost_service
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -215,7 +228,7 @@ jobs:
           imageToDeploy: ghcr.io/${{ github.repository_owner }}/gateway-service:${{ github.sha }}
           ingress: external
           targetPort: 80
-          environmentVariables: FRONTEND_PORT=80 BACKEND_PORT=80 OAUTH2_PROXY_PORT=80
+          environmentVariables: FRONTEND_PORT=3000 BACKEND_PORT=8080 OAUTH2_PROXY_PORT=4180
         # ACA ingress reminder: set gateway-service ingress to "External".
 
   deploy_oauth2_proxy:

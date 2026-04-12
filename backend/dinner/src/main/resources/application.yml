@@ -42,6 +42,7 @@ app:
       - http://localhost:5173
       - http://localhost:8080
       - http://localhost:3000
+      # TODO: เพิ่ม ACA/Cloudflare domain เมื่อ deploy เช่น https://yourdomain.com
   api:
     prefix:
       b-post: v1/api/b-post
