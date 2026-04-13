@@ -380,20 +380,13 @@ jobs:
           containerAppName: redis
           containerAppEnvironment: ${{ env.CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
-          imageToDeploy: docker.io/bitnami/redis:7.2
+          imageToDeploy: redis:7.2-alpine
           ingress: internal
           targetPort: 6379
 
-      - name: Set Redis password secret
-        run: |
-          az containerapp secret set \
-            --name redis \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
-            --secrets redis-password=${{ secrets.REDIS_PASSWORD }}
-
-      - name: Bind Redis password env var
+      - name: Set Redis password via args
         run: |
           az containerapp update \
             --name redis \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --set-env-vars REDIS_PASSWORD=secretref:redis-password
+            --args "--requirepass" "${{ secrets.REDIS_PASSWORD }}"
