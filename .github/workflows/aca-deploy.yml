@@ -397,4 +397,4 @@ jobs:
             --name redis \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --set-env-vars REDIS_PASSWORD=secretref:redis-password \
-            --command '["sh", "-c", "redis-server --requirepass $REDIS_PASSWORD"]'
+            --command "sh" "-c" 'redis-server --requirepass "$REDIS_PASSWORD"'
