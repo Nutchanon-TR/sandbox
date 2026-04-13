@@ -90,7 +90,8 @@ http {
         # จุดเชื่อมต่อ OAuth2‑Proxy
         location /oauth2/ {
             proxy_pass http://oauth2_proxy;
-            proxy_set_header Host $host;
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Forwarded-Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Scheme $scheme;
             proxy_set_header X-Auth-Request-Redirect $request_uri;
@@ -99,7 +100,8 @@ http {
         # เส้นทางของ Frontend
         location / {
             proxy_pass http://frontend;
-            proxy_set_header Host $host;
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Forwarded-Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         }
@@ -108,22 +110,26 @@ http {
         location /v1/api/chat/ {
             # auth_request /oauth2/auth;
             proxy_pass http://chat_backend/v1/api/chat/;
-            proxy_set_header Host $host;
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Forwarded-Host $host;
             proxy_set_header X-Real-IP $remote_addr;
         }
         location /v1/api/supplier-order/ {
             proxy_pass http://dinner_backend/v1/api/supplier-order/;
-            proxy_set_header Host $host;
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Forwarded-Host $host;
             proxy_set_header X-Real-IP $remote_addr;
         }
         location /v1/api/bpost/ {
             proxy_pass http://bpost_backend/v1/api/bpost/;
-            proxy_set_header Host $host;
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Forwarded-Host $host;
             proxy_set_header X-Real-IP $remote_addr;
         }
         location /v1/api/report/ {
             proxy_pass http://bpost_backend/v1/api/bpost/;
-            proxy_set_header Host $host;
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Forwarded-Host $host;
             proxy_set_header X-Real-IP $remote_addr;
         }
     }
