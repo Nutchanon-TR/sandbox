@@ -23,13 +23,6 @@ spring:
           model: "llama-3.3-70b-versatile"
       embedding:
         enabled: false
-  data:
-    redis:
-      host: redis
-      port: 6379
-      password: ${REDIS_PASSWORD:changeme}
-  cache:
-    type: redis
 
 server:
   error:

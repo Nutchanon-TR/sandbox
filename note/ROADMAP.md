@@ -11,11 +11,14 @@
 
 ## Phase 2: Caching (Redis Integration)
 เป้าหมาย: เพิ่มแคช (Cache) เพื่อลดภาระของ Database และลดเวลาในการโหลด (Latency)
-- `[x]` **Spin up Redis Container:** เพิ่ม Image Redis เข้ามาในระบบ
-- `[x]` **Integrate Redis with Chat Service:** แก้ไข Spring Boot (Chat) ให้ตรวจสอบแคชก่อนโหลดประวัติแชต หาก Cache Miss (ไม่เจอ) จึงค่อยไปดึง Database และนำผลกลับมาเก็บลงแคช
-- `[x]` **Integrate Redis with Dinner Service:** นำแคชไปประยุกต์ใช้เพื่อเก็บผลลัพธ์ Supplier Orders ที่ถูกดึงมาบ่อยๆ (เพื่อเสิร์ฟไวขึ้น)
-- `[x]` **Redis Security:** เพิ่ม `--requirepass` ให้ Redis และเอา port 6379 ออกจาก host (เข้าถึงได้เฉพาะใน internal network)
-- `[x]` **Fix Cache Invalidation:** เปลี่ยนจาก `@CacheEvict(allEntries = true)` เป็น `evictRoomCache(roomId)` ผ่าน `RedisTemplate.keys("chatHistory::{roomId}_*")` — ล้างเฉพาะห้องที่เปลี่ยนแปลง
+
+> **Note:** Redis ถูกถอดออกจากโปรเจกต์ชั่วคราว เพื่อลดความซับซ้อนของระบบในช่วง dev — จะกลับมา implement ใหม่เมื่อพร้อม
+
+- `[ ]` **Spin up Redis Container:** เพิ่ม Image Redis เข้ามาในระบบ
+- `[ ]` **Integrate Redis with Chat Service:** แก้ไข Spring Boot (Chat) ให้ตรวจสอบแคชก่อนโหลดประวัติแชต หาก Cache Miss (ไม่เจอ) จึงค่อยไปดึง Database และนำผลกลับมาเก็บลงแคช
+- `[ ]` **Integrate Redis with Dinner Service:** นำแคชไปประยุกต์ใช้เพื่อเก็บผลลัพธ์ Supplier Orders ที่ถูกดึงมาบ่อยๆ (เพื่อเสิร์ฟไวขึ้น)
+- `[ ]` **Redis Security:** เพิ่ม `--requirepass` ให้ Redis และเอา port 6379 ออกจาก host (เข้าถึงได้เฉพาะใน internal network)
+- `[ ]` **Cache Invalidation Strategy:** ใช้ per-room eviction ผ่าน `RedisTemplate.keys("chatHistory::{roomId}_*")` — ล้างเฉพาะห้องที่เปลี่ยนแปลง
 
 ## Phase 3: Virtual Machine Sandbox & Build
 เป้าหมาย: จำลองสภาพแวดล้อมคล้ายจริงและแก้ไขข้อจำกัดการ Build ออฟไลน์ โดยการรันโปรเจกต์บนระบบเซิร์ฟเวอร์จำลอง (Virtual Machine)
@@ -125,7 +128,7 @@
 | Phase | สถานะ | หมายเหตุ |
 |-------|--------|----------|
 | 1. Ingress Layer | 🟡 บางส่วน | Nginx ✅, OAuth2Proxy uncomment แล้ว ✅, รอ Secrets + JWKS config |
-| 2. Caching (Redis) | ✅ เสร็จ | Cache Invalidation แก้เป็น per-room แล้ว ✅ |
+| 2. Caching (Redis) | ⬜ ยังไม่เริ่ม | ถอด Redis ออกชั่วคราว — รอ implement ใหม่เมื่อพร้อม |
 | 3. VM Sandbox | 🟡 บางส่วน | `.env.example` ✅, CORS ✅, รอ `NEXT_PUBLIC_API_URL` + build test |
 | 4. AI & Vector DB | 🟡 บางส่วน | pgvector ✅, Groq ✅, EmbeddingService bug แก้แล้ว ✅, รอ E2E test |
 | 5. Observability | ⬜ ยังไม่เริ่ม | รอสมัคร New Relic (Manual M4) |

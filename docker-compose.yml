@@ -92,17 +92,6 @@ services:
       - sandbox_net
     restart: unless-stopped
 
-  # ----------------------------------------
-  # Centralized Redis Cache (Phase 2)
-  # ----------------------------------------
-  redis:
-    image: redis:7.2-alpine
-    command: redis-server --requirepass ${REDIS_PASSWORD:-changeme}
-    # No host port exposure — only accessible within sandbox_net
-    networks:
-      - sandbox_net
-    restart: unless-stopped
-
 networks:
   sandbox_net:
     driver: bridge
