@@ -2,7 +2,10 @@ import axios from 'axios';
 import { createSupabaseBrowser } from '@/lib/supabase/client';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+  // Production (ACA): NEXT_PUBLIC_API_URL is baked at build time via --build-arg in CI.
+  // Local Dev: leave NEXT_PUBLIC_API_URL empty → axios uses relative URLs, which route
+  //            through the Nginx gateway (http://localhost) automatically.
+  baseURL: process.env.NEXT_PUBLIC_API_URL || '',
   headers: {
     sourceSystem: process.env.SOURCE_SYSTEM_NAME || 'FRONTEND',
   },

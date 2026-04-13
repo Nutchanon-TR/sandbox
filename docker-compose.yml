@@ -58,8 +58,13 @@ services:
     networks:
       - sandbox_net
     environment:
-      # Tell the frontend to query its own domain locally (via Nginx)
-      - NEXT_PUBLIC_API_URL=http://localhost
+      # NOTE: NEXT_PUBLIC_* variables are baked into the Next.js bundle at BUILD TIME.
+      # Runtime injection via docker-compose environment has NO effect on the compiled bundle.
+      # → axios falls back to '' (relative URLs) which routes through Nginx gateway automatically.
+      # → If absolute URL is needed, pass as --build-arg NEXT_PUBLIC_API_URL=... in Dockerfile.
+      #
+      # Local Dev: uncomment below to override for a non-gateway dev setup
+      # - NEXT_PUBLIC_API_URL=http://localhost
     restart: unless-stopped
 
   # ----------------------------------------

@@ -32,10 +32,14 @@ server:
 app:
   cors:
     allowedOrigins:
-      - http://localhost:5173
-      - http://localhost:8080
-      - http://localhost:3000
-      # TODO: เพิ่ม ACA/Cloudflare domain เมื่อ deploy เช่น https://yourdomain.com
+      # --- Production (ACA) ---
+      # Set CORS_ALLOWED_ORIGIN_GATEWAY in Container App environment variables
+      # e.g. https://gateway-service.<env>.<region>.azurecontainerapps.io
+      - ${CORS_ALLOWED_ORIGIN_GATEWAY:https://gateway-service.kindwave-7b5386c8.japaneast.azurecontainerapps.io}
+      # --- Local Dev (uncomment when running locally) ---
+      # - http://localhost:5173
+      # - http://localhost:8080
+      # - http://localhost:3000
   api:
     prefix:
       b-post: v1/api/b-post
