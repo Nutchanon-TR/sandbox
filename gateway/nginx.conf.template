@@ -37,6 +37,7 @@ server {
     # ----------------------------------------
     # Error Pages
     # ----------------------------------------
+    proxy_intercept_errors on;
     error_page 429 = @rate_limited;
     location @rate_limited {
         default_type application/json;
