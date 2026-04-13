@@ -30,6 +30,10 @@ server {
     listen 80;
     server_name localhost;
 
+    # Use HTTP/1.1 for all proxy requests to Envoy (ACA internal ingress rejects HTTP/1.0 with 426)
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+
     # ----------------------------------------
     # Error Pages
     # ----------------------------------------
