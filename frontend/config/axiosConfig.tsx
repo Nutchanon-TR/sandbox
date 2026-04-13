@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { createSupabaseBrowser } from '@/lib/supabase/client';
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
@@ -7,11 +8,12 @@ const api = axios.create({
   },
 });
 
-// (Optional) Add Interceptors for Request/Response handling
-api.interceptors.request.use((config) => {
-  // e.g. Attach token automatically
-  // const token = localStorage.getItem('token');
-  // if (token) config.headers.Authorization = `Bearer ${token}`;
+api.interceptors.request.use(async (config) => {
+  const supabase = createSupabaseBrowser();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) {
+    config.headers.Authorization = `Bearer ${session.access_token}`;
+  }
   return config;
 });
 

@@ -49,7 +49,7 @@ server {
     # Chat Service
     location /v1/api/chat-app/ {
         auth_request /oauth2/auth;
-        error_page 401 = /oauth2/sign_in;
+        error_page 401 = @unauthorized;
         auth_request_set $user $upstream_http_x_auth_request_user;
         proxy_set_header X-User-Id $user;
 
@@ -61,7 +61,7 @@ server {
     # Dinner Service
     location /v1/api/dinner/ {
         auth_request /oauth2/auth;
-        error_page 401 = /oauth2/sign_in;
+        error_page 401 = @unauthorized;
         auth_request_set $user $upstream_http_x_auth_request_user;
         proxy_set_header X-User-Id $user;
 
@@ -73,12 +73,16 @@ server {
     # B-Post Service (Image/Storage)
     location /v1/api/b-post/ {
         auth_request /oauth2/auth;
-        error_page 401 = /oauth2/sign_in;
+        error_page 401 = @unauthorized;
         auth_request_set $user $upstream_http_x_auth_request_user;
         proxy_set_header X-User-Id $user;
 
         proxy_pass http://bpost_backend/v1/api/b-post/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location @unauthorized {
+        return 302 /login;
     }
 }
