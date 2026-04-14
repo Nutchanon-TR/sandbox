@@ -107,7 +107,7 @@ jobs:
           imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/chat-service:${{ github.sha }}
           ingress: internal
           targetPort: 8080
-          minReplicas: 0
+          minReplicas: 1
           maxReplicas: 1
 
       - name: Set secrets on chat-service
@@ -176,7 +176,7 @@ jobs:
           imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/dinner-service:${{ github.sha }}
           ingress: internal
           targetPort: 8080
-          minReplicas: 0
+          minReplicas: 1
           maxReplicas: 1
 
       - name: Set secrets on dinner-service
@@ -243,7 +243,7 @@ jobs:
           imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/bpost-service:${{ github.sha }}
           ingress: internal
           targetPort: 8080
-          minReplicas: 0
+          minReplicas: 1
           maxReplicas: 1
 
       - name: Set secrets on bpost-service
