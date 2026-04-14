@@ -10,19 +10,19 @@ upstream frontend {
     server frontend:${FRONTEND_PORT};
 }
 
-upstream chat_backend {
+upstream chat-service {
     server chat-service:${BACKEND_PORT};
 }
 
-upstream dinner_backend {
+upstream dinner-service {
     server dinner-service:${BACKEND_PORT};
 }
 
-upstream bpost_backend {
+upstream bpost-service {
     server bpost-service:${BACKEND_PORT};
 }
 
-upstream oauth2_proxy {
+upstream oauth2-proxy {
     server oauth2-proxy:${OAUTH2_PROXY_PORT};
 }
 
@@ -54,7 +54,7 @@ server {
     # OAuth2 Proxy Endpoints
     # ----------------------------------------
     location /oauth2/ {
-        proxy_pass       http://oauth2_proxy;
+        proxy_pass       http://oauth2-proxy;
         proxy_set_header Host                    $proxy_host;
         proxy_set_header X-Forwarded-Host        $host;
         proxy_set_header X-Real-IP               $remote_addr;
@@ -67,13 +67,12 @@ server {
     # ----------------------------------------
     location / {
         proxy_pass http://frontend;
-        # Pass the original client-facing Host so Next.js sees the real domain
-        # (not the internal ACA upstream name "frontend")
-        proxy_set_header Host $host;
+        # In Azure Container Apps Envoy, the Host header MUST match the internal container app name.
+        # Nginx sets Host to $proxy_host by default ("frontend"), which ACA accepts.
+        proxy_set_header Host $proxy_host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        # Preserve the original protocol (https) so Next.js constructs correct URLs
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
     }
 
@@ -87,7 +86,7 @@ server {
         auth_request_set $user $upstream_http_x_auth_request_user;
         proxy_set_header X-User-Id $user;
 
-        proxy_pass http://chat_backend/v1/api/chat-app/;
+        proxy_pass http://chat-service/v1/api/chat-app/;
         proxy_set_header Host $proxy_host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -100,7 +99,7 @@ server {
         auth_request_set $user $upstream_http_x_auth_request_user;
         proxy_set_header X-User-Id $user;
 
-        proxy_pass http://dinner_backend/v1/api/dinner/;
+        proxy_pass http://dinner-service/v1/api/dinner/;
         proxy_set_header Host $proxy_host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -113,7 +112,7 @@ server {
         auth_request_set $user $upstream_http_x_auth_request_user;
         proxy_set_header X-User-Id $user;
 
-        proxy_pass http://bpost_backend/v1/api/b-post/;
+        proxy_pass http://bpost-service/v1/api/b-post/;
         proxy_set_header Host $proxy_host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;
