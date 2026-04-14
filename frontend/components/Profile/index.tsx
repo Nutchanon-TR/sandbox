@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
     CheckCircleOutlined,
     ClockCircleOutlined,
@@ -23,12 +23,31 @@ interface ProfilePopoverProps {
 export default function ProfilePopover({ session, supabase }: ProfilePopoverProps) {
     const { theme: currentTheme } = useTheme();
     const { token } = antdTheme.useToken();
-
     const user = session?.user;
     const metadata = user?.user_metadata ?? {};
+    const image = metadata.avatar_url || metadata.picture;
+
+    // Cache imgError ตาม URL รูป — ถ้า URL เปลี่ยน (เช่น login บัญชีใหม่) ให้ลองโหลดใหม่
+    const cacheKey = image ? `avatar-error:${image}` : null;
+    const [imgError, setImgError] = useState<boolean>(() => {
+        if (!cacheKey || typeof sessionStorage === 'undefined') return false;
+        return sessionStorage.getItem(cacheKey) === '1';
+    });
+
+    const handleImgError = () => {
+        setImgError(true);
+        if (cacheKey) sessionStorage.setItem(cacheKey, '1');
+    };
+
+    // ถ้า URL เปลี่ยน ให้ reset (เช่น logout แล้ว login ด้วยบัญชีอื่น)
+    useEffect(() => {
+        if (!cacheKey) return;
+        const cached = sessionStorage.getItem(cacheKey) === '1';
+        setImgError(cached);
+    }, [cacheKey]);
+
     const appMetadata = user?.app_metadata ?? {};
     const name = metadata.full_name || metadata.name || user?.email?.split("@")[0] || "User";
-    const image = metadata.avatar_url || metadata.picture;
     const providers = Array.isArray(appMetadata.providers)
         ? appMetadata.providers
         : appMetadata.provider ? [appMetadata.provider] : [];
@@ -44,11 +63,13 @@ export default function ProfilePopover({ session, supabase }: ProfilePopoverProp
 
     if (!user) {
         return (
-            <img
-                src="/default-profile.png"
-                alt="Default Profile"
-                className="h-12 w-12 rounded-full border-4 border-white shadow-md dark:border-gray-700"
-            />
+            <Avatar
+                size={48}
+                style={{ backgroundColor: token.colorTextQuaternary, color: token.colorWhite, fontSize: 18 }}
+                className="border-4 border-white shadow-md dark:border-gray-700"
+            >
+                ?
+            </Avatar>
         );
     }
 
@@ -113,11 +134,12 @@ export default function ProfilePopover({ session, supabase }: ProfilePopoverProp
         </div>
     );
 
-    const avatarNode = image ? (
+    const avatarNode = image && !imgError ? (
         <img
             src={image}
             alt="Profile"
             className="h-12 w-12 cursor-pointer rounded-full border-4 border-white shadow-md transition-opacity hover:opacity-80 dark:border-gray-700"
+            onError={handleImgError}
         />
     ) : (
         <Avatar

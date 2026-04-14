@@ -11,6 +11,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:8080";
+    return [
+      {
+        source: "/v1/api/:path*",
+        destination: `${backendUrl}/v1/api/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -339,10 +339,18 @@ export default function MessagePage() {
         );
     }
 
-    if (status === 'unauthenticated' || currentUserId === null) {
+    if (status === 'unauthenticated') {
         return (
             <div className="flex h-full items-center justify-center text-slate-500">
                 <p>Please log in to use the chat.</p>
+            </div>
+        );
+    }
+
+    if (currentUserId === null) {
+        return (
+            <div className="flex h-full items-center justify-center text-slate-500">
+                <p>Chat service is currently unavailable. Please try again later.</p>
             </div>
         );
     }

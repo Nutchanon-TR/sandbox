@@ -19,24 +19,33 @@ export default function NavigateGuardProvider({ children }: { children: React.Re
     const [isAuthorized, setIsAuthorized] = useState(false);
 
     useEffect(() => {
+        let mounted = true;
+
         const checkSession = async () => {
             const { data: { session } } = await supabase.auth.getSession();
-            setStatus(session ? "authenticated" : "unauthenticated");
+            if (mounted) {
+                setStatus(session ? "authenticated" : "unauthenticated");
+            }
+        };
 
-            const { data: authListener } = supabase.auth.onAuthStateChange(
-                (event, session) => {
+        checkSession();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+            (_event, session) => {
+                if (mounted) {
                     setStatus(session ? "authenticated" : "unauthenticated");
                 }
-            );
+            }
+        );
 
-            return () => {
-                authListener.subscription.unsubscribe();
-            };
+        return () => {
+            mounted = false;
+            authListener.subscription.unsubscribe();
         };
-        checkSession();
     }, [supabase.auth]);
 
     useEffect(() => {
+        setIsAuthorized(false);
         if (status === "loading") return;
 
         const validPaths = getValidPaths();
