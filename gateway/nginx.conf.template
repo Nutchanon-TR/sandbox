@@ -34,6 +34,12 @@ server {
     proxy_http_version 1.1;
     proxy_set_header Connection "";
 
+    # Increase proxy buffer sizes to handle large response headers
+    # (Supabase auth sets large JWT cookies that exceed Nginx's default 4k/8k buffer)
+    proxy_buffer_size          128k;
+    proxy_buffers              4 256k;
+    proxy_busy_buffers_size    256k;
+
     # ----------------------------------------
     # Error Pages
     # ----------------------------------------
@@ -61,10 +67,14 @@ server {
     # ----------------------------------------
     location / {
         proxy_pass http://frontend;
-        proxy_set_header Host $proxy_host;
+        # Pass the original client-facing Host so Next.js sees the real domain
+        # (not the internal ACA upstream name "frontend")
+        proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # Preserve the original protocol (https) so Next.js constructs correct URLs
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
     }
 
     # ----------------------------------------

@@ -38,6 +38,7 @@ jobs:
             --file ./frontend/Dockerfile \
             --build-arg NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
             --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
+            --build-arg NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL }} \
             --tag ghcr.io/${LOWER_OWNER}/frontend:${{ github.sha }} \
             ./frontend
           docker push ghcr.io/${LOWER_OWNER}/frontend:${{ github.sha }}
