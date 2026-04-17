@@ -45,7 +45,7 @@ CMD ["node", "server.js"]
 ```
 * ใช้ Next.js standalone output ทำงานด้วย Node.js บนพอร์ต **3000**
 
-### 1.3 Backend Services – `backend/{chatapp,dinner,bpost}/Dockerfile`
+### 1.3 Backend Services �� `backend/{chatapp,dinner,bpost,user}/Dockerfile`
 ```Dockerfile
 # Stage 1: Build
 FROM maven:3.9.6-eclipse-temurin-21 AS builder
@@ -81,6 +81,7 @@ http {
     upstream chat_backend { server chat-service:${BACKEND_PORT}; }
     upstream dinner_backend { server dinner-service:${BACKEND_PORT}; }
     upstream bpost_backend { server bpost-service:${BACKEND_PORT}; }
+    upstream user_backend { server user-service:${BACKEND_PORT}; }
     upstream oauth2_proxy { server oauth2-proxy:${OAUTH2_PROXY_PORT}; }
 
     server {
@@ -132,6 +133,13 @@ http {
             proxy_set_header X-Forwarded-Host $host;
             proxy_set_header X-Real-IP $remote_addr;
         }
+        location /v1/api/user/ {
+            # auth_request /oauth2/auth;
+            proxy_pass http://user_backend/v1/api/user/;
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
     }
 }
 ```
@@ -159,6 +167,7 @@ services:
       - chat-service
       - dinner-service
       - bpost-service
+      - user-service
       - oauth2-proxy
     networks:
       - sandbox_net
@@ -223,6 +232,15 @@ services:
     build:
       context: ./backend/bpost
       dockerfile: Dockerfile
+    networks:
+      - sandbox_net
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ./backend/user
+      dockerfile: Dockerfile
+    env_file: .env
     networks:
       - sandbox_net
     restart: unless-stopped

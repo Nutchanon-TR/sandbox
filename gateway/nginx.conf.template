@@ -22,6 +22,10 @@ upstream bpost-service {
     server bpost-service:${BACKEND_PORT};
 }
 
+upstream user-service {
+    server user-service:${BACKEND_PORT};
+}
+
 upstream oauth2-proxy {
     server oauth2-proxy:${OAUTH2_PROXY_PORT};
 }
@@ -113,6 +117,19 @@ server {
         proxy_set_header X-User-Id $user;
 
         proxy_pass http://bpost-service/v1/api/b-post/;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # User Service
+    location /v1/api/user/ {
+        auth_request /oauth2/auth;
+        error_page 401 = @unauthorized;
+        auth_request_set $user $upstream_http_x_auth_request_user;
+        proxy_set_header X-User-Id $user;
+
+        proxy_pass http://user-service/v1/api/user/;
         proxy_set_header Host $proxy_host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;

@@ -120,7 +120,7 @@ export default function MessagePage() {
         const resolveUser = async () => {
             try {
                 const response = await fetchApi<UserResolveResponse>(
-                    API_SANDBOX.CHAT_APP_RESOLVE_USER,
+                    API_SANDBOX.USER_RESOLVE,
                     {
                         supabaseUid: session.user.id,
                         email: session.user.email || '',

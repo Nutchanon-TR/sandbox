@@ -268,6 +268,67 @@ jobs:
               SUPABASE_SERVICE_ROLE_KEY=secretref:supabase-service-role-key \
               GROK_API_KEY=secretref:grok-api-key
 
+  build_and_deploy_user_service:
+    name: Build and Deploy User Service
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set lowercase owner
+        run: echo "LOWER_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push user-service image
+        run: |
+          docker build --file ./backend/user/Dockerfile --tag ghcr.io/${LOWER_OWNER}/user-service:${{ github.sha }} ./backend/user
+          docker push ghcr.io/${LOWER_OWNER}/user-service:${{ github.sha }}
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy user-service to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          registryUrl: ghcr.io
+          registryUsername: ${{ github.actor }}
+          registryPassword: ${{ secrets.GITHUB_TOKEN }}
+          containerAppName: user-service
+          containerAppEnvironment: ${{ env.CONTAINER_APP_ENVIRONMENT }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/user-service:${{ github.sha }}
+          ingress: internal
+          targetPort: 8080
+          minReplicas: 1
+          maxReplicas: 1
+
+      - name: Set secrets on user-service
+        run: |
+          az containerapp secret set \
+            --name user-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --secrets \
+              supabase-db-password=${{ secrets.SUPABASE_DB_PASSWORD }}
+
+      - name: Bind env vars to secrets on user-service
+        run: |
+          az containerapp update \
+            --name user-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --set-env-vars \
+              SUPABASE_DB_PASSWORD=secretref:supabase-db-password
+
   build_and_deploy_gateway_service:
     name: Build and Deploy Gateway Service
     needs:
@@ -275,6 +336,7 @@ jobs:
       - build_and_deploy_chat_service
       - build_and_deploy_dinner_service
       - build_and_deploy_bpost_service
+      - build_and_deploy_user_service
     runs-on: ubuntu-latest
     permissions:
       contents: read

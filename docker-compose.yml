@@ -19,6 +19,7 @@ services:
       - chat-service
       - dinner-service
       - bpost-service
+      - user-service
       - oauth2-proxy
     networks:
       - sandbox_net
@@ -91,6 +92,15 @@ services:
   bpost-service:
     build:
       context: ./backend/bpost
+      dockerfile: Dockerfile
+    env_file: .env
+    networks:
+      - sandbox_net
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ./backend/user
       dockerfile: Dockerfile
     env_file: .env
     networks:

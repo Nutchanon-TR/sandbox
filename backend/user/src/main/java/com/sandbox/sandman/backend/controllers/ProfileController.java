@@ -1,13 +1,13 @@
 package com.sandbox.sandman.backend.controllers;
 
-import com.sandbox.sandman.backend.model.dto.UserDto.ProfileCreateRequestDto;
-import com.sandbox.sandman.backend.model.dto.UserDto.ProfileDto;
+import com.sandbox.sandman.backend.model.dto.ProfileCreateRequestDto;
+import com.sandbox.sandman.backend.model.dto.ProfileDto;
 import com.sandbox.sandman.backend.services.ProfileService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@RestController("userProfileController")
-@RequestMapping("${app.api.prefix.chat-app}")
+@RestController
+@RequestMapping("${app.api.prefix.user}")
 public class ProfileController {
 
     private final ProfileService profileService;

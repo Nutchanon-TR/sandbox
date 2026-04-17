@@ -23,8 +23,16 @@ export const API_SANDBOX: Record<string, ApiDetail> = {
         path: `${contextPath}/v1/api/chat-app/room/list/{userId}`,
         method: 'GET',
     },
-    CHAT_APP_RESOLVE_USER: {
-        path: `${contextPath}/v1/api/chat-app/user/resolve`,
+    USER_RESOLVE: {
+        path: `${contextPath}/v1/api/user/user/resolve`,
+        method: 'POST',
+    },
+    USER_PROFILE_GET: {
+        path: `${contextPath}/v1/api/user/profile/{supabaseUid}`,
+        method: 'GET',
+    },
+    USER_PROFILE_CREATE: {
+        path: `${contextPath}/v1/api/user/profile`,
         method: 'POST',
     },
 };

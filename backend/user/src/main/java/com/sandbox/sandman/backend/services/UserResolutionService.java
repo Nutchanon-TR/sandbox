@@ -1,8 +1,8 @@
 package com.sandbox.sandman.backend.services;
 
-import com.sandbox.sandman.backend.model.dto.ChatDto.UserResolveResponseDto;
-import com.sandbox.sandman.backend.model.entity.ChatEntity.User;
-import com.sandbox.sandman.backend.repositories.ChatRepository.UserRepository;
+import com.sandbox.sandman.backend.model.dto.UserResolveResponseDto;
+import com.sandbox.sandman.backend.model.entity.User;
+import com.sandbox.sandman.backend.repositories.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

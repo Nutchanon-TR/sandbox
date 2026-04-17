@@ -1,4 +1,4 @@
-package com.sandbox.sandman.backend.model.entity.UserEntity;
+package com.sandbox.sandman.backend.model.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;

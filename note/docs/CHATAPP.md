@@ -105,42 +105,16 @@ users.profiles
 ```
 
 > **หมายเหตุ:** `chat.users` และ `users.profiles` เป็น 2 table คนละ schema
-> - `chat.users` — identity ของผู้ใช้ในระบบแชท (สร้างอัตโนมัติตอน resolve)
-> - `users.profiles` — ข้อมูล profile ของผู้ใช้ทั่วไป (username, avatar ฯลฯ)
+> - `chat.users` — identity ของผู้ใช้ในระบบแชท (write โดย user-service, ChatApp อ่าน read-only)
+> - `users.profiles` — ข้อมูล profile ของผู้ใช้ทั่วไป (จัดการโดย user-service)
 
 ---
 
 ## Controllers และ Endpoints
 
-### `UserController` — `POST /v1/api/chat-app/user/resolve`
-
-แปลง Supabase UUID → chat user ID (สร้างใหม่ถ้ายังไม่มี / sync display_name ถ้าเปลี่ยน)
-
-**Request:**
-```json
-{
-  "supabaseUid": "abc-123-uuid",
-  "displayName": "John Doe"
-}
-```
-
-**Response:**
-```json
-{
-  "userId": 5
-}
-```
-
-**Logic (UserResolutionService):**
-1. แปลง `supabaseUid` string → `UUID`
-2. หา `chat.users` ด้วย `supabase_uid`
-   - ถ้าเจอ → sync `display_name` ถ้าเปลี่ยน แล้ว return
-   - ถ้าไม่เจอ → สร้าง User ใหม่
-3. คืน `userId` เพียงอย่างเดียว (**ไม่มี roomId** ใน response แล้ว)
-
-> **เปลี่ยนจากเดิม:** response เดิมคืนทั้ง `userId` และ `roomId` แต่ตอนนี้คืนแค่ `userId` — room ต้องดึงผ่าน `RoomController` แยกต่างหาก
-
----
+> **หมายเหตุ:** User management (UserController, ProfileController, UserResolutionService, ProfileService)
+> ถูกย้ายไปที่ **user-service** (`backend/user/`) แล้ว — ดู endpoint ใหม่ที่ `/v1/api/user/`
+> ChatApp ยังคง read-only access ถึง `chat.users` ผ่าน JPA สำหรับดึงข้อมูล sender ในแชท
 
 ### `RoomController`
 
@@ -286,35 +260,9 @@ users.profiles
 
 ---
 
-### `ProfileController`
-
-#### `GET /v1/api/chat-app/profile/{supabaseUid}`
-
-ดึง profile ของผู้ใช้
-
-**Response:**
-```json
-{
-  "supabaseUid": "abc-123-uuid",
-  "username": "john_doe",
-  "email": "john@example.com",
-  "role": "USER",
-  "avatarUrl": "https://..."
-}
-```
-
-#### `POST /v1/api/chat-app/profile`
-
-สร้างหรืออัปเดต profile
-
-**Request:**
-```json
-{
-  "supabaseUid": "abc-123-uuid",
-  "username": "john_doe",
-  "email": "john@example.com"
-}
-```
+> **ProfileController** ถูกย้ายไปที่ user-service แล้ว — endpoint ใหม่:
+> - `GET /v1/api/user/profile/{supabaseUid}`
+> - `POST /v1/api/user/profile`
 
 ---
 
@@ -381,11 +329,10 @@ user ส่งข้อความ
 
 | Repository | Method หลัก |
 |------------|------------|
-| `UserRepository` | `findBySupabaseUid(UUID)` |
+| `UserRepository` (read-only) | `findBySupabaseUid(UUID)`, `findById(Long)` — อ่านข้อมูล sender (write ย้ายไป user-service) |
 | `RoomRepository` | `findAllByUserId(userId)`, `findPrivateRoomBetween(userId, aiUserId)` |
 | `MessageRepository` | `findTopNByRoomId(roomId, pageable)`, `findLatestByRoomId(roomId, pageable)`, `findByRoomIdBeforeId(roomId, beforeId, pageable)` |
 | `AiContextRepository` | `findByRoomId(roomId)` |
-| `ProfileRepository` | `findById(supabaseUid)` |
 
 ---
 

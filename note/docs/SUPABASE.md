@@ -43,7 +43,9 @@ Next.js Middleware จะใช้สำหรับดักจับการ�
 
 ## 2. การเชื่อมต่อส่วนหลัง (Backend Integration - Spring Boot)
 
-ฝั่งลอจิกแอปพลิเคชันแบ็กเอนด์ (เช่น Microservice ของ `chat`, `dinner` และ `bpost`) นำฐานข้อมูล Postgres ของทาง Supabase มาเชื่อมกันตรงๆ แบบ Native Connection และพึ่งพากระบวนการร้องขอผ่าน REST API ภายนอกเพื่อย้ายไฟล์แนบเข้าไปยัง Supabase Storage (หน้าที่หลักในส่วนการอัปโหลดนี้คือเซอร์วิส `bpost`)
+ฝั่งลอจิกแอปพลิเคชันแบ็กเอนด์ (เช่น Microservice ของ `chat`, `dinner`, `bpost` และ `user`) นำฐานข้อมูล Postgres ของทาง Supabase มาเชื่อมกันตรงๆ แบบ Native Connection และพึ่งพากระบวนการร้องขอผ่าน REST API ภายนอกเพื่อย้ายไฟล์แนบเข้าไปยัง Supabase Storage (หน้าที่หลักในส่วนการอัปโหลดนี้คือเซอร์วิส `bpost`)
+
+> **หมายเหตุ:** `user-service` จัดการ write path ของ `chat.users` และ `users.profiles` — ChatApp คง read-only JPA access ถึง `chat.users` เท่านั้น
 
 ### 2.1 Database (PostgreSQL)
 สืบเนื่องจากตัว Supabase ซัพพอร์ตการต่อเข้าฐานข้อมูล Postgres ดั้งเดิม การตั้งค่าปรับแต่งบนโปรเจ็ค Spring จึงสามารถเรียกใช้การประมวลผลเชื่อมไปยังฐานข้อมูล Supabase ได้ใต้ตัวเชื่อมโปรโตคอล JDBC แบบตรงไปตรงมา
@@ -111,7 +113,7 @@ CREATE TABLE public.users (
   created_at       timestamptz     DEFAULT now(),
 
   CONSTRAINT chk_allowed_services
-    CHECK (allowed_services <@ ARRAY['all','chat_app','bpost','dinner']::text[])
+    CHECK (allowed_services <@ ARRAY['all','chat_app','bpost','dinner','user']::text[])
 );
 ```
 

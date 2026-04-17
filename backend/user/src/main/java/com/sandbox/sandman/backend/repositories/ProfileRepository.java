@@ -1,6 +1,6 @@
-package com.sandbox.sandman.backend.repositories.UserRepository;
+package com.sandbox.sandman.backend.repositories;
 
-import com.sandbox.sandman.backend.model.entity.UserEntity.Profile;
+import com.sandbox.sandman.backend.model.entity.Profile;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

@@ -1,9 +1,9 @@
 package com.sandbox.sandman.backend.services;
 
-import com.sandbox.sandman.backend.model.dto.UserDto.ProfileCreateRequestDto;
-import com.sandbox.sandman.backend.model.dto.UserDto.ProfileDto;
-import com.sandbox.sandman.backend.model.entity.UserEntity.Profile;
-import com.sandbox.sandman.backend.repositories.UserRepository.ProfileRepository;
+import com.sandbox.sandman.backend.model.dto.ProfileCreateRequestDto;
+import com.sandbox.sandman.backend.model.dto.ProfileDto;
+import com.sandbox.sandman.backend.model.entity.Profile;
+import com.sandbox.sandman.backend.repositories.ProfileRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

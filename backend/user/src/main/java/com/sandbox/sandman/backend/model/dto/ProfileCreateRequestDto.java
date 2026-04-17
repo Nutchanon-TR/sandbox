@@ -1,4 +1,4 @@
-package com.sandbox.sandman.backend.model.dto.UserDto;
+package com.sandbox.sandman.backend.model.dto;
 
 import lombok.Data;
 
