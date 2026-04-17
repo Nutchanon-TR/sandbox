@@ -439,7 +439,7 @@ jobs:
               OAUTH2_PROXY_COOKIE_SECURE=true \
               OAUTH2_PROXY_UPSTREAM=http://dummy \
               OAUTH2_PROXY_SKIP_JWT_BEARER_TOKENS=true \
-              OAUTH2_PROXY_EXTRA_JWT_ISSUERS=https://${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co/auth/v1=https://${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co/auth/v1 \
+              OAUTH2_PROXY_EXTRA_JWT_ISSUERS=https://${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co/auth/v1=authenticated \
               OAUTH2_PROXY_REVERSE_PROXY=true
 
       # Force scale settings — azure/container-apps-deploy-action sometimes ignores minReplicas/maxReplicas
