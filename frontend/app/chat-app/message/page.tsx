@@ -208,9 +208,9 @@ export default function MessagePage() {
         items: roomItems,
         selectedKey: activeRoomId ?? undefined,
         emptyText: "No rooms available",
-        loading: isRoomsLoading,
+        loading: currentUserId === null || isRoomsLoading,
         onSelect: handleSelectRoom,
-    }), [activeRoomId, handleSelectRoom, isRoomsLoading, roomItems]);
+    }), [activeRoomId, currentUserId, handleSelectRoom, isRoomsLoading, roomItems]);
 
     useChangeSubSideBar(subSideBarConfig);
 
