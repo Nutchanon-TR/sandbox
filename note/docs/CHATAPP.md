@@ -366,6 +366,186 @@ user ส่งข้อความ
 
 ---
 
+## WebSocket — Real-time Chat Plan
+
+### ปัญหาปัจจุบัน
+
+ตอนนี้ ChatApp ใช้ **HTTP request-response** ทั้งหมด:
+- ส่งข้อความ → `POST /v1/api/chat-app/message` → รอ AI reply → return
+- ดึงประวัติ → `GET /v1/api/chat-app/message/history/{roomId}`
+
+**ข้อจำกัด:**
+1. ไม่มี real-time — ผู้ใช้ต้อง poll หรือ refresh เพื่อดู messages ใหม่
+2. AI reply ใช้เวลา 3-15 วินาที — user ต้องรอ blocking request
+3. Group chat (อนาคต) ไม่สามารถแจ้ง members คนอื่นได้ real-time
+
+### สถาปัตยกรรม WebSocket (เป้าหมาย)
+
+```
+Browser (Next.js)
+      │
+      ▼ WebSocket upgrade
+Nginx Gateway (port 80)
+      │  /ws/chat
+      ▼
+chat-service (Spring Boot :8080)
+      │  STOMP over WebSocket
+      ├── /topic/room/{roomId}     ← subscribe: รับ messages real-time
+      ├── /app/chat.send           ← send: ส่งข้อความ
+      └── /user/queue/errors       ← personal error channel
+```
+
+### Tech Stack เพิ่มเติม
+
+| Layer | เครื่องมือ | หน้าที่ |
+|-------|-----------|---------|
+| **Backend** | Spring WebSocket + STOMP | WebSocket endpoint + message broker |
+| **Frontend** | `@stomp/stompjs` + `sockjs-client` | STOMP client สำหรับ browser |
+| **Gateway** | Nginx `proxy_pass` with upgrade | WebSocket proxy |
+
+### Backend Implementation Plan
+
+#### 1. Dependencies (`pom.xml`)
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-websocket</artifactId>
+</dependency>
+```
+
+#### 2. WebSocket Configuration
+**ไฟล์ใหม่:** `config/WebSocketConfig.java`
+
+- Enable STOMP messaging: `@EnableWebSocketMessageBroker`
+- Register STOMP endpoint: `/ws/chat` (with SockJS fallback)
+- Configure message broker:
+  - `/topic` — broadcast ไปทุกคนใน room (public channel)
+  - `/user/queue` — ส่งถึง user คนเดียว (errors, typing indicator)
+- Application destination prefix: `/app`
+- Allowed origins: ใช้ `app.cors.allowedOrigins` เดิม
+
+#### 3. STOMP Controller
+**ไฟล์ใหม่:** `controllers/ChatWebSocketController.java`
+
+```
+@MessageMapping("/chat.send")
+public void sendMessage(ChatRequestDto request, SimpMessageHeaderAccessor headerAccessor):
+  1. Validate roomId + senderId
+  2. Save user message → DB
+  3. Broadcast user message → /topic/room/{roomId}
+  4. Async: call AI → save reply → broadcast AI reply → /topic/room/{roomId}
+```
+
+**ข้อสำคัญ:** AI reply ทำ async (`@Async`) เพราะใช้เวลานาน — ไม่ block WebSocket thread
+
+#### 4. Flow ใหม่ (WebSocket)
+
+```
+User ส่งข้อความผ่าน STOMP (/app/chat.send)
+  │
+  ├── 1. Save user message ลง DB
+  ├── 2. Broadcast user message ไป /topic/room/{roomId}
+  │      → ทุก subscriber ใน room เห็นข้อความทันที
+  │
+  └── 3. Async: เรียก AI (Groq API)
+         ├── Save AI reply ลง DB
+         ├── Embed message (HuggingFace)
+         └── Broadcast AI reply ไป /topic/room/{roomId}
+               → ทุก subscriber เห็น AI reply ทันที
+```
+
+#### 5. Authentication บน WebSocket
+
+- ใช้ Supabase JWT token ใน `connect` frame header
+- สร้าง `ChannelInterceptor` เพื่อ validate JWT ตอน CONNECT
+- Extract user info จาก token → set เป็น `Principal` ใน session
+- Reject connection ถ้า token invalid
+
+#### 6. History Endpoint (คงไว้)
+
+`GET /v1/api/chat-app/message/history/{roomId}` ยังคงใช้ HTTP GET เดิม
+— ใช้สำหรับ load ประวัติเก่าตอนเปิดหน้า (ไม่ต้องใช้ WebSocket)
+
+### Frontend Implementation Plan
+
+#### 1. Dependencies
+```bash
+npm install @stomp/stompjs sockjs-client
+npm install -D @types/sockjs-client
+```
+
+#### 2. STOMP Hook / Store
+**ไฟล์ใหม่:** `stores/chatStore.ts` (Zustand)
+
+- `connected: boolean`
+- `messages: Map<roomId, ChatMessage[]>`
+- `connect(token: string)` — สร้าง STOMP client
+- `subscribe(roomId: number)` — subscribe `/topic/room/{roomId}`
+- `sendMessage(roomId, senderId, message)` — publish ไป `/app/chat.send`
+- `disconnect()` — cleanup
+
+#### 3. Flow ใหม่ (Frontend)
+
+```
+เปิดหน้า Chat
+  │
+  ├── 1. GET /message/history/{roomId} → load ประวัติเก่า (HTTP)
+  ├── 2. Connect WebSocket → /ws/chat (STOMP + JWT token)
+  └── 3. Subscribe /topic/room/{roomId}
+         │
+         ├── รับ user message → append to message list
+         └── รับ AI reply → append to message list
+
+ส่งข้อความ
+  └── Publish ไป /app/chat.send (STOMP)
+      → ไม่ต้องรอ response (fire-and-forget)
+      → message จะกลับมาผ่าน subscription
+```
+
+### Nginx Configuration
+
+เพิ่มใน `gateway/nginx.conf.template`:
+
+```nginx
+# WebSocket endpoint
+location /ws/ {
+    proxy_pass http://chat-service/ws/;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $proxy_host;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_read_timeout 86400s;  # Keep WebSocket alive for 24h
+}
+```
+
+### ลำดับการทำงาน (Phased)
+
+| Phase | งาน | ความเสี่ยง |
+|-------|------|-----------|
+| **WS-1** | เพิ่ม `spring-boot-starter-websocket` + `WebSocketConfig` | ต่ำ |
+| **WS-2** | สร้าง `ChatWebSocketController` + async AI reply | กลาง |
+| **WS-3** | เพิ่ม JWT auth interceptor สำหรับ STOMP CONNECT | กลาง |
+| **WS-4** | อัปเดต Nginx config สำหรับ WebSocket proxy | ต่ำ |
+| **WS-5** | Frontend: สร้าง `chatStore.ts` + STOMP client | กลาง |
+| **WS-6** | Frontend: refactor chat page ใช้ WebSocket แทน HTTP POST | สูง |
+| **WS-7** | เพิ่ม typing indicator + online status (optional) | ต่ำ |
+
+### Backward Compatibility
+
+- HTTP endpoints (`POST /message`, `GET /history`) คงไว้ — ทำงานได้ทั้ง 2 mode
+- Frontend สามารถ fallback เป็น HTTP ถ้า WebSocket connect ไม่ได้
+- Group chat ready: เมื่อมี multiple users ใน room ทุกคน subscribe ได้
+
+### Docker / ACA Considerations
+
+- **docker-compose:** ไม่ต้องแก้ (chat-service port 8080 เหมือนเดิม)
+- **Azure Container Apps:** ต้องตั้ง `--transport websocket` ใน ingress config
+- **Redis (อนาคต):** ถ้า scale chat-service เป็น multiple replicas ต้องใช้ Redis Pub/Sub เป็น external message broker แทน in-memory (SimpleBroker)
+
+---
+
 ## สิ่งที่ยังไม่ได้ทำ (Backlog)
 
 | รายการ | สถานะ |
