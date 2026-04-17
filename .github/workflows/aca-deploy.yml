@@ -128,7 +128,7 @@ jobs:
             --name chat-service \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --set-env-vars \
-              SPRING_DATASOURCE_URL=jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres \
+              SPRING_DATASOURCE_URL='jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?prepareThreshold=0' \
               SPRING_DATASOURCE_USERNAME=postgres.${{ secrets.SUPABASE_PROJECT_ID }} \
               SUPABASE_DB_PASSWORD=secretref:supabase-db-password \
               SUPABASE_URL=secretref:supabase-url \
@@ -198,7 +198,7 @@ jobs:
             --name dinner-service \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --set-env-vars \
-              SPRING_DATASOURCE_URL=jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres \
+              SPRING_DATASOURCE_URL='jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?prepareThreshold=0' \
               SPRING_DATASOURCE_USERNAME=postgres.${{ secrets.SUPABASE_PROJECT_ID }} \
               SUPABASE_DB_PASSWORD=secretref:supabase-db-password \
               SUPABASE_URL=secretref:supabase-url \
@@ -267,7 +267,7 @@ jobs:
             --name bpost-service \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --set-env-vars \
-              SPRING_DATASOURCE_URL=jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres \
+              SPRING_DATASOURCE_URL='jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?prepareThreshold=0' \
               SPRING_DATASOURCE_USERNAME=postgres.${{ secrets.SUPABASE_PROJECT_ID }} \
               SUPABASE_DB_PASSWORD=secretref:supabase-db-password \
               SUPABASE_URL=secretref:supabase-url \
@@ -333,7 +333,7 @@ jobs:
             --name user-service \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --set-env-vars \
-              SPRING_DATASOURCE_URL=jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres \
+              SPRING_DATASOURCE_URL='jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?prepareThreshold=0' \
               SPRING_DATASOURCE_USERNAME=postgres.${{ secrets.SUPABASE_PROJECT_ID }} \
               SUPABASE_DB_PASSWORD=secretref:supabase-db-password
 
