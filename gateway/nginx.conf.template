@@ -171,6 +171,13 @@ server {
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;
 
+        # Strip CORS headers จาก upstream — ให้ nginx เป็น single source of truth
+        # (ถ้าปล่อยผ่าน + add_header ด้านล่าง จะได้ header ซ้ำ 2 ค่า → browser reject)
+        proxy_hide_header Access-Control-Allow-Origin;
+        proxy_hide_header Access-Control-Allow-Credentials;
+        proxy_hide_header Access-Control-Allow-Methods;
+        proxy_hide_header Access-Control-Allow-Headers;
+
         # CORS headers บน actual response (ใช้ always เพื่อให้ติดทุก status code)
         add_header Access-Control-Allow-Origin $cors_origin always;
         add_header Access-Control-Allow-Credentials "true" always;
