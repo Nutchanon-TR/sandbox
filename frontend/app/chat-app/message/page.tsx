@@ -20,7 +20,6 @@ import {
     ChatResponse,
     MessageHistoryResponse,
     RoomSummary,
-    UserResolveResponse,
 } from '@/interface/ChatApp';
 import { fetchApi } from '@/utils/api';
 import { useChangeTitle } from "@/utils/breadCrumbUtil";
@@ -69,8 +68,8 @@ const BORDER = {
 
 export default function MessagePage() {
     // ── Auth & routing ──
-    const session = useSessionStore((s) => s.session);
     const status = useSessionStore((s) => s.status);
+    const currentUserId = useSessionStore((s) => s.internalUserId);
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const notification = useNotification();
@@ -80,11 +79,9 @@ export default function MessagePage() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState('');
 
-    const [currentUserId, setCurrentUserId] = useState<number | null>(null);
     const [resolvedRoomId, setResolvedRoomId] = useState<number | null>(null);
     const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
 
-    const [isResolving, setIsResolving] = useState(true);
     const [isRoomsLoading, setIsRoomsLoading] = useState(false);
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [isSending, setIsSending] = useState(false);
@@ -110,44 +107,7 @@ export default function MessagePage() {
     // ── Title ──
     useChangeTitle(TITLE.CHAT_APP, "MESSAGE");
 
-    // ── Step 1: Resolve user from Supabase session ──
-    useEffect(() => {
-        if (status === 'loading') return;
-        if (status === 'unauthenticated' || !session?.user) {
-            setIsResolving(false);
-            return;
-        }
-
-        const resolveUser = async () => {
-            try {
-                const response = await fetchApi<UserResolveResponse>(
-                    API_SANDBOX.USER_RESOLVE,
-                    {
-                        supabaseUid: session.user.id,
-                        email: session.user.email || '',
-                        username: session.user.user_metadata?.full_name
-                            || session.user.email?.split('@')[0]
-                            || 'user',
-                    }
-                );
-                console.log('[ChatApp] Resolved user — userId:', response.userId);
-                setCurrentUserId(response.userId);
-                setResolvedRoomId(response.roomId ?? null);
-            } catch (error: unknown) {
-                console.error('[ChatApp] Failed to resolve user:', error);
-                notification.error({
-                    message: 'Error',
-                    description: getErrorMessage(error, 'Failed to resolve user session'),
-                });
-            } finally {
-                setIsResolving(false);
-            }
-        };
-
-        void resolveUser();
-    }, [session, status, notification]);
-
-    // ── Step 2: Fetch room list ──
+    // ── Step 1: Fetch room list ──
     const fetchRooms = useCallback(async () => {
         if (currentUserId === null) return;
 
@@ -178,7 +138,7 @@ export default function MessagePage() {
 
     useEffect(() => { void fetchRooms(); }, [fetchRooms]);
 
-    // ── Step 3: Fetch chat history when room changes ──
+    // ── Step 2: Fetch chat history when room changes ──
 /*  */    useEffect(() => {
         if (activeRoomId == null) {
             setMessages([]);
@@ -248,9 +208,9 @@ export default function MessagePage() {
         items: roomItems,
         selectedKey: activeRoomId ?? undefined,
         emptyText: "No rooms available",
-        loading: isRoomsLoading || isResolving,
+        loading: isRoomsLoading,
         onSelect: handleSelectRoom,
-    }), [activeRoomId, handleSelectRoom, isResolving, isRoomsLoading, roomItems]);
+    }), [activeRoomId, handleSelectRoom, isRoomsLoading, roomItems]);
 
     useChangeSubSideBar(subSideBarConfig);
 
@@ -332,7 +292,7 @@ export default function MessagePage() {
     };
 
     // ── Guards ──
-    if (isResolving || status === 'loading') {
+    if (status === 'loading') {
         return (
             <div className="flex h-full items-center justify-center">
                 <Spin size="large" />

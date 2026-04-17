@@ -16,8 +16,8 @@ public class UserController {
         this.userResolutionService = userResolutionService;
     }
 
-    @PostMapping("/user/resolve")
-    public ResponseEntity<UserResolveResponseDto> resolveUser(@RequestBody UserResolveRequestDto request) {
+    @PostMapping("/sync")
+    public ResponseEntity<UserResolveResponseDto> syncUser(@RequestBody UserResolveRequestDto request) {
         UserResolveResponseDto response = userResolutionService.resolveUser(request.getSupabaseUid());
         return ResponseEntity.ok(response);
     }
