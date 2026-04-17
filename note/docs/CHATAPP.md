@@ -550,7 +550,7 @@ location /ws/ {
 
 | รายการ | สถานะ |
 |--------|-------|
-| **CORS production domain** | `WebConfig` ยังใส่แค่ localhost — ต้อง add production domain |
+| ~~**CORS production domain**~~ | ✅ ย้าย CORS handling ไปจัดการที่ nginx gateway (`/v1/api/user/`) — ดู [INFRA.md §2.1](INFRA.md#21-cors-handling-ที่-gateway-v1apiuser) |
 | **pgvector activation บน Supabase** | SQL พร้อมแล้วใน `database/03_pgvector_schema.sql` — รอรันบน Supabase จริง |
 | ~~**Frontend ยังใช้ roomId จาก resolve**~~ | ✅ แก้แล้ว — FE ใช้ room list แยก + local state `selectedRoomId` เป็น source of truth |
 | ~~**จำกัด history ก่อนส่ง Prompt**~~ | ✅ เสร็จแล้ว — ส่งแค่ 20 message ล่าสุด |

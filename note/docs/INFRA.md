@@ -146,6 +146,51 @@ http {
 * กำหนดเส้นทางจากภายนอกไปยังคอนเทนเนอร์ที่เกี่ยวข้อง
 * หากต้องการเปิดการตรวจสอบ JWT ให้เอา `#` ออกจากบรรทัด `auth_request`
 
+### 2.1 CORS Handling ที่ Gateway (`/v1/api/user/`)
+
+สำหรับ endpoint ที่ frontend local dev (http://localhost:3000) ยิงตรงเข้า prod gateway จำเป็นต้อง handle CORS ที่ nginx เอง (ไม่พึ่ง Spring CORS เพราะจะ conflict กัน):
+
+```nginx
+location /v1/api/user/ {
+    # Echo origin กลับเฉพาะ localhost — ป้องกัน arbitrary cross-origin
+    set $cors_origin "";
+    if ($http_origin ~* "^https?://localhost(:[0-9]+)?$") {
+        set $cors_origin $http_origin;
+    }
+
+    # CORS preflight (OPTIONS ไม่ส่ง Authorization → ต้อง bypass auth_request)
+    if ($request_method = OPTIONS) {
+        add_header Access-Control-Allow-Origin $cors_origin always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Authorization, Content-Type, sourceSystem" always;
+        add_header Access-Control-Allow-Credentials "true" always;
+        add_header Access-Control-Max-Age 86400 always;
+        return 204;
+    }
+
+    auth_request /oauth2/auth;
+    error_page 401 = @unauthorized;
+    ...
+    proxy_pass http://user-service/v1/api/user/;
+
+    # Strip CORS จาก upstream — nginx เป็น single source of truth
+    # (ถ้าปล่อยผ่าน + add_header ด้านล่าง จะได้ header ซ้ำ 2 ค่า → browser reject)
+    proxy_hide_header Access-Control-Allow-Origin;
+    proxy_hide_header Access-Control-Allow-Credentials;
+    proxy_hide_header Access-Control-Allow-Methods;
+    proxy_hide_header Access-Control-Allow-Headers;
+
+    add_header Access-Control-Allow-Origin $cors_origin always;
+    add_header Access-Control-Allow-Credentials "true" always;
+}
+```
+
+**จุดสำคัญ 3 ข้อ:**
+
+1. **Custom headers ต้อง whitelist** — axios ([frontend/config/axiosConfig.tsx](frontend/config/axiosConfig.tsx)) ส่ง `sourceSystem` → ต้องใส่ใน `Access-Control-Allow-Headers` ไม่งั้น browser block ตั้งแต่ preflight
+2. **OPTIONS ต้อง bypass `auth_request`** — browser ไม่แนบ `Authorization` ใน preflight → ถ้าบังคับ auth จะ 401
+3. **`proxy_hide_header` กัน CORS ซ้ำ** — ถ้า upstream (Spring) เผลอเติม `Access-Control-Allow-Origin` ด้วย + nginx เติมอีก → response จะมี 2 ค่าคั่นด้วย comma → browser reject ด้วย error "header contains multiple values"
+
 ---
 
 ## 3. docker‑compose – `docker-compose.yml`
