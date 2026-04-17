@@ -308,22 +308,15 @@ export default function MessagePage() {
         );
     }
 
-    if (currentUserId === null) {
-        return (
-            <div className="flex h-full items-center justify-center text-slate-500">
-                <p>Chat service is currently unavailable. Please try again later.</p>
-            </div>
-        );
-    }
-
     // ── Render ──
+    const isSyncing = currentUserId === null;
     const roomSubtitle = getRoomSubtitle(selectedRoom);
     const aiAvatarSrc = selectedRoom?.aiAvatarUrl || '/ai_avatar.png';
 
     return (
         <div className={`flex h-full min-h-0 flex-1 overflow-hidden rounded-[28px] border bg-background shadow-sm ${BORDER.main}`}>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                {isRoomsLoading ? (
+                {isSyncing || isRoomsLoading ? (
                     <div className="flex flex-1 items-center justify-center px-6">
                         <Spin size="large" />
                     </div>
