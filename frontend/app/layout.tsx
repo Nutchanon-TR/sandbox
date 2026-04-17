@@ -1,29 +1,24 @@
-'use client'
 import "./globals.css";
-import { ThemeProvider } from "@/context/ThemeContext";
+import { AppProviders } from "@/providers/AppProviders";
 import Sidebar from "@/components/SideBar";
-import LoadingWrapper from "@/context/LoadingContext";
-import { LayoutProvider } from "@/context/LayoutContext";
-import NavigateGuardProvider from "@/context/NavigateGuardProvider";
-import { NotificationProvider } from "@/context/NotificationContext";
+import { NavigationGuardProvider } from "@/providers/NavigationGuardProvider";
+
+export const metadata = {
+  title: 'Sandbox App',
+  description: 'Where Your Greatest Projects Become Reality.',
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <LayoutProvider>
-          <ThemeProvider>
-            <NotificationProvider>
-              <LoadingWrapper>
-                <Sidebar>
-                  <NavigateGuardProvider>
-                    {children}
-                  </NavigateGuardProvider>
-                </Sidebar>
-              </LoadingWrapper>
-            </NotificationProvider>
-          </ThemeProvider>
-        </LayoutProvider>
+        <AppProviders>
+          <Sidebar>
+            <NavigationGuardProvider>
+              {children}
+            </NavigationGuardProvider>
+          </Sidebar>
+        </AppProviders>
       </body>
     </html>
   );

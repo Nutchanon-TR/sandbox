@@ -10,14 +10,15 @@ import {
     SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { Avatar, Button, Divider, Popover, Space, Tag, theme as antdTheme, Typography } from "antd";
-import { useTheme } from "@/context/ThemeContext";
-import { useSupabaseSession } from "@/hooks/useSupabaseSession";
+import { useTheme } from "@/providers/ThemeProvider";
+import type { Session } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const { Text, Title: AntTitle } = Typography;
 
 interface ProfilePopoverProps {
-    session: ReturnType<typeof useSupabaseSession>["data"];
-    supabase: ReturnType<typeof useSupabaseSession>["supabase"];
+    session: Session | null;
+    supabase: SupabaseClient;
 }
 
 export default function ProfilePopover({ session, supabase }: ProfilePopoverProps) {

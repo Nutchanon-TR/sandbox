@@ -1,9 +1,10 @@
 "use client";
 
 import { TITLE } from "@/constants/Title";
-import { useLayoutContext } from "@/context/LayoutContext";
-import { useTheme } from "@/context/ThemeContext";
-import { useSupabaseSession } from "@/hooks/useSupabaseSession";
+import { useLayoutContext } from "@/providers/LayoutProvider";
+import { useTheme } from "@/providers/ThemeProvider";
+import { useSessionStore } from "@/stores/sessionStore";
+import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { TitleDetail } from "@/interface/common/TitleDetail";
 import {
     CodeSandboxOutlined,
@@ -52,7 +53,8 @@ function findMatchedTitle(items: TitleDetail[], pathname: string): TitleDetail |
 }
 
 export default function Sidebar({ children }: { children: React.ReactNode }) {
-    const { data: session, supabase } = useSupabaseSession();
+    const session = useSessionStore((s) => s.session);
+    const supabase = createSupabaseBrowser();
     const { breadCrumb, currentTitle, setCurrentTitle, subSideBarConfig } = useLayoutContext();
     const [collapsed, setCollapsed] = useState(false);
     const [openKeys, setOpenKeys] = useState<string[]>([]);

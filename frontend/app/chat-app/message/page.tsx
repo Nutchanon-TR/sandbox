@@ -13,8 +13,8 @@ import {
 } from "@ant-design/icons";
 import { TITLE } from "@/constants/Title";
 import { API_SANDBOX } from '@/constants/api/ApiSandbox';
-import { useNotification } from '@/context/NotificationContext';
-import { useSupabaseSession } from '@/hooks/useSupabaseSession';
+import { useNotification } from '@/providers/NotificationProvider';
+import { useSessionStore } from '@/stores/sessionStore';
 import {
     ChatMessage,
     ChatResponse,
@@ -69,7 +69,8 @@ const BORDER = {
 
 export default function MessagePage() {
     // ── Auth & routing ──
-    const { data: session, status } = useSupabaseSession();
+    const session = useSessionStore((s) => s.session);
+    const status = useSessionStore((s) => s.status);
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const notification = useNotification();

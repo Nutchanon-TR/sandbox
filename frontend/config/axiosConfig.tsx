@@ -1,10 +1,7 @@
 import axios from 'axios';
-import { createSupabaseBrowser } from '@/lib/supabase/client';
+import { useSessionStore } from '@/stores/sessionStore';
 
 const api = axios.create({
-  // Production (ACA): NEXT_PUBLIC_API_URL is baked at build time via --build-arg in CI.
-  // Local Dev: leave NEXT_PUBLIC_API_URL empty → axios uses relative URLs, which route
-  //            through the Nginx gateway (http://localhost) automatically.
   baseURL: process.env.NEXT_PUBLIC_API_URL || '',
   headers: {
     sourceSystem: process.env.SOURCE_SYSTEM_NAME || 'FRONTEND',
@@ -12,10 +9,9 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(async (config) => {
-  const supabase = createSupabaseBrowser();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.access_token) {
-    config.headers.Authorization = `Bearer ${session.access_token}`;
+  const token = useSessionStore.getState().accessToken;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });

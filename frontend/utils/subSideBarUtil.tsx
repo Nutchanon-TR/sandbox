@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLayoutContext } from "@/context/LayoutContext";
+import { useLayoutContext } from "@/providers/LayoutProvider";
 import { SubSideBarConfig } from "@/interface/common/SubSideBarConfig";
 
 export function useChangeSubSideBar(config: SubSideBarConfig | null) {

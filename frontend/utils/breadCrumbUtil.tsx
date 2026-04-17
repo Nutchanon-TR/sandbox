@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { BreadcrumbItemType } from 'antd/es/breadcrumb/Breadcrumb';
 import { TitleDetail } from '../interface/common/TitleDetail';
-import { useLayoutContext } from '../context/LayoutContext';
+import { useLayoutContext } from '@/providers/LayoutProvider';
 import GuardedLink from '@/components/GuardLink';
 
 export function useChangeTitle(titleArg: TitleDetail | TitleDetail[], subKey?: string) {
