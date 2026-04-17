@@ -123,7 +123,25 @@ server {
     }
 
     # User Service
+    # NOTE: dev (localhost) สามารถยิงตรงเข้า prod gateway ได้ (ใช้ Bearer JWT จาก Supabase)
+    # ต้องเปิด CORS + bypass auth_request สำหรับ OPTIONS preflight
     location /v1/api/user/ {
+        # Echo origin กลับเฉพาะ localhost (dev) — ป้องกัน arbitrary cross-origin
+        set $cors_origin "";
+        if ($http_origin ~* "^https?://localhost(:[0-9]+)?$") {
+            set $cors_origin $http_origin;
+        }
+
+        # CORS preflight — return ก่อน auth_request เพราะ OPTIONS ไม่ส่ง Authorization
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin $cors_origin always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;
+            add_header Access-Control-Allow-Credentials "true" always;
+            add_header Access-Control-Max-Age 86400 always;
+            return 204;
+        }
+
         auth_request /oauth2/auth;
         error_page 401 = @unauthorized;
         auth_request_set $user $upstream_http_x_auth_request_user;
@@ -133,6 +151,10 @@ server {
         proxy_set_header Host $proxy_host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+
+        # CORS headers บน actual response (ใช้ always เพื่อให้ติดทุก status code)
+        add_header Access-Control-Allow-Origin $cors_origin always;
+        add_header Access-Control-Allow-Credentials "true" always;
     }
 
     location @unauthorized {
