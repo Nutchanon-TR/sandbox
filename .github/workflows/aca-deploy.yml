@@ -329,6 +329,15 @@ jobs:
             --set-env-vars \
               SUPABASE_DB_PASSWORD=secretref:supabase-db-password
 
+      # Force scale settings — azure/container-apps-deploy-action sometimes ignores minReplicas/maxReplicas
+      - name: Enforce min/max replicas on user-service
+        run: |
+          az containerapp update \
+            --name user-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --min-replicas 1 \
+            --max-replicas 1
+
   build_and_deploy_gateway_service:
     name: Build and Deploy Gateway Service
     needs:
