@@ -1,80 +1,49 @@
-package com.sandbox.sandman.backend.services;
+package com.sandbox.sandman.backend.services.MessageService;
 
-import com.sandbox.sandman.backend.model.entity.ChatEntity.Message;
+import com.sandbox.sandman.backend.model.entity.MessageEntity.Chat;
+import com.sandbox.sandman.backend.repositories.MessageRepository.EmbeddingRepository;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class EmbeddingService {
 
     private static final Logger log = LoggerFactory.getLogger(EmbeddingService.class);
     private static final String HF_API_URL = "https://router.huggingface.co/hf-inference/models/intfloat/multilingual-e5-small/pipeline/feature-extraction";
 
-    private final JdbcTemplate jdbcTemplate;
-    private final RestTemplate restTemplate;
+    private final EmbeddingRepository messageEmbeddingRepository;
+    private final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${app.huggingface.api-key:}")
     private String hfApiKey;
 
-    public EmbeddingService(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-        this.restTemplate = new RestTemplate();
-    }
-
-    /**
-     * Embed a message and save to message_embeddings table.
-     * Uses "passage: " prefix as required by E5 models.
-     */
-    public void embedAndSave(Message message) {
+    public void embedAndSave(Chat chat) {
         try {
-            float[] embedding = embed("passage: " + message.getContent());
-            String vectorStr = toVectorString(embedding);
-            jdbcTemplate.update(
-                    "INSERT INTO chat.message_embeddings (message_id, embedding) VALUES (?, ?::vector) " +
-                    "ON CONFLICT (message_id) DO UPDATE SET embedding = EXCLUDED.embedding",
-                    message.getId(), vectorStr);
+            float[] embedding = embed("passage: " + chat.getContent());
+            messageEmbeddingRepository.saveEmbedding(chat.getId(), toVectorString(embedding));
         } catch (Exception e) {
-            log.warn("Failed to embed message {}: {}", message.getId(), e.getMessage());
+            log.warn("Failed to embed message {}: {}", chat.getId(), e.getMessage());
         }
     }
 
-    /**
-     * Search for the most similar messages in a room using cosine similarity.
-     * Uses "query: " prefix as required by E5 models.
-     * Returns message IDs ordered by similarity.
-     */
     public List<Long> searchSimilarMessages(String query, Long roomId, int limit) {
         try {
             float[] queryVector = embed("query: " + query);
-            String vectorStr = toVectorString(queryVector);
-            return jdbcTemplate.queryForList(
-                    """
-                    SELECT me.message_id
-                    FROM chat.message_embeddings me
-                    JOIN chat.messages m ON m.id = me.message_id
-                    WHERE m.room_id = ?
-                    ORDER BY me.embedding <=> ?::vector
-                    LIMIT ?
-                    """,
-                    Long.class,
-                    roomId, vectorStr, limit);
+            return messageEmbeddingRepository.searchSimilarMessages(roomId, toVectorString(queryVector), limit);
         } catch (Exception e) {
             log.warn("Failed to search similar messages: {}", e.getMessage());
             return Collections.emptyList();
         }
     }
 
-    /**
-     * Call HuggingFace Inference API for multilingual-e5-small.
-     */
     private float[] embed(String text) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

@@ -1,4 +1,4 @@
-package com.sandbox.sandman.backend.model.dto.ChatDto;
+package com.sandbox.sandman.backend.model.dto.MessageDto;
 
 import lombok.Data;
 

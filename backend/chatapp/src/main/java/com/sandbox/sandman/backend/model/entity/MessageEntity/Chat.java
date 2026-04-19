@@ -1,4 +1,4 @@
-package com.sandbox.sandman.backend.model.entity.ChatEntity;
+package com.sandbox.sandman.backend.model.entity.MessageEntity;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -6,10 +6,10 @@ import lombok.NoArgsConstructor;
 import java.time.ZonedDateTime;
 
 @Entity
-@Table(name = "messages", schema = "chat")
+@Table(name = "chats", schema = "chat_app")
 @Data
 @NoArgsConstructor
-public class Message {
+public class Chat {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

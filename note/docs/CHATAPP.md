@@ -6,7 +6,7 @@
 
 ChatApp คือ Microservice สำหรับแชทกับ AI Assistant ภายในโปรเจกต์ Sandbox
 ผู้ใช้ Login ผ่าน Supabase OAuth แล้วสนทนากับ AI ที่ขับเคลื่อนด้วย Groq API (Llama 3)
-ระบบบันทึกประวัติแชทไว้ใน PostgreSQL (Supabase), ใช้ Redis สำหรับ Cache, และมีระบบ Vector Search ด้วย HuggingFace Embedding
+ระบบบันทึกประวัติแชทไว้ใน PostgreSQL (Supabase) และมีระบบ Vector Search ด้วย HuggingFace Embedding
 
 ---
 
@@ -17,14 +17,13 @@ Browser (Next.js)
       │
       ▼
 Nginx Gateway (port 80)
-      │  /v1/api/chat-app/*
+      │  /v1/api/chat-app/*  → auth_request → oauth2-proxy (JWT)
       ▼
 chat-service (Spring Boot :8080)
       │
-      ├── PostgreSQL (Supabase)    ← เก็บข้อมูลถาวร
-      ├── Redis                    ← Cache ประวัติแชท
-      ├── Groq API                 ← AI model (Llama 3.3-70b)
-      └── HuggingFace API          ← Embedding (multilingual-e5-small)
+      ├── PostgreSQL (Supabase via Supavisor pooler :6543)  ← เก็บข้อมูลถาวร
+      ├── Groq API                                          ← AI model (Llama 3.3-70b)
+      └── HuggingFace API                                   ← Embedding (multilingual-e5-small)
 ```
 
 ---
@@ -35,15 +34,14 @@ chat-service (Spring Boot :8080)
 |-------|-----------|----|
 | **Frontend** | Next.js 15 (App Router) | UI หน้าแชท |
 | **State / Auth** | Supabase SSR (`@supabase/ssr`) | Session management |
-| **Backend** | Spring Boot 3.2.5 (Java 21) | Business logic, API |
+| **Backend** | Spring Boot 3.2.5 (Java 17 compile / Java 21 runtime) | Business logic, API |
 | **AI Model** | Groq API — `llama-3.3-70b-versatile` | สร้างคำตอบจาก AI |
 | **AI Framework** | Spring AI 1.0.0-M1 | ต่อกับ Groq ผ่าน OpenAI-compatible API |
 | **Resilience** | Resilience4j | Circuit Breaker + Retry สำหรับ Groq API |
 | **Embedding** | HuggingFace API — `multilingual-e5-small` | สร้าง vector จากข้อความ (RAG) |
-| **Database** | Supabase PostgreSQL | เก็บ users, rooms, messages, profiles, embeddings |
-| **Cache** | Redis 7.2 | Cache ประวัติแชทแยกตาม key |
-| **Gateway** | Nginx | Reverse proxy, routing |
-| **ORM** | Spring Data JPA (Hibernate) | Object-Relational Mapping |
+| **Database** | Supabase PostgreSQL (via Supavisor pooler) | เก็บ users, rooms, messages, embeddings |
+| **Gateway** | Nginx + oauth2-proxy | Reverse proxy, JWT validation |
+| **ORM** | Spring Data JPA (Hibernate) + JdbcTemplate | Object-Relational Mapping + native SQL สำหรับ room_members |
 
 ---
 
@@ -60,15 +58,17 @@ chat.users
 
 chat.rooms
 ├── id         BIGSERIAL PK
-├── name       VARCHAR(100)             → ใช้เฉพาะ group room
+├── name       VARCHAR(100) NULLABLE    → NULL สำหรับ AI room (ใช้ ai_name แทน)
 ├── is_group   BOOLEAN DEFAULT false
 ├── created_by BIGINT                   → user_id ที่สร้าง
-├── ai_model   VARCHAR(100)             → ใช้เฉพาะ AI room
+├── ai_model   VARCHAR(100) NULLABLE    → set เฉพาะ AI room
 └── created_at TIMESTAMPTZ
 
-chat.room_members  (junction table)
-├── room_id   FK → rooms.id
-└── user_id   FK → users.id
+chat.room_members  (junction table — รองรับทั้ง user และ AI)
+├── room_id  FK → rooms.id      NOT NULL
+├── user_id  FK → users.id      NULLABLE  → กรอกเมื่อเป็น human member
+└── ai_id    FK → ai_context.id NULLABLE  → กรอกเมื่อเป็น AI member
+                                            (exactly หนึ่งใน user_id/ai_id เท่านั้น)
 
 chat.messages
 ├── id         BIGSERIAL PK
@@ -78,12 +78,14 @@ chat.messages
 ├── content    TEXT NOT NULL
 └── created_at TIMESTAMPTZ
 
-chat.ai_context  (1:1 กับ rooms)
+chat.ai_context  (standalone — ไม่ได้ link ตรงกับ rooms)
 ├── id          BIGSERIAL PK
-├── room_id     FK → rooms.id  UNIQUE NOT NULL
 ├── ai_name     VARCHAR(100) DEFAULT 'AI Assistant'
 ├── system_text TEXT NOT NULL
 └── avatar_url  TEXT NULLABLE  → URL รูป avatar ของ AI (เก็บใน Supabase Storage)
+
+# link ระหว่าง room ↔ ai_context: ผ่าน room_members.ai_id
+# query: SELECT ai_id FROM chat.room_members WHERE room_id = ? AND ai_id IS NOT NULL
 
 chat.message_embeddings
 ├── id         BIGSERIAL PK
@@ -171,8 +173,8 @@ users.profiles
 ```
 
 **Logic (RoomService):**
-- **AI Room:** สร้าง Room (`is_group=false`) → เพิ่ม creator เป็น member → สร้าง `ai_context` (พร้อม `avatar_url` ถ้ามี)
-- **Group Room:** สร้าง Room (`is_group=true`) → เพิ่ม creator + memberIds ทั้งหมด
+- **AI Room:** สร้าง Room (`is_group=false`, `name=null`) → INSERT creator ลง `room_members` (user_id) → สร้าง `ai_context` → INSERT `room_members` อีกแถว (ai_id)
+- **Group Room:** สร้าง Room (`is_group=true`) → INSERT creator + memberIds ทั้งหมดลง `room_members` (user_id)
 
 ---
 
@@ -219,8 +221,7 @@ users.profiles
 > **ต่างจากเดิม:** field เปลี่ยนจาก `senderUsername` / `senderRole` เป็น `senderName` / `isAi: boolean`
 > AI message จะมี `senderId: null` และ `isAi: true`
 
-**Cache:** `@Cacheable(value = "chatHistory", key = "#roomId + '_' + #beforeId + '_' + #limit")`  
-**Evict:** `@CacheEvict(value = "chatHistory", allEntries = true)` เมื่อมีข้อความใหม่
+> **หมายเหตุ:** ปัจจุบันยังไม่ได้เปิด cache — ทุก request อ่าน DB ตรงๆ (ถ้าจะเพิ่มต้อง add `spring-boot-starter-data-redis` + `@EnableCaching` + @Cacheable/@CacheEvict ก่อน)
 
 #### `POST /v1/api/chat-app/message`
 
@@ -246,17 +247,16 @@ users.profiles
 1. Validate roomId + senderId มีอยู่จริง
 2. บันทึก user message ลง `chat.messages` (`is_ai=false`)
 3. เรียก `EmbeddingService.embedAndSave()` เพื่อสร้าง vector ของข้อความ
-4. ดึง `ai_context` ของ room
+4. ดึง `ai_id` จาก `room_members` แล้วโหลด `ai_context`
 5. เรียก `callAiAndSaveReply()` ส่ง prompt ให้ Groq
 
 **Logic (callAiAndSaveReply):**
 1. เพิ่ม System Message จาก `aiContext.systemText`
-2. **Vector Search:** หา 5 messages ที่คล้ายกันมากที่สุดใน room → เพิ่มเป็น context message ที่ 2
-3. ดึง **20 messages ล่าสุด** (CONTEXT_LIMIT = 20) → reverse เป็น asc → เพิ่มเป็น history
+2. **Vector Search:** หา 5 messages ที่คล้ายกันมากที่สุดใน room (`VECTOR_SEARCH_LIMIT=5`) → เพิ่มเป็น System message ที่ 2 ในรูปแบบ "Relevant past messages:\n- {sender}: {content}"
+3. ดึง **20 messages ล่าสุด** (`DEFAULT_PAGE_SIZE=20`) → reverse เป็น asc → เพิ่มเป็น history (UserMessage/AssistantMessage)
 4. ส่ง prompt ทั้งหมดให้ `GroqAiClient.chat()`
 5. บันทึก AI reply ลง `chat.messages` (`is_ai=true`, `sender_id=null`)
 6. Embed AI reply ด้วย `EmbeddingService.embedAndSave()`
-7. Evict Redis cache (ผ่าน `@CacheEvict` บน method นี้)
 
 ---
 
@@ -330,9 +330,10 @@ user ส่งข้อความ
 | Repository | Method หลัก |
 |------------|------------|
 | `UserRepository` (read-only) | `findBySupabaseUid(UUID)`, `findById(Long)` — อ่านข้อมูล sender (write ย้ายไป user-service) |
-| `RoomRepository` | `findAllByUserId(userId)`, `findPrivateRoomBetween(userId, aiUserId)` |
+| `RoomRepository` | `findAllByUserId(userId)` — native query join `room_members` |
 | `MessageRepository` | `findTopNByRoomId(roomId, pageable)`, `findLatestByRoomId(roomId, pageable)`, `findByRoomIdBeforeId(roomId, beforeId, pageable)` |
-| `AiContextRepository` | `findByRoomId(roomId)` |
+| `AiContextRepository` | `findById(Long)` — JpaRepository default (ไม่มี `room_id` FK) |
+| `MessageEmbeddingRepository` | native SQL สำหรับ pgvector cosine search (ผ่าน `EmbeddingService`) |
 
 ---
 
@@ -342,13 +343,13 @@ user ส่งข้อความ
 |--------|--------|---------|
 | `GROK_API_KEY` | chat-service | API Key สำหรับ Groq |
 | `HUGGINGFACE_API_KEY` | chat-service | API Key สำหรับ HuggingFace Embedding |
-| `SUPABASE_DB_USERNAME` | chat-service | Username ต่อ Supabase DB |
+| `SUPABASE_DB_USERNAME` | chat-service | Username ต่อ Supabase DB (format `postgres.<project-ref>` สำหรับ pooler) |
 | `SUPABASE_DB_PASSWORD` | chat-service | Password ต่อ Supabase DB |
-| `REDIS_PASSWORD` | chat-service | Password ของ Redis |
+| `SPRING_DATASOURCE_URL` | chat-service (ACA) | Override JDBC URL ให้ชี้ Supavisor pooler `:6543` — ดู [POOLER.md](POOLER.md) |
 | `SUPABASE_SERVICE_ROLE_KEY` | chat-service | Service role key (สำหรับ Supabase operations) |
 | `NEXT_PUBLIC_SUPABASE_URL` | frontend | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | frontend | Supabase anon key |
-| `NEXT_PUBLIC_API_URL` | frontend | Base URL ของ Nginx gateway |
+| `NEXT_PUBLIC_API_URL` | frontend | Base URL ของ Nginx gateway (ปล่อยว่างไว้ → ใช้ relative URL) |
 
 ---
 

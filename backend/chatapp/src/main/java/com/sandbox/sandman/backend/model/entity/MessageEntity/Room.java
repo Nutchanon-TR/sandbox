@@ -1,4 +1,4 @@
-package com.sandbox.sandman.backend.model.entity.ChatEntity;
+package com.sandbox.sandman.backend.model.entity.MessageEntity;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 import java.time.ZonedDateTime;
 
 @Entity
-@Table(name = "rooms", schema = "chat")
+@Table(name = "rooms", schema = "chat_app")
 @Data
 @NoArgsConstructor
 public class Room {

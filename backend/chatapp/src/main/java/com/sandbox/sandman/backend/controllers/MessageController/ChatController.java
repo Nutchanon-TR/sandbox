@@ -1,27 +1,27 @@
 // backend/src/main/java/com/sandbox/sandman/backend/controllers/ChatController.java
-package com.sandbox.sandman.backend.controllers;
+package com.sandbox.sandman.backend.controllers.MessageController;
 
-import com.sandbox.sandman.backend.model.dto.ChatDto.ChatRequestDto;
-import com.sandbox.sandman.backend.model.dto.ChatDto.ChatResponseDto;
-import com.sandbox.sandman.backend.model.dto.ChatDto.MessageHistoryResponse;
-import com.sandbox.sandman.backend.services.ChatService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.sandbox.sandman.backend.model.dto.MessageDto.ChatHistoryResponse;
+import com.sandbox.sandman.backend.model.dto.MessageDto.ChatRequestDto;
+import com.sandbox.sandman.backend.model.dto.MessageDto.ChatResponseDto;
+import com.sandbox.sandman.backend.services.MessageService.ChatService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("${app.api.prefix.chat-app}")
+@RequiredArgsConstructor
 public class ChatController {
 
-    @Autowired
-    private ChatService chatService;
+    private final ChatService chatService;
 
     @GetMapping("/message/history/{roomId}")
-    public ResponseEntity<MessageHistoryResponse> getChatHistory(
+    public ResponseEntity<ChatHistoryResponse> getChatHistory(
             @PathVariable Long roomId,
             @RequestParam(required = false) Long beforeId,
             @RequestParam(defaultValue = "20") int limit) {
-        MessageHistoryResponse history = chatService.getChatHistoryByRoom(roomId, beforeId, limit);
+        ChatHistoryResponse history = chatService.getChatHistoryByRoom(roomId, beforeId, limit);
         return ResponseEntity.ok(history);
     }
 

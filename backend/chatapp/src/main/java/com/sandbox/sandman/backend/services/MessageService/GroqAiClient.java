@@ -1,17 +1,22 @@
-package com.sandbox.sandman.backend.services;
+package com.sandbox.sandman.backend.services.MessageService;
 
+import jakarta.annotation.PostConstruct;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
+import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class GroqAiClient {
 
-    private final ChatClient chatClient;
+    private final ChatClient.Builder chatClientBuilder;
+    private ChatClient chatClient;
 
-    public GroqAiClient(ChatClient.Builder chatClientBuilder) {
+    @PostConstruct
+    void init() {
         this.chatClient = chatClientBuilder.build();
     }
 

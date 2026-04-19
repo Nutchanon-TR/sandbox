@@ -1,11 +1,11 @@
-package com.sandbox.sandman.backend.model.entity.ChatEntity;
+package com.sandbox.sandman.backend.model.entity.MessageEntity;
 
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "ai_context", schema = "chat")
+@Table(name = "ai_context", schema = "chat_app")
 @Data
 @NoArgsConstructor
 public class AiContext {

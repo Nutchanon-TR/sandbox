@@ -1,7 +1,7 @@
 # INFRA.md
 
 ## ภาพรวม
-เอกสารนี้อธิบายสถาปัตยกรรมการ Deploy ทั้งหมดของโปรเจกต์ **Sandbox** โดยใช้ Docker คอนเทนเนอร์ที่จัดการด้วย **docker‑compose** และเปิดให้เข้าถึงจากภายนอกผ่าน **Nginx** gateway มี side‑car อย่าง **OAuth2‑Proxy** และ **Redis** สำหรับการยืนยันตัวตนและแคช
+เอกสารนี้อธิบายสถาปัตยกรรมการ Deploy ทั้งหมดของโปรเจกต์ **Sandbox** โดยใช้ Docker คอนเทนเนอร์ที่จัดการด้วย **docker‑compose** (สำหรับ local) / **Azure Container Apps** (สำหรับ prod) และเปิดให้เข้าถึงจากภายนอกผ่าน **Nginx** gateway มี side‑car **OAuth2‑Proxy** สำหรับ validate Supabase JWT
 
 ---
 
@@ -45,7 +45,7 @@ CMD ["node", "server.js"]
 ```
 * ใช้ Next.js standalone output ทำงานด้วย Node.js บนพอร์ต **3000**
 
-### 1.3 Backend Services �� `backend/{chatapp,dinner,bpost,user}/Dockerfile`
+### 1.3 Backend Services – `backend/{chatapp,dinner,bpost,user}/Dockerfile`
 ```Dockerfile
 # Stage 1: Build
 FROM maven:3.9.6-eclipse-temurin-21 AS builder
@@ -67,84 +67,70 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 ---
 
 ## 2. การตั้งค่า Nginx – `gateway/nginx.conf.template`
+
+> ไฟล์จริงที่ใช้ deploy อยู่ที่ [`gateway/nginx.conf.template`](../../gateway/nginx.conf.template) — ส่วนด้านล่างคือ skeleton สรุปโครงสร้าง
+
 ```nginx
-worker_processes 1;
+# upstream ใช้ชื่อเดียวกับ service name ใน docker-compose / ACA
+upstream frontend     { server frontend:${FRONTEND_PORT}; }
+upstream chat-service { server chat-service:${BACKEND_PORT}; }
+upstream dinner-service { server dinner-service:${BACKEND_PORT}; }
+upstream bpost-service  { server bpost-service:${BACKEND_PORT}; }
+upstream user-service   { server user-service:${BACKEND_PORT}; }
+upstream oauth2-proxy   { server oauth2-proxy:${OAUTH2_PROXY_PORT}; }
 
-events { worker_connections 1024; }
+server {
+    listen 80;
+    server_name localhost;
 
-http {
-    include       mime.types;
-    default_type  application/octet-stream;
+    # HTTP/1.1 จำเป็นสำหรับ ACA Envoy (HTTP/1.0 โดน 426 Upgrade Required)
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
 
-    # Upstream ของบริการใน Docker Compose (ใช้ตัวแปรเพื่อรองรับ Local และ Cloud)
-    upstream frontend { server frontend:${FRONTEND_PORT}; }
-    upstream chat_backend { server chat-service:${BACKEND_PORT}; }
-    upstream dinner_backend { server dinner-service:${BACKEND_PORT}; }
-    upstream bpost_backend { server bpost-service:${BACKEND_PORT}; }
-    upstream user_backend { server user-service:${BACKEND_PORT}; }
-    upstream oauth2_proxy { server oauth2-proxy:${OAUTH2_PROXY_PORT}; }
+    # buffer ใหญ่พอสำหรับ Supabase JWT cookie (เกิน default 4k/8k ของ nginx)
+    proxy_buffer_size 128k;
+    proxy_buffers 4 256k;
+    proxy_busy_buffers_size 256k;
 
-    server {
-        listen 80;
-        server_name localhost;
+    # Rate limit error
+    proxy_intercept_errors on;
+    error_page 429 = @rate_limited;
 
-        # จุดเชื่อมต่อ OAuth2‑Proxy
-        location /oauth2/ {
-            proxy_pass http://oauth2_proxy;
-            proxy_set_header Host $proxy_host;
-            proxy_set_header X-Forwarded-Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Scheme $scheme;
-            proxy_set_header X-Auth-Request-Redirect $request_uri;
-        }
-
-        # เส้นทางของ Frontend
-        location / {
-            proxy_pass http://frontend;
-            proxy_set_header Host $proxy_host;
-            proxy_set_header X-Forwarded-Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        }
-
-        # API ของ Backend – ยกเลิกคอมเม้นต์ auth_request เพื่อเปิดการตรวจสอบ JWT
-        location /v1/api/chat/ {
-            # auth_request /oauth2/auth;
-            proxy_pass http://chat_backend/v1/api/chat/;
-            proxy_set_header Host $proxy_host;
-            proxy_set_header X-Forwarded-Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-        }
-        location /v1/api/supplier-order/ {
-            proxy_pass http://dinner_backend/v1/api/supplier-order/;
-            proxy_set_header Host $proxy_host;
-            proxy_set_header X-Forwarded-Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-        }
-        location /v1/api/bpost/ {
-            proxy_pass http://bpost_backend/v1/api/bpost/;
-            proxy_set_header Host $proxy_host;
-            proxy_set_header X-Forwarded-Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-        }
-        location /v1/api/report/ {
-            proxy_pass http://bpost_backend/v1/api/bpost/;
-            proxy_set_header Host $proxy_host;
-            proxy_set_header X-Forwarded-Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-        }
-        location /v1/api/user/ {
-            # auth_request /oauth2/auth;
-            proxy_pass http://user_backend/v1/api/user/;
-            proxy_set_header Host $proxy_host;
-            proxy_set_header X-Forwarded-Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-        }
+    # oauth2-proxy: auth subrequest + login flow
+    location = /oauth2/auth {
+        proxy_pass http://oauth2-proxy;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        # ...
     }
+    location /oauth2/ { proxy_pass http://oauth2-proxy; ... }
+
+    # Frontend
+    location / {
+        proxy_pass http://frontend;
+        proxy_set_header Host $proxy_host;
+        # ...
+    }
+
+    # Backend APIs — ทั้งหมดผ่าน auth_request /oauth2/auth (validate Supabase JWT)
+    location /v1/api/chat-app/ { auth_request /oauth2/auth; proxy_pass http://chat-service/v1/api/chat-app/; ... }
+    location /v1/api/dinner/   { auth_request /oauth2/auth; proxy_pass http://dinner-service/v1/api/dinner/; ... }
+    location /v1/api/b-post/   { auth_request /oauth2/auth; proxy_pass http://bpost-service/v1/api/b-post/; ... }
+
+    # User service — มี CORS handling เพิ่มเติม (ดู §2.1)
+    location /v1/api/user/ {
+        # ... OPTIONS preflight bypass + proxy_hide_header + add_header
+        auth_request /oauth2/auth;
+        proxy_pass http://user-service/v1/api/user/;
+    }
+
+    location @unauthorized { return 302 /login; }
+    location @rate_limited { default_type application/json; return 429 '{"error": "Too Many Requests"}'; }
 }
 ```
-* กำหนดเส้นทางจากภายนอกไปยังคอนเทนเนอร์ที่เกี่ยวข้อง
-* หากต้องการเปิดการตรวจสอบ JWT ให้เอา `#` ออกจากบรรทัด `auth_request`
+* auth_request `/oauth2/auth` เปิดไว้ทุก backend route ตลอด (ไม่มี commented-out แบบเดิม)
+* oauth2-proxy ถูก config ให้ validate Supabase JWT ใน `Authorization: Bearer <token>` (ดู AUTH.md)
+* ส่วน `/v1/api/user/` มี CORS handling เพิ่ม — ดู §2.1
 
 ### 2.1 CORS Handling ที่ Gateway (`/v1/api/user/`)
 
@@ -198,29 +184,19 @@ location /v1/api/user/ {
 version: '3.8'
 
 services:
-  # ------------------------------------------------
-  # API Gateway (Nginx)
-  # ------------------------------------------------
+  # API Gateway (Nginx) — entry point เดียว
   gateway:
-    build:
-      context: ./gateway
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
-    depends_on:
-      - frontend
-      - chat-service
-      - dinner-service
-      - bpost-service
-      - user-service
-      - oauth2-proxy
-    networks:
-      - sandbox_net
+    build: { context: ./gateway, dockerfile: Dockerfile }
+    ports: [ "80:80" ]
+    environment:                       # ← จำเป็นเพื่อ envsubst ใน nginx.conf.template
+      - FRONTEND_PORT=3000
+      - BACKEND_PORT=8080
+      - OAUTH2_PROXY_PORT=4180
+    depends_on: [ frontend, chat-service, dinner-service, bpost-service, user-service, oauth2-proxy ]
+    networks: [ sandbox_net ]
     restart: unless-stopped
 
-  # ------------------------------------------------
-  # OAuth2 Validation Sidecar
-  # ------------------------------------------------
+  # OAuth2 Validation Sidecar (validate Supabase JWT)
   oauth2-proxy:
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
     command:
@@ -230,84 +206,55 @@ services:
       - "--skip-provider-button=true"
       - "--email-domain=*"
       - "--cookie-secret=OAUTH2_PROXY_COOKIE_SECRET_32_BYTES"
-      - "--cookie-secure=false" # production ให้ตั้งเป็น true
-      - "--upstream=http://dummy" # Nginx จะทำ reverse ไปยัง OAuth
-      - "--skip-jwt-bearer-tokens=true"
+      - "--cookie-secure=false"            # production ให้ตั้งเป็น true
+      - "--upstream=http://dummy"          # Nginx จะทำ reverse ไปยัง OAuth
+      - "--skip-jwt-bearer-tokens=true"    # parse Authorization: Bearer <jwt>
       - "--extra-jwt-issuers=https://${SUPABASE_PROJECT_ID:-YOUR_SUPABASE_ID}.supabase.co=https://${SUPABASE_PROJECT_ID:-YOUR_SUPABASE_ID}.supabase.co"
     environment:
       - OAUTH2_PROXY_CLIENT_ID=${OAUTH2_PROXY_CLIENT_ID:-DUMMY}
       - OAUTH2_PROXY_CLIENT_SECRET=${OAUTH2_PROXY_CLIENT_SECRET:-DUMMY}
-    networks:
-      - sandbox_net
+    networks: [ sandbox_net ]
     restart: unless-stopped
 
-  # ------------------------------------------------
-  # Frontend (Next.js)
-  # ------------------------------------------------
+  # Frontend (Next.js) — NEXT_PUBLIC_* baked at build time, runtime env ไม่มีผล
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    networks:
-      - sandbox_net
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost
+    build: { context: ./frontend, dockerfile: Dockerfile }
+    networks: [ sandbox_net ]
     restart: unless-stopped
 
-  # ------------------------------------------------
-  # Backend Services
-  # ------------------------------------------------
+  # Backend Services — ทั้ง 4 service ใช้ pattern เดียวกัน (env_file: .env)
   chat-service:
-    build:
-      context: ./backend/chatapp
-      dockerfile: Dockerfile
-    networks:
-      - sandbox_net
+    build: { context: ./backend/chatapp, dockerfile: Dockerfile }
+    env_file: .env
+    networks: [ sandbox_net ]
     restart: unless-stopped
 
   dinner-service:
-    build:
-      context: ./backend/dinner
-      dockerfile: Dockerfile
-    networks:
-      - sandbox_net
+    build: { context: ./backend/dinner, dockerfile: Dockerfile }
+    env_file: .env
+    networks: [ sandbox_net ]
     restart: unless-stopped
 
   bpost-service:
-    build:
-      context: ./backend/bpost
-      dockerfile: Dockerfile
-    networks:
-      - sandbox_net
+    build: { context: ./backend/bpost, dockerfile: Dockerfile }
+    env_file: .env
+    networks: [ sandbox_net ]
     restart: unless-stopped
 
   user-service:
-    build:
-      context: ./backend/user
-      dockerfile: Dockerfile
+    build: { context: ./backend/user, dockerfile: Dockerfile }
     env_file: .env
-    networks:
-      - sandbox_net
-    restart: unless-stopped
-
-  # ------------------------------------------------
-  # Redis Cache กลาง (Phase 2)
-  # ------------------------------------------------
-  redis:
-    image: redis:7.2-alpine
-    ports:
-      - "6379:6379"
-    networks:
-      - sandbox_net
+    networks: [ sandbox_net ]
     restart: unless-stopped
 
 networks:
   sandbox_net:
     driver: bridge
 ```
-* กำหนดคอนเทนเนอร์ทั้งหมด, การเชื่อมต่อเครือข่าย, และนโยบาย restart
-* `gateway` เป็นจุดเข้าถึงทั้งหมดและทำ reverse‑proxy ไปยังบริการที่เกี่ยวข้อง (Frontend และ Backends คุยผ่าน Gateway)
-* Redis จะใช้ในขั้นตอนต่อไป (Phase 2) เพื่อแคช
+* `gateway` เป็น entry point เดียว; frontend + backend ทุกตัว internal only คุยกันผ่าน docker network
+* backend services ทั้ง 4 ใช้ `env_file: .env` โหลด Supabase credentials + AI keys ร่วมกัน
+* Frontend **ไม่ set** `NEXT_PUBLIC_API_URL` — axios fallback เป็น relative URL แล้ว route ผ่าน gateway อัตโนมัติ
+* **ไม่มี Redis container** — ระบบปัจจุบันไม่ได้ใช้ Redis cache (เคยวางแผนไว้แต่ยังไม่ implement)
 
 ---
 
@@ -316,7 +263,7 @@ networks:
 | ส่วน | วัตถุประสงค์ | ค่าตั้งค่าสำคัญ |
 |------|---------------|-------------------|
 | **OAuth2‑Proxy** | ตรวจสอบ JWT จาก Supabase และส่งต่อข้อมูลผู้ใช้ให้ backend | `SUPABASE_PROJECT_ID`, `OAUTH2_PROXY_CLIENT_ID`, `OAUTH2_PROXY_CLIENT_SECRET`, `OAUTH2_PROXY_COOKIE_SECRET` |
-| **Redis** | Cache กลางสำหรับ session, rate‑limiting หรือ chat messages (Phase 2) | เปิดพอร์ต `6379` |
+| **Supavisor Pooler** | Supabase connection pooler (IPv4 transaction mode) ที่ backend services ใช้เชื่อม Postgres จาก ACA | host: `aws-1-ap-northeast-1.pooler.supabase.com:6543`, param `?prepareThreshold=0` |
 
 ---
 
