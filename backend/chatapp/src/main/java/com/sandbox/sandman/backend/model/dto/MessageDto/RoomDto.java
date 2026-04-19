@@ -10,8 +10,6 @@ import java.time.ZonedDateTime;
 public class RoomDto {
     private Long id;
     private String name;
-    private Boolean isGroup;
-    private String aiModel;
     private String aiAvatarUrl;
     private ZonedDateTime createdAt;
 }

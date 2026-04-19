@@ -11,12 +11,6 @@ public class RoomMemberRepository {
 
     private final JdbcTemplate jdbcTemplate;
 
-    public void addRoomMember(Long roomId, Long userId) {
-        jdbcTemplate.update(
-                "INSERT INTO chat_app.room_members (room_id, user_id) VALUES (?, ?)",
-                roomId, userId);
-    }
-
     public void addRoomAi(Long roomId, Long aiId) {
         jdbcTemplate.update(
                 "INSERT INTO chat_app.room_members (room_id, ai_id) VALUES (?, ?)",
@@ -26,7 +20,7 @@ public class RoomMemberRepository {
     public Long findAiIdByRoomId(Long roomId) {
         try {
             return jdbcTemplate.queryForObject(
-                    "SELECT ai_id FROM chat_app.room_members WHERE room_id = ? AND ai_id IS NOT NULL LIMIT 1",
+                    "SELECT ai_id FROM chat_app.room_members WHERE room_id = ? LIMIT 1",
                     Long.class, roomId);
         } catch (EmptyResultDataAccessException e) {
             return null;

@@ -18,14 +18,9 @@ public class Room {
     @Column(length = 100)
     private String name;
 
-    @Column(name = "is_group")
-    private Boolean isGroup = false;
-
-    @Column(name = "created_by")
-    private Long createdBy;
-
-    @Column(name = "ai_model", length = 100)
-    private String aiModel;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(name = "created_at")
     private ZonedDateTime createdAt;
