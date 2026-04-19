@@ -1,7 +1,7 @@
-package com.sandbox.sandman.backend.controllers.SyncHubController;
+package com.sandbox.sandman.backend.controllers.SyncHubController.BlogController;
 
 import com.sandbox.sandman.backend.model.dto.SyncHubDto.AiContextUserDto;
-import com.sandbox.sandman.backend.services.SyncHubService.CardService;
+import com.sandbox.sandman.backend.services.SyncHubService.BlogService.ListService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,12 +13,12 @@ import java.util.List;
 @RestController
 @RequestMapping("${app.api.prefix.chat-app}")
 @RequiredArgsConstructor
-public class CardController {
+public class ListController {
 
-    private final CardService cardService;
+    private final ListService listService;
 
-    @GetMapping("blog/inquiry")
-    public ResponseEntity<List<AiContextUserDto>> getAiContextsWithUsers() {
-        return ResponseEntity.ok(cardService.getAiContextsWithUsers());
+    @GetMapping("/blog/list")
+    public ResponseEntity<List<AiContextUserDto>> getBlogList() {
+        return ResponseEntity.ok(listService.getAiContextsWithUsers());
     }
 }

@@ -16,7 +16,7 @@ public class ChatController {
 
     private final ChatService chatService;
 
-    @GetMapping("/message/history/{roomId}")
+    @GetMapping("/chat/history/{roomId}")
     public ResponseEntity<ChatHistoryResponse> getChatHistory(
             @PathVariable Long roomId,
             @RequestParam(required = false) Long beforeId,
@@ -25,7 +25,7 @@ public class ChatController {
         return ResponseEntity.ok(history);
     }
 
-    @PostMapping("/message")
+    @PostMapping("/chat")
     public ResponseEntity<ChatResponseDto> chatWithAi(@RequestBody ChatRequestDto request) {
         String reply = chatService.getAiResponse(request);
         return ResponseEntity.ok(new ChatResponseDto(reply));

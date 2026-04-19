@@ -49,7 +49,7 @@ public class RoomService {
 
         AiContext aiContext = new AiContext();
         aiContext.setAiName(aiName);
-        aiContext.setSystemText(systemPrompt);
+        aiContext.setRole(systemPrompt);
         AiContext savedAi = aiContextRepository.save(aiContext);
 
         roomMemberRepository.addRoomAi(savedRoom.getId(), savedAi.getId());

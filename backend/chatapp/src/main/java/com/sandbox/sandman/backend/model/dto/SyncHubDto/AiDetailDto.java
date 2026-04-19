@@ -5,14 +5,15 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class AiContextUserDto {
+public class AiDetailDto {
     private Long aiId;
     private String aiName;
     private String avatarUrl;
     private String posterUrl;
-    private Long userId;
-    private String userDisplayName;
-    private Long roomId;
+    private String role;
+    private String character;
+    private String biography;
+    private String rule;
     private Long likeCount;
     private Long friendCount;
     private Long commentCount;

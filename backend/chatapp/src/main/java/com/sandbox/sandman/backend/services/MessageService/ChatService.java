@@ -106,7 +106,7 @@ public class ChatService {
     private String callAiAndSaveReply(Room room, AiContext aiContext, String userQuery) {
         List<org.springframework.ai.chat.messages.Message> aiPromptMessages = new ArrayList<>();
 
-        aiPromptMessages.add(new SystemMessage(aiContext.getSystemText()));
+        aiPromptMessages.add(new SystemMessage(aiContext.buildSystemPrompt()));
 
         List<Long> similarIds = embeddingService.searchSimilarMessages(userQuery, room.getId(), VECTOR_SEARCH_LIMIT);
         if (!similarIds.isEmpty()) {

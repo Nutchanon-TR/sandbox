@@ -14,11 +14,11 @@ export const API_SANDBOX: Record<string, ApiDetail> = {
         method: 'GET',
     },
     CHAT_APP_MESSAGE: {
-        path: `${contextPath}/v1/api/chat-app/message`,
+        path: `${contextPath}/v1/api/chat-app/chat`,
         method: 'POST',
     },
     CHAT_APP_HISTORY: {
-        path: `${contextPath}/v1/api/chat-app/message/history/{roomId}`,
+        path: `${contextPath}/v1/api/chat-app/chat/history/{roomId}`,
         method: 'GET',
     },
     CHAT_APP_ROOM_LIST: {

@@ -4,9 +4,12 @@
 
 ## ภาพรวม
 
-ChatApp คือ Microservice สำหรับแชทกับ AI Assistant ภายในโปรเจกต์ Sandbox
+ChatApp คือ Microservice สำหรับแชทกับ AI Companion ภายในโปรเจกต์ Sandbox
 ผู้ใช้ Login ผ่าน Supabase OAuth แล้วสนทนากับ AI ที่ขับเคลื่อนด้วย Groq API (Llama 3)
 ระบบบันทึกประวัติแชทไว้ใน PostgreSQL (Supabase) และมีระบบ Vector Search ด้วย HuggingFace Embedding
+
+นอกจาก 1-on-1 chat ยังมี **social layer** (like / friend / comment) ระหว่าง user กับ AI แต่ละตัว
+และ **discovery feed** (`/blog/list`, `/blog/detail/{aiId}`) สำหรับเลือก/เปิดดูโปรไฟล์ AI
 
 ---
 
@@ -39,7 +42,7 @@ chat-service (Spring Boot :8080)
 | **AI Framework** | Spring AI 1.0.0-M1 | ต่อกับ Groq ผ่าน OpenAI-compatible API |
 | **Resilience** | Resilience4j | Circuit Breaker + Retry สำหรับ Groq API |
 | **Embedding** | HuggingFace API — `multilingual-e5-small` | สร้าง vector จากข้อความ (RAG) |
-| **Database** | Supabase PostgreSQL (via Supavisor pooler) | เก็บ users, rooms, messages, embeddings |
+| **Database** | Supabase PostgreSQL (via Supavisor pooler) | เก็บ users, rooms, chats, chat_embeddings, social tables |
 | **Gateway** | Nginx + oauth2-proxy | Reverse proxy, JWT validation |
 | **ORM** | Spring Data JPA (Hibernate) + JdbcTemplate | Object-Relational Mapping + native SQL สำหรับ room_members |
 
@@ -47,30 +50,27 @@ chat-service (Spring Boot :8080)
 
 ## Database Schema
 
-### `chat` schema
+### `chat_app` schema
 
 ```
-chat.users
+chat_app.users
 ├── id            BIGSERIAL PK
 ├── supabase_uid  UUID UNIQUE NOT NULL  → เชื่อม Supabase Auth
 ├── display_name  VARCHAR(100) NOT NULL
 └── created_at    TIMESTAMPTZ
 
-chat.rooms
+chat_app.rooms
 ├── id         BIGSERIAL PK
 ├── name       VARCHAR(100) NULLABLE    → NULL สำหรับ AI room (ใช้ ai_name แทน)
 ├── is_group   BOOLEAN DEFAULT false
-├── created_by BIGINT                   → user_id ที่สร้าง
-├── ai_model   VARCHAR(100) NULLABLE    → set เฉพาะ AI room
+├── user_id    FK → users.id  NOT NULL  → เจ้าของห้อง (1 user ต่อ 1 room)
 └── created_at TIMESTAMPTZ
 
-chat.room_members  (junction table — รองรับทั้ง user และ AI)
+chat_app.room_members  (junction: room ↔ AI — รองรับหลาย AI ต่อ 1 room)
 ├── room_id  FK → rooms.id      NOT NULL
-├── user_id  FK → users.id      NULLABLE  → กรอกเมื่อเป็น human member
-└── ai_id    FK → ai_context.id NULLABLE  → กรอกเมื่อเป็น AI member
-                                            (exactly หนึ่งใน user_id/ai_id เท่านั้น)
+└── ai_id    FK → ai_context.id NOT NULL
 
-chat.messages
+chat_app.chats  (เดิม messages — rename แล้ว)
 ├── id         BIGSERIAL PK
 ├── room_id    FK → rooms.id   NOT NULL
 ├── sender_id  FK → users.id   NULLABLE  → NULL เมื่อ AI ส่ง
@@ -78,20 +78,46 @@ chat.messages
 ├── content    TEXT NOT NULL
 └── created_at TIMESTAMPTZ
 
-chat.ai_context  (standalone — ไม่ได้ link ตรงกับ rooms)
+chat_app.ai_context  (personality ของ AI — standalone)
 ├── id          BIGSERIAL PK
 ├── ai_name     VARCHAR(100) DEFAULT 'AI Assistant'
-├── system_text TEXT NOT NULL
-└── avatar_url  TEXT NULLABLE  → URL รูป avatar ของ AI (เก็บใน Supabase Storage)
+├── avatar_url  TEXT NULLABLE     → avatar (path prefix: `images/ai-avatars/`)
+├── poster_url  TEXT NULLABLE     → character poster รูปที่ 2 (path prefix: `images/ai_poster/`)
+├── role        TEXT NULLABLE     → ส่วนประกอบ system prompt
+├── "character" TEXT NULLABLE     → (quoted — keyword ของ Postgres)
+├── biography   TEXT NULLABLE
+└── rule        TEXT NULLABLE
 
-# link ระหว่าง room ↔ ai_context: ผ่าน room_members.ai_id
-# query: SELECT ai_id FROM chat.room_members WHERE room_id = ? AND ai_id IS NOT NULL
+# system_text เดิมถูกแยกเป็น 4 ส่วน → BE ต่อกลับเป็น system prompt ผ่าน AiContext.buildSystemPrompt()
+# link room ↔ ai_context: ผ่าน room_members.ai_id (M:N — 1 room อาจมีหลาย AI)
 
-chat.message_embeddings
+chat_app.chat_embeddings  (เดิม message_embeddings — rename แล้ว)
 ├── id         BIGSERIAL PK
-├── message_id FK → messages.id  UNIQUE
+├── chat_id    FK → chats.id  UNIQUE
 ├── embedding  vector(384)        → multilingual-e5-small มี 384 มิติ
 └── created_at TIMESTAMPTZ
+
+chat_app.ai_likes  (social — M:N user ↔ AI)
+├── id          BIGSERIAL PK
+├── user_id     FK → users.id      NOT NULL
+├── ai_id       FK → ai_context.id NOT NULL
+├── created_at  TIMESTAMPTZ
+└── UNIQUE (user_id, ai_id)
+
+chat_app.ai_friends  (social — M:N user ↔ AI)
+├── id          BIGSERIAL PK
+├── user_id     FK → users.id      NOT NULL
+├── ai_id       FK → ai_context.id NOT NULL
+├── created_at  TIMESTAMPTZ
+└── UNIQUE (user_id, ai_id)
+
+chat_app.comments  (social — user comment บน AI profile)
+├── id          BIGSERIAL PK
+├── user_id     FK → users.id      NOT NULL
+├── ai_id       FK → ai_context.id NOT NULL
+├── content     TEXT NOT NULL
+├── created_at  TIMESTAMPTZ
+└── INDEX idx_comments_ai_id (ai_id)
 ```
 
 ### `users` schema
@@ -106,8 +132,8 @@ users.profiles
 └── created_at    TIMESTAMPTZ
 ```
 
-> **หมายเหตุ:** `chat.users` และ `users.profiles` เป็น 2 table คนละ schema
-> - `chat.users` — identity ของผู้ใช้ในระบบแชท (write โดย user-service, ChatApp อ่าน read-only)
+> **หมายเหตุ:** `chat_app.users` และ `users.profiles` เป็น 2 table คนละ schema
+> - `chat_app.users` — identity ของผู้ใช้ในระบบแชท (write โดย user-service, ChatApp อ่าน read-only)
 > - `users.profiles` — ข้อมูล profile ของผู้ใช้ทั่วไป (จัดการโดย user-service)
 
 ---
@@ -116,7 +142,7 @@ users.profiles
 
 > **หมายเหตุ:** User management (UserController, ProfileController, UserResolutionService, ProfileService)
 > ถูกย้ายไปที่ **user-service** (`backend/user/`) แล้ว — ดู endpoint ใหม่ที่ `/v1/api/user/`
-> ChatApp ยังคง read-only access ถึง `chat.users` ผ่าน JPA สำหรับดึงข้อมูล sender ในแชท
+> ChatApp ยังคง read-only access ถึง `chat_app.users` ผ่าน JPA สำหรับดึงข้อมูล sender ในแชท
 
 ### `RoomController`
 
@@ -131,56 +157,37 @@ users.profiles
     "id": 3,
     "name": "Kealith",
     "isGroup": false,
-    "aiModel": "llama-3.3-70b-versatile",
     "aiAvatarUrl": "https://<supabase>/storage/v1/object/public/images/ai-avatars/kealith.png",
     "createdAt": "2025-01-01T10:00:00Z"
-  },
-  {
-    "id": 7,
-    "name": "Study Group",
-    "isGroup": true,
-    "aiModel": null,
-    "aiAvatarUrl": null,
-    "createdAt": "2025-01-02T12:00:00Z"
   }
 ]
 ```
 
 > - AI room จะใช้ `ai_name` จาก `ai_context` เป็น display name แทน `rooms.name`
-> - `aiAvatarUrl` ดึงจาก `ai_context.avatar_url` — ถ้าเป็น group room หรือยังไม่ได้ตั้งรูปจะเป็น `null`
+> - `aiAvatarUrl` ดึงจาก `ai_context.avatar_url` — ถ้ายังไม่ได้ตั้งรูปจะเป็น `null`
 
 #### `POST /v1/api/chat-app/room/create/{userId}`
 
-สร้าง room ใหม่ — รองรับ 2 ประเภท
+สร้าง AI room ใหม่
 
-**Request (AI Room):**
+**Request:**
 ```json
 {
   "name": "My AI Assistant",
   "isGroup": false,
-  "aiModel": "llama-3.3-70b-versatile",
   "systemPrompt": "You are a helpful assistant..."
 }
 ```
 
-**Request (Group Room):**
-```json
-{
-  "name": "Study Group",
-  "isGroup": true,
-  "memberIds": [2, 3, 4]
-}
-```
-
 **Logic (RoomService):**
-- **AI Room:** สร้าง Room (`is_group=false`, `name=null`) → INSERT creator ลง `room_members` (user_id) → สร้าง `ai_context` → INSERT `room_members` อีกแถว (ai_id)
-- **Group Room:** สร้าง Room (`is_group=true`) → INSERT creator + memberIds ทั้งหมดลง `room_members` (user_id)
+- สร้าง Room (`is_group=false`, `user_id=userId`) → สร้าง `ai_context` (โดย `systemPrompt` จะถูกเก็บใน `role` เป็นค่าเริ่มต้น) → INSERT `room_members` (ai_id)
+- **หมายเหตุ:** `user_id` อยู่บน `rooms` แล้ว (1 room = 1 user เจ้าของ) — `room_members` ใช้เฉพาะผูก AI (รองรับหลาย AI ต่อ room ในอนาคต)
 
 ---
 
 ### `ChatController`
 
-#### `GET /v1/api/chat-app/message/history/{roomId}`
+#### `GET /v1/api/chat-app/chat/history/{roomId}`
 
 ดึงประวัติแชท Paginated (cursor-based) เรียง asc (เก่า → ใหม่)
 
@@ -223,7 +230,7 @@ users.profiles
 
 > **หมายเหตุ:** ปัจจุบันยังไม่ได้เปิด cache — ทุก request อ่าน DB ตรงๆ (ถ้าจะเพิ่มต้อง add `spring-boot-starter-data-redis` + `@EnableCaching` + @Cacheable/@CacheEvict ก่อน)
 
-#### `POST /v1/api/chat-app/message`
+#### `POST /v1/api/chat-app/chat`
 
 ส่งข้อความและรับคำตอบจาก AI
 
@@ -245,18 +252,93 @@ users.profiles
 
 **Logic (ChatService.getAiResponse):**
 1. Validate roomId + senderId มีอยู่จริง
-2. บันทึก user message ลง `chat.messages` (`is_ai=false`)
+2. บันทึก user message ลง `chat_app.chats` (`is_ai=false`)
 3. เรียก `EmbeddingService.embedAndSave()` เพื่อสร้าง vector ของข้อความ
 4. ดึง `ai_id` จาก `room_members` แล้วโหลด `ai_context`
 5. เรียก `callAiAndSaveReply()` ส่ง prompt ให้ Groq
 
 **Logic (callAiAndSaveReply):**
-1. เพิ่ม System Message จาก `aiContext.systemText`
+1. เพิ่ม System Message จาก `aiContext.buildSystemPrompt()` — concat `role` / `character` / `biography` / `rule` ด้วย label `[ROLE]`, `[CHARACTER]`, `[BIOGRAPHY]`, `[RULE]` (skip field ที่ null/blank)
 2. **Vector Search:** หา 5 messages ที่คล้ายกันมากที่สุดใน room (`VECTOR_SEARCH_LIMIT=5`) → เพิ่มเป็น System message ที่ 2 ในรูปแบบ "Relevant past messages:\n- {sender}: {content}"
 3. ดึง **20 messages ล่าสุด** (`DEFAULT_PAGE_SIZE=20`) → reverse เป็น asc → เพิ่มเป็น history (UserMessage/AssistantMessage)
 4. ส่ง prompt ทั้งหมดให้ `GroqAiClient.chat()`
-5. บันทึก AI reply ลง `chat.messages` (`is_ai=true`, `sender_id=null`)
+5. บันทึก AI reply ลง `chat_app.chats` (`is_ai=true`, `sender_id=null`)
 6. Embed AI reply ด้วย `EmbeddingService.embedAndSave()`
+
+---
+
+### `SyncHubController` (Social + Discovery)
+
+Folder structure:
+```
+controllers/SyncHubController/
+├── CardController/          ← per-AI action (like / friend / comment / detail)
+│   ├── LikeController.java
+│   ├── FriendController.java
+│   ├── CommentController.java
+│   └── DetailController.java
+└── BlogController/          ← feed-level (list / sorting ในอนาคต)
+    └── ListController.java
+```
+
+**จุดประสงค์:**
+- **Card** = โลจิคเล็กๆที่ผูกกับ AI ตัวเดียว (like, friend, comment, detail)
+- **Blog** = โลจิคกว้างๆระดับ collection (list, sorting/ranking algorithm ในอนาคต)
+
+#### Like endpoints
+
+| Method | Path | คำอธิบาย |
+|--------|------|---------|
+| `POST` | `/v1/api/chat-app/ai/{aiId}/like/{userId}` | user กด like AI ตัวนี้ (idempotent ผ่าน `UNIQUE(user_id, ai_id)`) |
+| `DELETE` | `/v1/api/chat-app/ai/{aiId}/like/{userId}` | ยกเลิก like |
+
+#### Friend endpoints
+
+| Method | Path | คำอธิบาย |
+|--------|------|---------|
+| `POST` | `/v1/api/chat-app/ai/{aiId}/friend/{userId}` | add friend กับ AI |
+| `DELETE` | `/v1/api/chat-app/ai/{aiId}/friend/{userId}` | unfriend |
+| `GET` | `/v1/api/chat-app/user/{userId}/friends` | list AI friends ของ user |
+
+#### Comment endpoints
+
+| Method | Path | คำอธิบาย |
+|--------|------|---------|
+| `POST` | `/v1/api/chat-app/ai/{aiId}/comments` | เพิ่ม comment (body: `{userId, content}`) |
+| `GET` | `/v1/api/chat-app/ai/{aiId}/comments` | ดึง comments ของ AI (เรียง created_at DESC + join display_name) |
+| `DELETE` | `/v1/api/chat-app/comments/{commentId}` | ลบ comment |
+
+#### Detail endpoint
+
+| Method | Path | คำอธิบาย |
+|--------|------|---------|
+| `GET` | `/v1/api/chat-app/blog/detail/{aiId}` | ดึง AI detail ทั้งหมด (ai_context fields + like/friend/comment counts) |
+
+#### Blog list endpoint
+
+| Method | Path | คำอธิบาย |
+|--------|------|---------|
+| `GET` | `/v1/api/chat-app/blog/list` | ดึงรายการ AI ทั้งหมด + user เจ้าของ + counts (ใช้เป็น discovery feed) |
+
+**ListController response (AiContextUserDto):**
+```json
+[
+  {
+    "aiId": 1,
+    "aiName": "Kealith",
+    "avatarUrl": "...",
+    "posterUrl": "...",
+    "userId": 5,
+    "userDisplayName": "John",
+    "roomId": 3,
+    "likeCount": 12,
+    "friendCount": 3,
+    "commentCount": 8
+  }
+]
+```
+
+> **หมายเหตุ:** endpoint เดิม `/blog/inquiry` ถูกยกเลิก — ใช้ `/blog/list` แทน
 
 ---
 
@@ -272,7 +354,12 @@ users.profiles
 ┌──────────────────────────────────────────────────────────┐
 │  Prompt ที่ส่งให้ Groq                                     │
 ├──────────────────────────────────────────────────────────┤
-│ [System]  → system_text จาก ai_context                   │
+│ [System]  → buildSystemPrompt() — concat 4 sections:     │
+│             [ROLE]      {role}                           │
+│             [CHARACTER] {character}                      │
+│             [BIOGRAPHY] {biography}                      │
+│             [RULE]      {rule}                           │
+│             (skip field ที่ null/blank)                   │
 │ [System]  → "Relevant past messages:\n- ..."             │  ← Vector Search (top 5)
 │ [User]    → "สวัสดี"          ↑ 20 messages ล่าสุด       │
 │ [AI]      → "สวัสดีครับ..."                               │
@@ -294,7 +381,7 @@ users.profiles
 **Flow:**
 ```
 user ส่งข้อความ
-  → save message → embedAndSave("passage: " + content) → INSERT chat.message_embeddings
+  → save message → embedAndSave("passage: " + content) → INSERT chat_app.chat_embeddings
   → searchSimilarMessages("query: " + userQuery, roomId, limit=5)
      → cosine distance ผ่าน pgvector (<=> operator)
      → คืน message_id list
@@ -327,13 +414,26 @@ user ส่งข้อความ
 
 ## Repositories
 
+### MessageRepository (core chat)
+
 | Repository | Method หลัก |
 |------------|------------|
 | `UserRepository` (read-only) | `findBySupabaseUid(UUID)`, `findById(Long)` — อ่านข้อมูล sender (write ย้ายไป user-service) |
-| `RoomRepository` | `findAllByUserId(userId)` — native query join `room_members` |
-| `MessageRepository` | `findTopNByRoomId(roomId, pageable)`, `findLatestByRoomId(roomId, pageable)`, `findByRoomIdBeforeId(roomId, beforeId, pageable)` |
-| `AiContextRepository` | `findById(Long)` — JpaRepository default (ไม่มี `room_id` FK) |
-| `MessageEmbeddingRepository` | native SQL สำหรับ pgvector cosine search (ผ่าน `EmbeddingService`) |
+| `RoomRepository` | `findAllByUserId(userId)` — JPA query บน `rooms.user_id` |
+| `RoomMemberRepository` | `findAiIdByRoomId(roomId)`, `addRoomAi(roomId, aiId)` — native SQL |
+| `ChatRepository` | `findTopNByRoomId(roomId, pageable)`, `findLatestByRoomId(roomId, pageable)`, `findByRoomIdBeforeId(roomId, beforeId, pageable)` |
+| `AiContextRepository` | `findById(Long)` — JpaRepository default |
+| `ChatEmbeddingRepository` | native SQL สำหรับ pgvector cosine search (ผ่าน `EmbeddingService`) |
+
+### SyncHubRepository (social + discovery)
+
+| Repository | Type | Method หลัก |
+|------------|------|------------|
+| `CardRepository/LikeRepository` | JpaRepository | `existsByUserIdAndAiId`, `countByAiId`, `deleteByUserIdAndAiId` |
+| `CardRepository/FriendRepository` | JpaRepository | เหมือน Like + `findByUserId` |
+| `CardRepository/CommentRepository` | JpaRepository | `findByAiIdOrderByCreatedAtDesc`, `countByAiId` |
+| `CardRepository/DetailRepository` | JdbcTemplate | ai_context ตัวเดียว + counts (likes/friends/comments) |
+| `BlogRepository/ListRepository` | JdbcTemplate | join ai_context + room_members + rooms + users + 3 counts → list AI ทั้งหมด |
 
 ---
 
@@ -355,15 +455,17 @@ user ส่งข้อความ
 
 ## Supabase Storage
 
-รูป avatar ของ AI เก็บใน Supabase Storage bucket `images` (public)
+รูปของ AI เก็บใน Supabase Storage bucket `images` (public) — แบ่ง path prefix ตามประเภท
 
-| ไฟล์ | Path ใน Storage | ใช้โดย |
-|------|----------------|--------|
-| AI avatar (Kealith) | `images/ai-avatars/kealith.png` | `ai_context.avatar_url` → Frontend แสดงรูป AI ในหน้าแชท |
+| ประเภท | Path prefix | เก็บใน | ใช้โดย |
+|--------|-------------|--------|--------|
+| AI avatar | `images/ai-avatars/` | `ai_context.avatar_url` | แสดงเป็นรูป AI ในหน้าแชท (เหมือน profile picture) |
+| AI character poster | `images/ai_poster/` | `ai_context.poster_url` | รูปที่ 2 — character poster ของ AI (สำหรับหน้า detail / card) |
 
-**Public URL format:** `https://<project>.supabase.co/storage/v1/object/public/images/ai-avatars/<name>.png`
+**Public URL format:** `https://<project>.supabase.co/storage/v1/object/public/images/<prefix>/<name>.png`
 
-> Frontend ดึง `aiAvatarUrl` จาก response ของ `GET /room/list/{userId}` — ถ้า `null` จะ fallback เป็น `/ai_avatar.png` (static)
+> - Frontend ดึง `aiAvatarUrl` จาก response ของ `GET /room/list/{userId}` — ถ้า `null` fallback เป็น `/ai_avatar.png` (static)
+> - Upload endpoint สำหรับ `poster_url` ยังไม่รวมใน phase นี้ — admin/FE upload ตรงไป Supabase แล้วเก็บ URL ลง column
 
 ---
 
@@ -372,8 +474,8 @@ user ส่งข้อความ
 ### ปัญหาปัจจุบัน
 
 ตอนนี้ ChatApp ใช้ **HTTP request-response** ทั้งหมด:
-- ส่งข้อความ → `POST /v1/api/chat-app/message` → รอ AI reply → return
-- ดึงประวัติ → `GET /v1/api/chat-app/message/history/{roomId}`
+- ส่งข้อความ → `POST /v1/api/chat-app/chat` → รอ AI reply → return
+- ดึงประวัติ → `GET /v1/api/chat-app/chat/history/{roomId}`
 
 **ข้อจำกัด:**
 1. ไม่มี real-time — ผู้ใช้ต้อง poll หรือ refresh เพื่อดู messages ใหม่
@@ -464,7 +566,7 @@ User ส่งข้อความผ่าน STOMP (/app/chat.send)
 
 #### 6. History Endpoint (คงไว้)
 
-`GET /v1/api/chat-app/message/history/{roomId}` ยังคงใช้ HTTP GET เดิม
+`GET /v1/api/chat-app/chat/history/{roomId}` ยังคงใช้ HTTP GET เดิม
 — ใช้สำหรับ load ประวัติเก่าตอนเปิดหน้า (ไม่ต้องใช้ WebSocket)
 
 ### Frontend Implementation Plan
@@ -490,7 +592,7 @@ npm install -D @types/sockjs-client
 ```
 เปิดหน้า Chat
   │
-  ├── 1. GET /message/history/{roomId} → load ประวัติเก่า (HTTP)
+  ├── 1. GET /chat/history/{roomId} → load ประวัติเก่า (HTTP)
   ├── 2. Connect WebSocket → /ws/chat (STOMP + JWT token)
   └── 3. Subscribe /topic/room/{roomId}
          │
@@ -535,7 +637,7 @@ location /ws/ {
 
 ### Backward Compatibility
 
-- HTTP endpoints (`POST /message`, `GET /history`) คงไว้ — ทำงานได้ทั้ง 2 mode
+- HTTP endpoints (`POST /chat`, `GET /chat/history`) คงไว้ — ทำงานได้ทั้ง 2 mode
 - Frontend สามารถ fallback เป็น HTTP ถ้า WebSocket connect ไม่ได้
 - Group chat ready: เมื่อมี multiple users ใน room ทุกคน subscribe ได้
 
@@ -557,3 +659,10 @@ location /ws/ {
 | ~~**จำกัด history ก่อนส่ง Prompt**~~ | ✅ เสร็จแล้ว — ส่งแค่ 20 message ล่าสุด |
 | ~~**Vector Search (RAG)**~~ | ✅ Implement แล้วผ่าน HuggingFace API + pgvector |
 | ~~**AI avatar hardcode**~~ | ✅ แก้แล้ว — รูป AI เก็บใน Supabase Storage, map ผ่าน `ai_context.avatar_url` |
+| ~~**Schema rename (chat → chat_app)**~~ | ✅ ย้าย schema + rename `messages` → `chats`, `message_embeddings` → `chat_embeddings` |
+| ~~**Split system_text**~~ | ✅ แตกเป็น `role` / `character` / `biography` / `rule` — BE concat ผ่าน `buildSystemPrompt()` |
+| ~~**Social layer (like/friend/comment)**~~ | ✅ M:N tables + Card sub-package endpoints ครบ |
+| ~~**Blog list + detail**~~ | ✅ `GET /blog/list` + `GET /blog/detail/{aiId}` (แทน `/blog/inquiry` เดิม) |
+| ~~**URL cleanup /message → /chat**~~ | ✅ Rename แล้วทั้ง BE + FE (`ApiSandbox.ts`) |
+| **Upload poster endpoint** | ยังไม่ได้ทำ — phase 2 (รอ add Supabase storage client ใน BE) |
+| **FE UI สำหรับ like/friend/comment/detail/blog** | ยังไม่ได้ทำ — รอ design UI |
