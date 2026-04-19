@@ -7,7 +7,7 @@ import java.time.ZonedDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users", schema = "chat")
+@Table(name = "users", schema = "chat_app")
 @Data
 @NoArgsConstructor
 public class User {
@@ -21,6 +21,9 @@ public class User {
 
     @Column(name = "display_name", nullable = false, length = 100)
     private String displayName;
+
+    @Column(name = "avatar_url", columnDefinition = "TEXT")
+    private String avatarUrl;
 
     @Column(name = "created_at")
     private ZonedDateTime createdAt;

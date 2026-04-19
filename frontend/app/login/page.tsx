@@ -7,7 +7,7 @@ import { createSupabaseBrowser } from "@/lib/supabase/client";
 export default function LoginPage() {
     const supabase = createSupabaseBrowser();
 
-    const handleOAuthSignIn = async (provider: 'google' | 'facebook' | 'twitter') => {
+    const handleOAuthSignIn = async (provider: 'google') => {
         const siteUrl = process.env.NEXT_PUBLIC_AUTH_REDIRECT_URL || process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
         await supabase.auth.signInWithOAuth({
             provider,
@@ -69,26 +69,6 @@ export default function LoginPage() {
                         >
                             <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
                             Sign in with Google
-                        </button>
-
-                        <button
-                            onClick={() => handleOAuthSignIn('facebook')}
-                            className="w-full flex items-center justify-center gap-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium py-3 rounded-xl transition-all duration-300 active:scale-[0.98]"
-                        >
-                            <svg viewBox="0 0 24 24" aria-hidden="true" className="w-5 h-5 fill-current">
-                                <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073c0 6.026 4.388 11.022 10.125 11.927v-8.437H7.078v-3.49h3.047V9.413c0-3.03 1.792-4.706 4.533-4.706 1.313 0 2.686.235 2.686.235v2.974h-1.514c-1.49 0-1.955.93-1.955 1.885v2.271h3.328l-.532 3.49h-2.796V24C19.612 23.095 24 18.099 24 12.073z" />
-                            </svg>
-                            Sign in with Facebook
-                        </button>
-
-                        <button
-                            onClick={() => handleOAuthSignIn('twitter')}
-                            className="w-full flex items-center justify-center gap-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium py-3 rounded-xl transition-all duration-300 active:scale-[0.98]"
-                        >
-                            <svg viewBox="0 0 24 24" aria-hidden="true" className="w-5 h-5 fill-current">
-                                <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.847h-7.406l-5.8-7.584-6.64 7.584H.47l8.6-9.83L0 1.153h7.594l5.243 6.932zM17.61 20.645h2.04L6.486 3.24H4.298z" />
-                            </svg>
-                            Sign in with X
                         </button>
                     </div>
                     <p className="text-center mt-8 text-sm text-gray-200">

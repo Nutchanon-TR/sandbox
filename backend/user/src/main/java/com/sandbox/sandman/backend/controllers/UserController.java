@@ -24,7 +24,7 @@ public class UserController {
     public ResponseEntity<UserResolveResponseDto> syncUser(@RequestBody UserResolveRequestDto request) {
         log.info("POST /sync received supabaseUid={}", request == null ? "<null>" : request.getSupabaseUid());
         try {
-            UserResolveResponseDto response = userResolutionService.resolveUser(request.getSupabaseUid());
+            UserResolveResponseDto response = userResolutionService.resolveUser(request);
             log.info("POST /sync resolved userId={} for supabaseUid={}",
                     response.getUserId(), request.getSupabaseUid());
             return ResponseEntity.ok(response);

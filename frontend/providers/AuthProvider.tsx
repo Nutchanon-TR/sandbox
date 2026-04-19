@@ -16,12 +16,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const supabase = createSupabaseBrowser();
     let mounted = true;
 
-    async function syncUser(supabaseUid: string, email: string, name: string) {
+    async function syncUser(supabaseUid: string, email: string, name: string, avatarUrl: string | null) {
       if (resolvedUidRef.current === supabaseUid) return;
       try {
         const response = await fetchApi<UserResolveResponse>(
           API_SANDBOX.USER_SYNC,
-          { supabaseUid, email, username: name }
+          { supabaseUid, email, username: name, avatarUrl }
         );
         if (mounted) {
           setInternalUserId(response.userId);
@@ -38,7 +38,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       if (session?.user) {
         const { id, email, user_metadata } = session.user;
-        await syncUser(id, email || '', user_metadata?.full_name || email?.split('@')[0] || 'user');
+        const avatarUrl = user_metadata?.avatar_url || user_metadata?.picture || null;
+        await syncUser(id, email || '', user_metadata?.full_name || email?.split('@')[0] || 'user', avatarUrl);
       }
     }
 
@@ -50,7 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         if (session?.user) {
           const { id, email, user_metadata } = session.user;
-          await syncUser(id, email || '', user_metadata?.full_name || email?.split('@')[0] || 'user');
+          const avatarUrl = user_metadata?.avatar_url || user_metadata?.picture || null;
+          await syncUser(id, email || '', user_metadata?.full_name || email?.split('@')[0] || 'user', avatarUrl);
         } else {
           setInternalUserId(null);
           resolvedUidRef.current = null;
