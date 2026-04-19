@@ -38,6 +38,7 @@ public class RoomService {
 
         Room room = new Room();
         room.setUser(user);
+        room.setIsGroup(request.getIsGroup());
         room.setName(request.getName());
         Room savedRoom = roomRepository.save(room);
 
@@ -71,6 +72,7 @@ public class RoomService {
         return new RoomDto(
                 room.getId(),
                 displayName,
+                room.getIsGroup(),
                 aiAvatarUrl,
                 room.getCreatedAt()
         );

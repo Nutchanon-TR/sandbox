@@ -5,5 +5,6 @@ import lombok.Data;
 @Data
 public class RoomCreateRequestDto {
     private String name;
+    private Boolean isGroup = false;
     private String systemPrompt;
 }
