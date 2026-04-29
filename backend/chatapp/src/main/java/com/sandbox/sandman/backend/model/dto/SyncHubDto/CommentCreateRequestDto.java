@@ -6,4 +6,5 @@ import lombok.Data;
 public class CommentCreateRequestDto {
     private Long userId;
     private String content;
+    private Integer star;
 }

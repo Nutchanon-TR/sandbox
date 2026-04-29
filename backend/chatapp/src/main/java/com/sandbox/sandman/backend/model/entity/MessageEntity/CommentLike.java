@@ -7,10 +7,10 @@ import lombok.NoArgsConstructor;
 import java.time.ZonedDateTime;
 
 @Entity
-@Table(name = "comments", schema = "chat_app")
+@Table(name = "comment_likes", schema = "chat_app")
 @Data
 @NoArgsConstructor
-public class Comment {
+public class CommentLike {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,14 +19,8 @@ public class Comment {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(name = "ai_id", nullable = false)
-    private Long aiId;
-
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String content;
-
-    @Column(nullable = false)
-    private Integer star = 0;
+    @Column(name = "comment_id", nullable = false)
+    private Long commentId;
 
     @Column(name = "created_at")
     private ZonedDateTime createdAt;

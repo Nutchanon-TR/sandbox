@@ -13,5 +13,7 @@ public class CommentDto {
     private String userDisplayName;
     private Long aiId;
     private String content;
+    private Integer star;
+    private Long likeCount;
     private ZonedDateTime createdAt;
 }

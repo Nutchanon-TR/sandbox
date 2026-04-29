@@ -27,6 +27,7 @@ public class FriendController {
         return ResponseEntity.ok().build();
     }
 
+    //Maybe dont use
     @GetMapping("/user/{userId}/friends")
     public ResponseEntity<List<Friend>> listFriends(@PathVariable Long userId) {
         return ResponseEntity.ok(friendService.listFriends(userId));

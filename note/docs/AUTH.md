@@ -11,12 +11,13 @@
 ### 1.1 `api/auth/[...nextauth]/route.ts` (NextAuth.js)
 - **Catch-all Route:** โครงสร้างโฟลเดอร์ที่มีวงเล็บเหลี่ยมจุด 3 จุด `[...]` เป็นความสามารถของ Next.js ที่เรียกว่า Catch-all route หมายความว่า URL ใดๆ ก็ตามที่นำหน้าด้วย `api/auth/` (เช่น `/api/auth/signin`, `/api/auth/callback`, `/api/auth/session`) จะถูกดึงและจัดการรวมไว้ที่ไฟล์ `route.ts` ไฟล์นี้ไฟล์เดียว
 - **ระบบอัตโนมัติเบ็ดเสร็จ:** เนื่องจากไลบรารี NextAuth ได้ออกแบบระบบจัดการให้หมดแล้ว ผู้ใช้ "จำเป็น" ต้องสร้างโครงสร้างพาธนี้ให้ตรงเป๊ะ ๆ เพราะโค้ดวงใน (Hardcoded) ของระบบมันจะชี้มาหาโฟลเดอร์นี้เสมอ
-- **สถานะใน Sandbox ปัจจุบัน:** ปัจจุบันเราได้เปลี่ยนไปใช้ Supabase 100% แล้ว หากในโปรเจกต์ยังมีโฟลเดอร์นี้หลงเหลืออยู่ ให้ถือว่าเป็น **Legacy / Dead code** สามารถลบและเคลียร์โฟลเดอร์ `api/auth/` ทิ้งได้เลย
+- **สถานะใน Sandbox ปัจจุบัน:** ปัจจุบันเราใช้ Supabase 100% และได้ลบโฟลเดอร์ `frontend/app/api/auth/` ออกจาก main แล้ว (อาจยังเห็นหลงเหลืออยู่ใน worktree เก่า เช่น `.claude/worktrees/...` ซึ่งไม่กระทบกับโค้ดที่รันจริง)
 
 ### 1.2 `auth/callback/route.ts` (Supabase Auth)
 - **Custom Callback แบบทำมือ:** แตกต่างจาก NextAuth ตัวระบบจัดการเซสชันของ `@supabase/ssr` ไม่ได้ผูกขาดว่าเราต้องมี Catch-all Route เป็นของตัวเอง สิ่งที่เราต้องทำคือการเขียน "จุดรับเสด็จ" (Redirect Receiver) เมื่อเราเลือก Login เสร็จจากฝั่งผู้ให้บริการ
 - **การทำงาน:** ฝั่งผู้ให้บริการ (อย่าง Google หรือ Magic Link) จะส่งรหัส (`code`) ใส่มาใน URL กลับมาที่หน้าเว็บของเรา ตัว Endpoint นี้มีหน้าที่นำโค้ดที่ได้ ไปแลกฝั่งกุญแจเข้ารหัสใหม่ให้กลายเป็น Session Cookies
 - **อิสระในการตั้งชื่อ:** เราสามารถเปลี่ยนชื่อพาธจาก `auth/callback` เป็นอะไรก็ได้ (เช่น `api/confirm`, `auth/verify`) **แต่** ต้องจำไว้เสมอว่า URL ไหนที่เราตั้งขึ้นใหม่ จะต้องนำไปอัปเดตลง **Callback URLs** ในหน้าของ Supabase Dashboard ให้ตรงกันด้วยเสมอ
+- **สถานะใน Sandbox ปัจจุบัน:** ไฟล์จริงอยู่ที่ [frontend/app/auth/callback/route.ts](../../frontend/app/auth/callback/route.ts) เรียกใช้ `createSupabaseServer()` จาก [frontend/lib/supabase/server.ts](../../frontend/lib/supabase/server.ts) เพื่อทำ `exchangeCodeForSession(code)` แล้ว redirect กลับไปที่ `next` (default `/`) โดยรองรับการ deploy หลัง nginx ผ่านการอ่าน `X-Forwarded-Host` / `X-Forwarded-Proto` (และ override ด้วย `NEXT_PUBLIC_SITE_URL` เมื่อ build production/staging)
 
 ---
 
@@ -35,9 +36,11 @@
 
 ---
 
-## 3. Service Access Control — `allowed_services`
+## 3. Service Access Control — `allowed_services` (ยังไม่ implement)
 
-### 3.1 Schema
+> **สถานะปัจจุบัน:** ยังไม่มี column `allowed_services`, trigger, หรือ filter ใน codebase (ค้นใน `backend/` และ migrations แล้วไม่พบ) ส่วนนี้เก็บไว้เป็น **design proposal** สำหรับ Phase ที่ OAuth2Proxy + multi-service พร้อมใช้งานเท่านั้น
+
+### 3.1 Schema (proposed)
 
 Column นี้เก็บไว้ใน `public.users` (ไม่ใช่ `auth.users`) เพื่อให้ Service Role มีสิทธิ์แก้ไขได้โดยตรง
 
@@ -174,7 +177,8 @@ public class ServiceAccessFilter extends OncePerRequestFilter {
 ## 4. สรุป Workflow ของระบบ Auth ที่ใช้งานจริงตอนนี้
 
 ในปัจจุบันระบบ Sandbox ของเราพึ่งพา Supabase แบบเต็มรูปแบบ:
-1. ผู้ใช้กดปุ่ม Login ที่ฝั่งหน้าบ้าน
-2. ดำเนินการล็อกอินเสร็จ กลับมายังที่อยู่ `auth/callback` เพื่อแลกเปลี่ยน Session และปั๊มคุกกี้เก็บไว้
-3. หน้าเว็บต่างๆ และ Components ย่อย เรียกใช้การโหลดข้อมูลโดยการ Import Custom Hook จาก `hooks/useSupabaseSession.ts` 
-4. การปกป้องการแอบเข้ามาที่หน้าส่วนของระบบย่อย จะใช้ "ด่านกั้นกลาง" จาก `middleware.ts` ป้องกันผู้ใช้ใหม่เอาไว้ ส่งกลับเข้าหน้า `/login` อย่างปลอดภัย
+1. ผู้ใช้กดปุ่ม Login ที่ [frontend/app/login/page.tsx](../../frontend/app/login/page.tsx)
+2. หลัง provider ส่งกลับมา จะเข้าที่ [frontend/app/auth/callback/route.ts](../../frontend/app/auth/callback/route.ts) เพื่อ `exchangeCodeForSession` และเซ็ต cookies
+3. Session ถูก subscribe โดย [frontend/providers/AuthProvider.tsx](../../frontend/providers/AuthProvider.tsx) (ผ่าน `supabase.auth.onAuthStateChange`) แล้วเก็บใน Zustand store [`stores/sessionStore`](../../frontend/stores/sessionStore.ts) — components ย่อยอ่าน session จาก store นี้ตรงๆ (ยัง **ไม่มี** custom hook ชื่อ `useSupabaseSession.ts`)
+4. ครั้งแรกที่เจอ session ใหม่ AuthProvider จะยิง `API_SANDBOX.USER_SYNC` ไปที่ backend เพื่อ sync `supabaseUid` → internal user id (เก็บใน store เช่นกัน)
+5. การปกป้องเส้นทางใช้ [frontend/middleware.ts](../../frontend/middleware.ts) เป็น "ด่านกั้นกลาง" — ถ้าไม่มี user และ path ไม่ใช่ `/`, `/login*`, หรือ `/auth*` จะ redirect ไป `/login`; ถ้ามี user อยู่แล้วและพยายามเข้า `/login` จะ redirect กลับ `/`
