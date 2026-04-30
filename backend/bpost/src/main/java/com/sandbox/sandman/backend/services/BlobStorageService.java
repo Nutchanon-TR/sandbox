@@ -20,23 +20,38 @@ public class BlobStorageService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+    /** Backwards-compatible upload — stores at the bucket root. */
     public ResponseEntity<ByteArrayResource> uploadImage(MultipartFile file) {
+        return uploadImage(file, "");
+    }
+
+    /**
+     * Uploads to Supabase Storage under {@code prefix}/uuid_filename.
+     * Returns the file bytes (legacy behavior); call {@link #buildPublicUrl} with the returned
+     * filename to get the URL.
+     */
+    public ResponseEntity<ByteArrayResource> uploadImage(MultipartFile file, String prefix) {
+        UploadResult result = uploadAndReturnUrl(file, prefix);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getOriginalFilename() + "\"")
+                .contentType(MediaType.parseMediaType(file.getContentType()))
+                .contentLength(file.getSize())
+                .body(result.body());
+    }
+
+    public UploadResult uploadAndReturnUrl(MultipartFile file, String prefix) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Your uploaded file is null or empty");
         }
         try {
-            String uniqueFilename = UUID.randomUUID() + "_" + file.getOriginalFilename();
+            String safePrefix = prefix == null ? "" : prefix.replaceAll("^/+", "").replaceAll("/+$", "");
+            String objectPath = (safePrefix.isEmpty() ? "" : safePrefix + "/")
+                    + UUID.randomUUID() + "_" + file.getOriginalFilename();
             String bucket = appConfig.getImageContainerName();
             String uploadUrl = appConfig.getSupabaseUrl()
-                    + "/storage/v1/object/" + bucket + "/" + uniqueFilename;
+                    + "/storage/v1/object/" + bucket + "/" + objectPath;
 
             String serviceKey = appConfig.getServiceRoleKey().trim();
-            // DEBUG — remove after fixing
-            log.info("[DEBUG] uploadUrl = {}", uploadUrl);
-            log.info("[DEBUG] serviceKey length = {}", serviceKey.length());
-            log.info("[DEBUG] serviceKey starts = {}", serviceKey.substring(0, Math.min(20, serviceKey.length())));
-            log.info("[DEBUG] serviceKey ends   = {}", serviceKey.substring(Math.max(0, serviceKey.length() - 10)));
-            log.info("[DEBUG] Authorization header = Bearer {}", serviceKey.substring(0, Math.min(20, serviceKey.length())) + "...");
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("Authorization", "Bearer " + serviceKey);
@@ -46,23 +61,23 @@ public class BlobStorageService {
             HttpEntity<byte[]> requestEntity = new HttpEntity<>(file.getBytes(), headers);
             restTemplate.exchange(uploadUrl, HttpMethod.POST, requestEntity, String.class);
 
-            // Return file bytes back to caller (matches previous Azure behaviour)
+            String publicUrl = appConfig.getSupabaseUrl()
+                    + "/storage/v1/object/public/" + bucket + "/" + objectPath;
             ByteArrayResource resource = new ByteArrayResource(file.getBytes());
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.getOriginalFilename() + "\"")
-                    .contentType(MediaType.parseMediaType(file.getContentType()))
-                    .contentLength(file.getSize())
-                    .body(resource);
+            return new UploadResult(objectPath, publicUrl, resource);
         } catch (Exception e) {
-            throw new RuntimeException("Error image upload failed: " + e.getMessage(), e);
+            throw new RuntimeException("Image upload failed: " + e.getMessage(), e);
         }
     }
 
-    /**
-     * Returns the public URL of an uploaded file.
-     */
-    public String getPublicUrl(String filename) {
+    public String buildPublicUrl(String objectPath) {
         String bucket = appConfig.getImageContainerName();
-        return appConfig.getSupabaseUrl() + "/storage/v1/object/public/" + bucket + "/" + filename;
+        return appConfig.getSupabaseUrl() + "/storage/v1/object/public/" + bucket + "/" + objectPath;
     }
+
+    public String getPublicUrl(String filename) {
+        return buildPublicUrl(filename);
+    }
+
+    public record UploadResult(String objectPath, String publicUrl, ByteArrayResource body) {}
 }

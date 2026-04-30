@@ -37,4 +37,46 @@ export const API_SANDBOX: Record<string, ApiDetail> = {
         path: `${userServiceBase}/v1/api/user/profile`,
         method: 'POST',
     },
+
+    // ── B-Post: Posts ──
+    B_POST_POST_CREATE:        { path: `${contextPath}/v1/api/b-post/posts`,                          method: 'POST' },
+    B_POST_POST_FEED:          { path: `${contextPath}/v1/api/b-post/posts/feed`,                     method: 'GET' },
+    B_POST_POST_BY_AUTHOR:     { path: `${contextPath}/v1/api/b-post/posts/by-author/{authorId}`,     method: 'GET' },
+    B_POST_POST_GET:           { path: `${contextPath}/v1/api/b-post/posts/{postId}`,                 method: 'GET' },
+    B_POST_POST_UPDATE:        { path: `${contextPath}/v1/api/b-post/posts/{postId}`,                 method: 'PATCH' },
+    B_POST_POST_DELETE:        { path: `${contextPath}/v1/api/b-post/posts/{postId}`,                 method: 'DELETE' },
+    B_POST_POST_LIKE:          { path: `${contextPath}/v1/api/b-post/posts/{postId}/likes`,           method: 'POST' },
+    B_POST_POST_UNLIKE:        { path: `${contextPath}/v1/api/b-post/posts/{postId}/likes`,           method: 'DELETE' },
+    B_POST_POST_UPLOAD_IMAGE:  { path: `${contextPath}/v1/api/b-post/posts/upload-image`,             method: 'POST' },
+
+    // ── B-Post: Comments ──
+    B_POST_COMMENT_LIST:       { path: `${contextPath}/v1/api/b-post/posts/{postId}/comments`,        method: 'GET' },
+    B_POST_COMMENT_ADD:        { path: `${contextPath}/v1/api/b-post/posts/{postId}/comments`,        method: 'POST' },
+    B_POST_COMMENT_EDIT:       { path: `${contextPath}/v1/api/b-post/comments/{commentId}`,           method: 'PATCH' },
+    B_POST_COMMENT_DELETE:     { path: `${contextPath}/v1/api/b-post/comments/{commentId}`,           method: 'DELETE' },
+
+    // ── B-Post: Friends / Social ──
+    B_POST_FRIEND_LIST:                 { path: `${contextPath}/v1/api/b-post/friends`,                              method: 'GET' },
+    B_POST_FRIEND_REQUESTS_INCOMING:    { path: `${contextPath}/v1/api/b-post/friends/requests/incoming`,            method: 'GET' },
+    B_POST_FRIEND_REQUESTS_OUTGOING:    { path: `${contextPath}/v1/api/b-post/friends/requests/outgoing`,            method: 'GET' },
+    B_POST_FRIEND_REQUEST_SEND:         { path: `${contextPath}/v1/api/b-post/friends/requests`,                     method: 'POST' },
+    B_POST_FRIEND_REQUEST_ACCEPT:       { path: `${contextPath}/v1/api/b-post/friends/requests/{id}/accept`,         method: 'POST' },
+    B_POST_FRIEND_REQUEST_DECLINE:      { path: `${contextPath}/v1/api/b-post/friends/requests/{id}/decline`,        method: 'POST' },
+    B_POST_USER_SEARCH:                 { path: `${contextPath}/v1/api/b-post/users/search`,                         method: 'GET' },
+
+    // ── B-Post: Messages ──
+    B_POST_CONVERSATION_LIST:    { path: `${contextPath}/v1/api/b-post/conversations`,                           method: 'GET' },
+    B_POST_CONVERSATION_OPEN:    { path: `${contextPath}/v1/api/b-post/conversations`,                           method: 'POST' },
+    B_POST_CONVERSATION_HISTORY: { path: `${contextPath}/v1/api/b-post/conversations/{conversationId}/messages`, method: 'GET' },
+    B_POST_CONVERSATION_READ:    { path: `${contextPath}/v1/api/b-post/conversations/{conversationId}/read`,     method: 'POST' },
+    B_POST_MESSAGE_SEND:         { path: `${contextPath}/v1/api/b-post/messages`,                                method: 'POST' },
+    B_POST_MESSAGE_UPLOAD_IMAGE: { path: `${contextPath}/v1/api/b-post/messages/upload-image`,                   method: 'POST' },
+
+    // ── B-Post: Notifications ──
+    B_POST_NOTIFICATION_LIST:         { path: `${contextPath}/v1/api/b-post/notifications`,                method: 'GET' },
+    B_POST_NOTIFICATION_UNREAD_COUNT: { path: `${contextPath}/v1/api/b-post/notifications/unread-count`,   method: 'GET' },
+    B_POST_NOTIFICATION_READ:         { path: `${contextPath}/v1/api/b-post/notifications/{id}/read`,      method: 'POST' },
+
+    // ── B-Post: Presence ──
+    B_POST_PRESENCE_ONLINE: { path: `${contextPath}/v1/api/b-post/presence/online`, method: 'GET' },
 };

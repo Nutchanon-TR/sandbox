@@ -50,3 +50,6 @@ app:
     service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
     storage:
       bucket-name: images
+  websocket:
+    endpoint: /v1/api/b-post/ws
+    allowed-origins: ${CORS_ALLOWED_ORIGIN_GATEWAY:http://localhost:3000}
