@@ -1,285 +1,210 @@
-# INFRA.md
+# Infrastructure - Current Code Spec
 
-## ภาพรวม
-เอกสารนี้อธิบายสถาปัตยกรรมการ Deploy ทั้งหมดของโปรเจกต์ **Sandbox** โดยใช้ Docker คอนเทนเนอร์ที่จัดการด้วย **docker‑compose** (สำหรับ local) / **Azure Container Apps** (สำหรับ prod) และเปิดให้เข้าถึงจากภายนอกผ่าน **Nginx** gateway มี side‑car **OAuth2‑Proxy** สำหรับ validate Supabase JWT
-
----
-
-## 1. Dockerfile
-
-### 1.1 Gateway (Nginx) – `gateway/Dockerfile`
-```Dockerfile
-FROM nginx:1.25.4-alpine
-
-# Copy the custom Nginx template configuration
-COPY nginx.conf.template /etc/nginx/templates/nginx.conf.template
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
-```
-* สร้างอิมเมจ Nginx ขนาดเบาที่ทำงานกับไฟล์ `nginx.conf.template` ของเรา (ดูส่วน 2)
-* **การทำงานของ Template (`envsubst`):** ตัว Base Image `nginx:alpine` ถูกออกแบบมาให้รองรับการแทนที่ตัวแปร (Variables Substitution) หากเรานำไฟล์ไปวางไว้ที่ `/etc/nginx/templates/` ระบบจะอ่าน Environment Variables ในขณะที่ Container กำลังสตาร์ท และแปลงคำอย่าง `${FRONTEND_PORT}` ให้เป็นตัวเลขพอร์ตจริงๆ แล้วเซฟทับเป็นไฟล์ `nginx.conf` ตัวจริงให้โดยอัตโนมัติ ทำให้เราสามารถจัดการพอร์ตบน Local (เช่น 8080) และบน Cloud (80) ได้โดยใช้ไฟล์คอนฟิกเดียวกัน
-
-### 1.2 Frontend – `frontend/Dockerfile`
-```Dockerfile
-# Stage 1: Build
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-# Stage 2: Production runtime (Next.js standalone)
-FROM node:20-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-
-EXPOSE 3000
-CMD ["node", "server.js"]
-```
-* ใช้ Next.js standalone output ทำงานด้วย Node.js บนพอร์ต **3000**
-
-### 1.3 Backend Services – `backend/{chatapp,dinner,bpost,user}/Dockerfile`
-```Dockerfile
-# Stage 1: Build
-FROM maven:3.9.6-eclipse-temurin-21 AS builder
-WORKDIR /app
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
-COPY src ./src
-RUN mvn clean package -DskipTests
-
-# Stage 2: Runtime
-FROM eclipse-temurin:21-jre
-WORKDIR /app
-COPY --from=builder /app/target/*.jar app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
-```
-* สร้าง JAR ของ Spring Boot แล้วรันบน JRE ที่เบา ใช้พอร์ต **8080**
+เอกสารนี้สรุปโครงสร้าง infra จากไฟล์ปัจจุบัน: `docker-compose.yml`, `gateway/nginx.conf.template`, Dockerfile แต่ละ service และ `.github/workflows/aca-deploy.yml`
 
 ---
 
-## 2. การตั้งค่า Nginx – `gateway/nginx.conf.template`
+## Services
 
-> ไฟล์จริงที่ใช้ deploy อยู่ที่ [`gateway/nginx.conf.template`](../../gateway/nginx.conf.template) — ส่วนด้านล่างคือ skeleton สรุปโครงสร้าง
+| Service | Local compose name | Runtime port | Path ผ่าน gateway |
+|---|---|---|---|
+| Frontend | `frontend` | `3000` | `/` |
+| ChatApp | `chat-service` | `8080` | `/v1/api/chat-app/` |
+| Dinner | `dinner-service` | `8080` | `/v1/api/dinner/` |
+| B-Post | `bpost-service` | `8080` | `/v1/api/b-post/` |
+| User | `user-service` | `8080` | `/v1/api/user/` |
+| OAuth2 Proxy | `oauth2-proxy` | `4180` | `/oauth2/`, internal auth subrequest |
+| Gateway | `gateway` | `80` | entry point |
+
+ทุก service ใน docker-compose อยู่บน network `sandbox_net` และ frontend/backend ไม่ expose port ออกตรง เพราะ gateway เป็นทางเข้าเดียว
+
+---
+
+## Docker Compose
+
+ไฟล์: `docker-compose.yml`
+
+จุดสำคัญ:
+
+- `gateway` expose `80:80`
+- `gateway` inject env สำหรับ nginx template: `FRONTEND_PORT=3000`, `BACKEND_PORT=8080`, `OAUTH2_PROXY_PORT=4180`
+- backend services ใช้ `env_file: .env`
+- `chat-service` และ `bpost-service` ใช้ build context `./backend` เพราะ Dockerfile ต้อง copy `common-auth`
+- `dinner-service` และ `user-service` ใช้ context ย่อยของตัวเอง
+
+```yaml
+chat-service:
+  build:
+    context: ./backend
+    dockerfile: chatapp/Dockerfile
+
+bpost-service:
+  build:
+    context: ./backend
+    dockerfile: bpost/Dockerfile
+```
+
+---
+
+## Gateway Routing
+
+ไฟล์: `gateway/nginx.conf.template`
+
+Nginx upstream ใช้ service name จาก Docker/ACA:
 
 ```nginx
-# upstream ใช้ชื่อเดียวกับ service name ใน docker-compose / ACA
-upstream frontend     { server frontend:${FRONTEND_PORT}; }
-upstream chat-service { server chat-service:${BACKEND_PORT}; }
+upstream frontend       { server frontend:${FRONTEND_PORT}; }
+upstream chat-service   { server chat-service:${BACKEND_PORT}; }
 upstream dinner-service { server dinner-service:${BACKEND_PORT}; }
 upstream bpost-service  { server bpost-service:${BACKEND_PORT}; }
 upstream user-service   { server user-service:${BACKEND_PORT}; }
 upstream oauth2-proxy   { server oauth2-proxy:${OAUTH2_PROXY_PORT}; }
-
-server {
-    listen 80;
-    server_name localhost;
-
-    # HTTP/1.1 จำเป็นสำหรับ ACA Envoy (HTTP/1.0 โดน 426 Upgrade Required)
-    proxy_http_version 1.1;
-    proxy_set_header Connection "";
-
-    # buffer ใหญ่พอสำหรับ Supabase JWT cookie (เกิน default 4k/8k ของ nginx)
-    proxy_buffer_size 128k;
-    proxy_buffers 4 256k;
-    proxy_busy_buffers_size 256k;
-
-    # Rate limit error
-    proxy_intercept_errors on;
-    error_page 429 = @rate_limited;
-
-    # oauth2-proxy: auth subrequest + login flow
-    location = /oauth2/auth {
-        proxy_pass http://oauth2-proxy;
-        proxy_pass_request_body off;
-        proxy_set_header Content-Length "";
-        # ...
-    }
-    location /oauth2/ { proxy_pass http://oauth2-proxy; ... }
-
-    # Frontend
-    location / {
-        proxy_pass http://frontend;
-        proxy_set_header Host $proxy_host;
-        # ...
-    }
-
-    # Backend APIs — ทั้งหมดผ่าน auth_request /oauth2/auth (validate Supabase JWT)
-    location /v1/api/chat-app/ { auth_request /oauth2/auth; proxy_pass http://chat-service/v1/api/chat-app/; ... }
-    location /v1/api/dinner/   { auth_request /oauth2/auth; proxy_pass http://dinner-service/v1/api/dinner/; ... }
-    location /v1/api/b-post/   { auth_request /oauth2/auth; proxy_pass http://bpost-service/v1/api/b-post/; ... }
-
-    # User service — มี CORS handling เพิ่มเติม (ดู §2.1)
-    location /v1/api/user/ {
-        # ... OPTIONS preflight bypass + proxy_hide_header + add_header
-        auth_request /oauth2/auth;
-        proxy_pass http://user-service/v1/api/user/;
-    }
-
-    location @unauthorized { return 302 /login; }
-    location @rate_limited { default_type application/json; return 429 '{"error": "Too Many Requests"}'; }
-}
 ```
-* auth_request `/oauth2/auth` เปิดไว้ทุก backend route ตลอด (ไม่มี commented-out แบบเดิม)
-* oauth2-proxy ถูก config ให้ validate Supabase JWT ใน `Authorization: Bearer <token>` (ดู AUTH.md)
-* ส่วน `/v1/api/user/` มี CORS handling เพิ่ม — ดู §2.1
 
-### 2.1 CORS Handling ที่ Gateway (`/v1/api/user/`)
+API routes ทั้งหมดผ่าน `auth_request /oauth2/auth` ยกเว้น b-post websocket:
 
-สำหรับ endpoint ที่ frontend local dev (http://localhost:3000) ยิงตรงเข้า prod gateway จำเป็นต้อง handle CORS ที่ nginx เอง (ไม่พึ่ง Spring CORS เพราะจะ conflict กัน):
+| Route | Auth | Upstream |
+|---|---|---|
+| `/v1/api/chat-app/` | oauth2-proxy | `chat-service` |
+| `/v1/api/dinner/` | oauth2-proxy | `dinner-service` |
+| `/v1/api/b-post/` | oauth2-proxy | `bpost-service` |
+| `/v1/api/user/` | oauth2-proxy + CORS preflight bypass | `user-service` |
+| `/v1/api/b-post/ws/` | STOMP CONNECT JWT, ไม่ใช้ `auth_request` | `bpost-service` |
+
+Gateway forward header สำคัญ:
 
 ```nginx
-location /v1/api/user/ {
-    # Echo origin กลับเฉพาะ localhost — ป้องกัน arbitrary cross-origin
-    set $cors_origin "";
-    if ($http_origin ~* "^https?://localhost(:[0-9]+)?$") {
-        set $cors_origin $http_origin;
-    }
-
-    # CORS preflight (OPTIONS ไม่ส่ง Authorization → ต้อง bypass auth_request)
-    if ($request_method = OPTIONS) {
-        add_header Access-Control-Allow-Origin $cors_origin always;
-        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
-        add_header Access-Control-Allow-Headers "Authorization, Content-Type, sourceSystem" always;
-        add_header Access-Control-Allow-Credentials "true" always;
-        add_header Access-Control-Max-Age 86400 always;
-        return 204;
-    }
-
-    auth_request /oauth2/auth;
-    error_page 401 = @unauthorized;
-    ...
-    proxy_pass http://user-service/v1/api/user/;
-
-    # Strip CORS จาก upstream — nginx เป็น single source of truth
-    # (ถ้าปล่อยผ่าน + add_header ด้านล่าง จะได้ header ซ้ำ 2 ค่า → browser reject)
-    proxy_hide_header Access-Control-Allow-Origin;
-    proxy_hide_header Access-Control-Allow-Credentials;
-    proxy_hide_header Access-Control-Allow-Methods;
-    proxy_hide_header Access-Control-Allow-Headers;
-
-    add_header Access-Control-Allow-Origin $cors_origin always;
-    add_header Access-Control-Allow-Credentials "true" always;
-}
+proxy_set_header Authorization $http_authorization;
+proxy_set_header X-User-Id $user;
+proxy_set_header Host $proxy_host;
 ```
 
-**จุดสำคัญ 3 ข้อ:**
-
-1. **Custom headers ต้อง whitelist** — axios ([frontend/config/axiosConfig.tsx](frontend/config/axiosConfig.tsx)) ส่ง `sourceSystem` → ต้องใส่ใน `Access-Control-Allow-Headers` ไม่งั้น browser block ตั้งแต่ preflight
-2. **OPTIONS ต้อง bypass `auth_request`** — browser ไม่แนบ `Authorization` ใน preflight → ถ้าบังคับ auth จะ 401
-3. **`proxy_hide_header` กัน CORS ซ้ำ** — ถ้า upstream (Spring) เผลอเติม `Access-Control-Allow-Origin` ด้วย + nginx เติมอีก → response จะมี 2 ค่าคั่นด้วย comma → browser reject ด้วย error "header contains multiple values"
+`/v1/api/user/` มี CORS handling ที่ Nginx เพื่อให้ local dev ยิง prod gateway ได้ โดย echo เฉพาะ origin ที่เป็น localhost และ bypass `OPTIONS`
 
 ---
 
-## 3. docker‑compose – `docker-compose.yml`
-```yaml
-version: '3.8'
+## Dockerfiles
 
-services:
-  # API Gateway (Nginx) — entry point เดียว
-  gateway:
-    build: { context: ./gateway, dockerfile: Dockerfile }
-    ports: [ "80:80" ]
-    environment:                       # ← จำเป็นเพื่อ envsubst ใน nginx.conf.template
-      - FRONTEND_PORT=3000
-      - BACKEND_PORT=8080
-      - OAUTH2_PROXY_PORT=4180
-    depends_on: [ frontend, chat-service, dinner-service, bpost-service, user-service, oauth2-proxy ]
-    networks: [ sandbox_net ]
-    restart: unless-stopped
+### Gateway
 
-  # OAuth2 Validation Sidecar (validate Supabase JWT)
-  oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
-    command:
-      - "--http-address=0.0.0.0:4180"
-      - "--provider=oidc"
-      - "--oidc-issuer-url=https://${SUPABASE_PROJECT_ID:-YOUR_SUPABASE_ID}.supabase.co"
-      - "--skip-provider-button=true"
-      - "--email-domain=*"
-      - "--cookie-secret=OAUTH2_PROXY_COOKIE_SECRET_32_BYTES"
-      - "--cookie-secure=false"            # production ให้ตั้งเป็น true
-      - "--upstream=http://dummy"          # Nginx จะทำ reverse ไปยัง OAuth
-      - "--skip-jwt-bearer-tokens=true"    # parse Authorization: Bearer <jwt>
-      - "--extra-jwt-issuers=https://${SUPABASE_PROJECT_ID:-YOUR_SUPABASE_ID}.supabase.co=https://${SUPABASE_PROJECT_ID:-YOUR_SUPABASE_ID}.supabase.co"
-    environment:
-      - OAUTH2_PROXY_CLIENT_ID=${OAUTH2_PROXY_CLIENT_ID:-DUMMY}
-      - OAUTH2_PROXY_CLIENT_SECRET=${OAUTH2_PROXY_CLIENT_SECRET:-DUMMY}
-    networks: [ sandbox_net ]
-    restart: unless-stopped
+`gateway/Dockerfile`
 
-  # Frontend (Next.js) — NEXT_PUBLIC_* baked at build time, runtime env ไม่มีผล
-  frontend:
-    build: { context: ./frontend, dockerfile: Dockerfile }
-    networks: [ sandbox_net ]
-    restart: unless-stopped
+- base image `nginx:1.25.4-alpine`
+- ลบ default conf
+- copy `nginx.conf.template` ไป `/etc/nginx/templates/`
+- nginx image จะทำ envsubst template ตอน container start
 
-  # Backend Services — ทั้ง 4 service ใช้ pattern เดียวกัน (env_file: .env)
-  chat-service:
-    build: { context: ./backend/chatapp, dockerfile: Dockerfile }
-    env_file: .env
-    networks: [ sandbox_net ]
-    restart: unless-stopped
+### Frontend
 
-  dinner-service:
-    build: { context: ./backend/dinner, dockerfile: Dockerfile }
-    env_file: .env
-    networks: [ sandbox_net ]
-    restart: unless-stopped
+`frontend/Dockerfile`
 
-  bpost-service:
-    build: { context: ./backend/bpost, dockerfile: Dockerfile }
-    env_file: .env
-    networks: [ sandbox_net ]
-    restart: unless-stopped
+- base image `node:20-alpine`
+- build ด้วย `npm ci` และ `npm run build`
+- runtime ใช้ Next.js standalone output (`node server.js`)
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL` เป็น build args และถูก bake เข้า bundle
 
-  user-service:
-    build: { context: ./backend/user, dockerfile: Dockerfile }
-    env_file: .env
-    networks: [ sandbox_net ]
-    restart: unless-stopped
+### ChatApp และ B-Post
 
-networks:
-  sandbox_net:
-    driver: bridge
+`backend/chatapp/Dockerfile` และ `backend/bpost/Dockerfile`
+
+- base builder `maven:3.9.6-eclipse-temurin-21`
+- context ต้องเป็น `./backend`
+- copy `common-auth` แล้ว `mvn install -DskipTests -B`
+- build service jar หลังจาก common-auth อยู่ใน local Maven cache ของ image
+- runtime ใช้ `eclipse-temurin:21-jre`
+
+### Dinner และ User
+
+`backend/dinner/Dockerfile` และ `backend/user/Dockerfile`
+
+- build จาก context ย่อยของแต่ละ service
+- runtime `eclipse-temurin:21-jre`
+- current code note: `pom.xml` ของทั้งสอง service มี dependency `common-auth` แต่ Dockerfile ยังไม่ได้ install/copy `common-auth` เหมือน chatapp/bpost
+
+---
+
+## Azure Container Apps Workflow
+
+ไฟล์: `.github/workflows/aca-deploy.yml`
+
+Workflow ปัจจุบัน build/deploy แยก job:
+
+- frontend
+- chat-service
+- dinner-service
+- bpost-service
+- user-service
+- gateway-service
+- oauth2-proxy
+
+ACA ingress ปัจจุบันใน workflow:
+
+| Container App | Ingress | Target port |
+|---|---|---|
+| `gateway-service` | external | 80 |
+| `frontend` | internal | 3000 |
+| backend services | internal | 8080 |
+| `oauth2-proxy` | internal | 4180 |
+
+Gateway บน ACA ใช้ env:
+
+```text
+FRONTEND_PORT=80
+BACKEND_PORT=80
+OAUTH2_PROXY_PORT=80
 ```
-* `gateway` เป็น entry point เดียว; frontend + backend ทุกตัว internal only คุยกันผ่าน docker network
-* backend services ทั้ง 4 ใช้ `env_file: .env` โหลด Supabase credentials + AI keys ร่วมกัน
-* Frontend **ไม่ set** `NEXT_PUBLIC_API_URL` — axios fallback เป็น relative URL แล้ว route ผ่าน gateway อัตโนมัติ
-* **ไม่มี Redis container** — ระบบปัจจุบันไม่ได้ใช้ Redis cache (เคยวางแผนไว้แต่ยังไม่ implement)
+
+เพราะ route ผ่าน internal ACA ingress ของแต่ละ container app
 
 ---
 
-## 5. ส่วนประกอบสนับสนุน
+## ACA Environment และ Secrets
 
-| ส่วน | วัตถุประสงค์ | ค่าตั้งค่าสำคัญ |
-|------|---------------|-------------------|
-| **OAuth2‑Proxy** | ตรวจสอบ JWT จาก Supabase และส่งต่อข้อมูลผู้ใช้ให้ backend | `SUPABASE_PROJECT_ID`, `OAUTH2_PROXY_CLIENT_ID`, `OAUTH2_PROXY_CLIENT_SECRET`, `OAUTH2_PROXY_COOKIE_SECRET` |
-| **Supavisor Pooler** | Supabase connection pooler (IPv4 transaction mode) ที่ backend services ใช้เชื่อม Postgres จาก ACA | host: `aws-1-ap-northeast-1.pooler.supabase.com:6543`, param `?prepareThreshold=0` |
+Backend services ใช้ Supavisor transaction pooler ใน ACA:
+
+```text
+SPRING_DATASOURCE_URL=jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?prepareThreshold=0
+SPRING_DATASOURCE_USERNAME=postgres.<SUPABASE_PROJECT_ID>
+SUPABASE_DB_PASSWORD=secretref:supabase-db-password
+```
+
+Service-specific secrets:
+
+| Service | Secrets/env สำคัญ |
+|---|---|
+| chat-service | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GROK_API_KEY`, `HUGGINGFACE_API_KEY` |
+| bpost-service | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GROK_API_KEY` |
+| dinner-service | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GROK_API_KEY` |
+| user-service | `SUPABASE_DB_PASSWORD` |
+| oauth2-proxy | `SUPABASE_PROJECT_ID`, OAuth2 client id/secret, cookie secret |
+
+หมายเหตุ: `GROK_API_KEY` ใน dinner/bpost มาจาก shared app.yml pattern แม้ service เหล่านี้ไม่ได้ใช้ AI flow หลักแบบ ChatApp
 
 ---
 
-## 6. ขั้นตอน Deploy
-1. **พัฒนาในเครื่อง** – รัน `docker compose up --build` เพื่อสตาร์ทสแต็กทั้งหมด; gateway จะรับที่ `http://localhost`
-2. **CI/CD** – Workflow `aca-deploy.yml` จะ build image แต่ละไฟล์, push ไป GHCR, แล้ว deploy ไป Azure Container Apps
-3. **Production** – Azure Container Apps เปิด ingress ของ `gateway` เป็น **External** ส่วน `frontend` และ `backend` ตั้งเป็น **Internal** เพื่อจำกัดการเข้าถึงจาก VNet เท่านั้น (บังคับให้เข้าเว็บมือผ่าน Nginx อย่างเดียว)
+## Known Infra Mismatches จากโค้ดปัจจุบัน
+
+| จุด | สถานะในโค้ด | ผลที่อาจเกิด |
+|---|---|---|
+| CI build chat-service | workflow ใช้ context `./backend/chatapp` แต่ Dockerfile expect `./backend` | `COPY common-auth/...` fail |
+| CI build bpost-service | workflow ใช้ context `./backend/bpost` แต่ Dockerfile expect `./backend` | `COPY common-auth/...` fail |
+| dinner/user Dockerfile | ไม่ install `common-auth` แต่ `pom.xml` depend on `common-auth` | Maven resolve fail ถ้าไม่มี artifact ใน repo |
+| OAuth2 issuer | docker-compose กับ ACA workflow ใช้ issuer format ไม่เหมือนกัน | auth validate fail ได้ถ้า token issuer ไม่ตรง |
 
 ---
 
-## 7. ตัวแปรสภาพแวดล้อม (ดู KEYS_SUMMARY.md สำหรับรายละเอียดเต็ม)
-- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` – ใช้ใน Frontend
-- `SUPABASE_DB_USERNAME`, `SUPABASE_DB_PASSWORD`, `SUPABASE_SERVICE_ROLE_KEY` – ใช้ใน Backend (JDBC, Storage)
-- `SUPABASE_PROJECT_ID` – ใช้โดย OAuth2‑Proxy สำหรับ OIDC
-- `AZURE_CREDENTIALS`, `RESOURCE_GROUP` – ใช้ใน CI/CD
+## Local Run
 
----
+ใช้ไฟล์ `.env` ที่สร้างจาก `.env.example` แล้วรัน:
 
-*เอกสารนี้ให้มุมมองครบถ้วนของโครงสร้างพื้นฐานที่ใช้ในโปรเจกต์ Sandbox*
+```bash
+docker compose up --build
+```
+
+Gateway จะรับ traffic ที่:
+
+```text
+http://localhost
+```
+
+Frontend API ใช้ relative URL เป็นค่า default (`NEXT_PUBLIC_API_URL` ว่าง) ทำให้ยิงผ่าน gateway อัตโนมัติ

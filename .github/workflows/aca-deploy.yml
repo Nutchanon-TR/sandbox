@@ -87,7 +87,7 @@ jobs:
 
       - name: Build and push chat-service image
         run: |
-          docker build --file ./backend/chatapp/Dockerfile --tag ghcr.io/${LOWER_OWNER}/chat-service:${{ github.sha }} ./backend/chatapp
+          docker build --file ./backend/chatapp/Dockerfile --tag ghcr.io/${LOWER_OWNER}/chat-service:${{ github.sha }} ./backend
           docker push ghcr.io/${LOWER_OWNER}/chat-service:${{ github.sha }}
 
       - name: Log in to Azure
@@ -158,7 +158,7 @@ jobs:
 
       - name: Build and push dinner-service image
         run: |
-          docker build --file ./backend/dinner/Dockerfile --tag ghcr.io/${LOWER_OWNER}/dinner-service:${{ github.sha }} ./backend/dinner
+          docker build --file ./backend/dinner/Dockerfile --tag ghcr.io/${LOWER_OWNER}/dinner-service:${{ github.sha }} ./backend
           docker push ghcr.io/${LOWER_OWNER}/dinner-service:${{ github.sha }}
 
       - name: Log in to Azure
@@ -227,7 +227,7 @@ jobs:
 
       - name: Build and push bpost-service image
         run: |
-          docker build --file ./backend/bpost/Dockerfile --tag ghcr.io/${LOWER_OWNER}/bpost-service:${{ github.sha }} ./backend/bpost
+          docker build --file ./backend/bpost/Dockerfile --tag ghcr.io/${LOWER_OWNER}/bpost-service:${{ github.sha }} ./backend
           docker push ghcr.io/${LOWER_OWNER}/bpost-service:${{ github.sha }}
 
       - name: Log in to Azure
@@ -296,7 +296,7 @@ jobs:
 
       - name: Build and push user-service image
         run: |
-          docker build --file ./backend/user/Dockerfile --tag ghcr.io/${LOWER_OWNER}/user-service:${{ github.sha }} ./backend/user
+          docker build --file ./backend/user/Dockerfile --tag ghcr.io/${LOWER_OWNER}/user-service:${{ github.sha }} ./backend
           docker push ghcr.io/${LOWER_OWNER}/user-service:${{ github.sha }}
 
       - name: Log in to Azure
