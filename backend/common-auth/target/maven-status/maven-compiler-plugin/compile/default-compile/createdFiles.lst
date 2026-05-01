@@ -1,0 +1,6 @@
+com\sandbox\sandman\backend\commonauth\AuthUserRepository.class
+com\sandbox\sandman\backend\commonauth\AuthUser.class
+com\sandbox\sandman\backend\commonauth\JwtAuthFilter.class
+com\sandbox\sandman\backend\commonauth\CurrentUser.class
+com\sandbox\sandman\backend\commonauth\JwtDecoder.class
+com\sandbox\sandman\backend\commonauth\UnauthorizedException.class

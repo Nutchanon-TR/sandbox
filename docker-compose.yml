@@ -72,9 +72,11 @@ services:
   # Backend Services
   # ----------------------------------------
   chat-service:
+    # Context = ./backend (not ./backend/chatapp) so the build stage can also
+    # COPY the sibling common-auth/ library. See backend/chatapp/Dockerfile.
     build:
-      context: ./backend/chatapp
-      dockerfile: Dockerfile
+      context: ./backend
+      dockerfile: chatapp/Dockerfile
     env_file: .env
     networks:
       - sandbox_net
@@ -90,9 +92,11 @@ services:
     restart: unless-stopped
 
   bpost-service:
+    # Context = ./backend so the build stage can COPY common-auth/.
+    # See backend/bpost/Dockerfile.
     build:
-      context: ./backend/bpost
-      dockerfile: Dockerfile
+      context: ./backend
+      dockerfile: bpost/Dockerfile
     env_file: .env
     networks:
       - sandbox_net

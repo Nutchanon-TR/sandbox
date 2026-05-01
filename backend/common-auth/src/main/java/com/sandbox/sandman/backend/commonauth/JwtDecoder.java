@@ -1,4 +1,4 @@
-package com.sandbox.sandman.backend.security;
+package com.sandbox.sandman.backend.commonauth;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,7 +11,7 @@ import java.util.UUID;
  * Decodes a Supabase JWT payload without verifying the signature.
  *
  * The trust boundary is the gateway/oauth2-proxy, which already validates the token before
- * forwarding the request. This service treats the JWT as a credential carrier and only
+ * forwarding the request. This library treats the JWT as a credential carrier and only
  * extracts the `sub` claim (Supabase UID).
  */
 public final class JwtDecoder {

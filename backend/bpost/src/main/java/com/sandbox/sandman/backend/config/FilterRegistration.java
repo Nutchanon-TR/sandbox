@@ -1,6 +1,6 @@
 package com.sandbox.sandman.backend.config;
 
-import com.sandbox.sandman.backend.security.JwtAuthFilter;
+import com.sandbox.sandman.backend.commonauth.JwtAuthFilter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

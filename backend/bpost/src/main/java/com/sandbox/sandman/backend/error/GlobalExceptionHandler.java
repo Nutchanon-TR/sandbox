@@ -1,6 +1,6 @@
 package com.sandbox.sandman.backend.error;
 
-import com.sandbox.sandman.backend.security.UnauthorizedException;
+import com.sandbox.sandman.backend.commonauth.UnauthorizedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;

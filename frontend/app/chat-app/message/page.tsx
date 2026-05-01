@@ -116,7 +116,6 @@ export default function MessagePage() {
             const response = await fetchApi<RoomSummary[]>(
                 API_SANDBOX.CHAT_APP_ROOM_LIST,
                 {},
-                { userId: currentUserId }
             );
             setRooms(response);
 
@@ -274,8 +273,8 @@ export default function MessagePage() {
         try {
             const response = await fetchApi<ChatResponse>(API_SANDBOX.CHAT_APP_MESSAGE, {
                 roomId: activeRoomId,
-                senderId: currentUserId,
                 message: outgoingMessage.content,
+                // senderId removed: backend resolves caller from JWT (Authorization header)
             });
 
             const aiMessage: ChatMessage = { content: response.reply, role: 'AI' };

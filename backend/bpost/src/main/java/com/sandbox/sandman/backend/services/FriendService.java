@@ -2,10 +2,10 @@ package com.sandbox.sandman.backend.services;
 
 import com.sandbox.sandman.backend.model.dto.FriendshipDto;
 import com.sandbox.sandman.backend.model.dto.UserSummaryDto;
-import com.sandbox.sandman.backend.model.entity.AppUser;
+import com.sandbox.sandman.backend.commonauth.AuthUser;
 import com.sandbox.sandman.backend.model.entity.Friendship;
 import com.sandbox.sandman.backend.model.entity.Notification;
-import com.sandbox.sandman.backend.repositories.AppUserRepository;
+import com.sandbox.sandman.backend.commonauth.AuthUserRepository;
 import com.sandbox.sandman.backend.repositories.FriendshipRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,7 +20,7 @@ import java.util.Map;
 public class FriendService {
 
     private final FriendshipRepository friendshipRepository;
-    private final AppUserRepository userRepository;
+    private final AuthUserRepository userRepository;
     private final UserMapper userMapper;
     private final NotificationService notificationService;
 
@@ -108,8 +108,8 @@ public class FriendService {
     }
 
     private FriendshipDto toDto(Friendship f) {
-        AppUser requester = userRepository.findById(f.getRequesterId()).orElse(null);
-        AppUser addressee = userRepository.findById(f.getAddresseeId()).orElse(null);
+        AuthUser requester = userRepository.findById(f.getRequesterId()).orElse(null);
+        AuthUser addressee = userRepository.findById(f.getAddresseeId()).orElse(null);
         return FriendshipDto.builder()
                 .id(f.getId())
                 .requester(userMapper.toDto(requester))

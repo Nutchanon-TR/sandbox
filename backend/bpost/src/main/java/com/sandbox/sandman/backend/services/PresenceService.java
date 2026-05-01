@@ -1,7 +1,7 @@
 package com.sandbox.sandman.backend.services;
 
 import com.sandbox.sandman.backend.model.dto.PresenceEvent;
-import com.sandbox.sandman.backend.repositories.AppUserRepository;
+import com.sandbox.sandman.backend.commonauth.AuthUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -18,7 +18,7 @@ public class PresenceService {
     private static final String TOPIC_PRESENCE = "/topic/presence";
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final AppUserRepository userRepository;
+    private final AuthUserRepository userRepository;
 
     private final Set<Long> online = ConcurrentHashMap.newKeySet();
 

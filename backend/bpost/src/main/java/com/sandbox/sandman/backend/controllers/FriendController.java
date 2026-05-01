@@ -2,7 +2,7 @@ package com.sandbox.sandman.backend.controllers;
 
 import com.sandbox.sandman.backend.model.dto.FriendshipDto;
 import com.sandbox.sandman.backend.model.dto.UserSummaryDto;
-import com.sandbox.sandman.backend.security.CurrentUser;
+import com.sandbox.sandman.backend.commonauth.CurrentUser;
 import com.sandbox.sandman.backend.services.FriendService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

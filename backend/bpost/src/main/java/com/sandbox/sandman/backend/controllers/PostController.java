@@ -4,7 +4,7 @@ import com.sandbox.sandman.backend.model.dto.PageResponse;
 import com.sandbox.sandman.backend.model.dto.PostCreateRequest;
 import com.sandbox.sandman.backend.model.dto.PostDto;
 import com.sandbox.sandman.backend.model.dto.PostUpdateRequest;
-import com.sandbox.sandman.backend.security.CurrentUser;
+import com.sandbox.sandman.backend.commonauth.CurrentUser;
 import com.sandbox.sandman.backend.services.PostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

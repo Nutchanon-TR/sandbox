@@ -123,6 +123,13 @@
             <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
 
+        <!-- Shared JWT auth + chat_app.users identity -->
+        <dependency>
+            <groupId>com.sandbox.sandman</groupId>
+            <artifactId>common-auth</artifactId>
+            <version>0.1.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>

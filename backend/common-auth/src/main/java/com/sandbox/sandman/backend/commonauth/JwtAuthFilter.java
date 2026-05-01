@@ -1,7 +1,5 @@
-package com.sandbox.sandman.backend.security;
+package com.sandbox.sandman.backend.commonauth;
 
-import com.sandbox.sandman.backend.model.entity.AppUser;
-import com.sandbox.sandman.backend.repositories.AppUserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,7 +25,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
-    private final AppUserRepository userRepository;
+    private final AuthUserRepository authUserRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -36,7 +34,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         UUID supabaseUid = JwtDecoder.extractSupabaseUid(request.getHeader(HttpHeaders.AUTHORIZATION));
         if (supabaseUid != null) {
             request.setAttribute(CurrentUser.ATTR_SUPABASE_UID, supabaseUid.toString());
-            Optional<AppUser> user = userRepository.findBySupabaseUid(supabaseUid);
+            Optional<AuthUser> user = authUserRepository.findBySupabaseUid(supabaseUid);
             user.ifPresent(u -> request.setAttribute(CurrentUser.ATTR_USER_ID, u.getId()));
             if (user.isEmpty()) {
                 log.warn("JWT decoded sub={} but no chat_app.users row exists; user-service sync may be missing", supabaseUid);

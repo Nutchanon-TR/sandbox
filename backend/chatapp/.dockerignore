@@ -1,9 +1,0 @@
-target/
-!.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**
-!**/pom.xml
-!**/*.properties
-!**/*.yml
-!**/*.yaml
-!**/*.xml
-!**/*.txt

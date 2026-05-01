@@ -1,5 +1,6 @@
 package com.sandbox.sandman.backend.controllers.SyncHubController.CardController;
 
+import com.sandbox.sandman.backend.commonauth.CurrentUser;
 import com.sandbox.sandman.backend.model.entity.MessageEntity.Friend;
 import com.sandbox.sandman.backend.services.SyncHubService.CardService.FriendService;
 import lombok.RequiredArgsConstructor;
@@ -14,22 +15,22 @@ import java.util.List;
 public class FriendController {
 
     private final FriendService friendService;
+    private final CurrentUser currentUser;
 
-    @PostMapping("/ai/{aiId}/friend/{userId}")
-    public ResponseEntity<Void> addFriend(@PathVariable Long aiId, @PathVariable Long userId) {
-        friendService.addFriend(userId, aiId);
+    @PostMapping("/ai/{aiId}/friend")
+    public ResponseEntity<Void> addFriend(@PathVariable Long aiId) {
+        friendService.addFriend(currentUser.requireUserId(), aiId);
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping("/ai/{aiId}/friend/{userId}")
-    public ResponseEntity<Void> removeFriend(@PathVariable Long aiId, @PathVariable Long userId) {
-        friendService.removeFriend(userId, aiId);
+    @DeleteMapping("/ai/{aiId}/friend")
+    public ResponseEntity<Void> removeFriend(@PathVariable Long aiId) {
+        friendService.removeFriend(currentUser.requireUserId(), aiId);
         return ResponseEntity.ok().build();
     }
 
-    //Maybe dont use
-    @GetMapping("/user/{userId}/friends")
-    public ResponseEntity<List<Friend>> listFriends(@PathVariable Long userId) {
-        return ResponseEntity.ok(friendService.listFriends(userId));
+    @GetMapping("/user/friends")
+    public ResponseEntity<List<Friend>> listFriends() {
+        return ResponseEntity.ok(friendService.listFriends(currentUser.requireUserId()));
     }
 }

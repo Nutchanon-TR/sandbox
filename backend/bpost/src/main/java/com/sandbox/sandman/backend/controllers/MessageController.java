@@ -5,7 +5,7 @@ import com.sandbox.sandman.backend.model.dto.MessageDto;
 import com.sandbox.sandman.backend.model.dto.MessageSendRequest;
 import com.sandbox.sandman.backend.model.dto.PageResponse;
 import com.sandbox.sandman.backend.model.entity.Conversation;
-import com.sandbox.sandman.backend.security.CurrentUser;
+import com.sandbox.sandman.backend.commonauth.CurrentUser;
 import com.sandbox.sandman.backend.services.BlobStorageService;
 import com.sandbox.sandman.backend.services.MessageService;
 import lombok.RequiredArgsConstructor;

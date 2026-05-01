@@ -4,7 +4,7 @@ import lombok.Data;
 
 @Data
 public class CommentCreateRequestDto {
-    private Long userId;
     private String content;
     private Integer star;
+    // userId removed: caller identity is resolved server-side from JWT (see CurrentUser).
 }

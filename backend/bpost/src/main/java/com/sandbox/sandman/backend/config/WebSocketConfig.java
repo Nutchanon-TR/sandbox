@@ -1,7 +1,7 @@
 package com.sandbox.sandman.backend.config;
 
-import com.sandbox.sandman.backend.repositories.AppUserRepository;
-import com.sandbox.sandman.backend.security.JwtDecoder;
+import com.sandbox.sandman.backend.commonauth.AuthUserRepository;
+import com.sandbox.sandman.backend.commonauth.JwtDecoder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -26,7 +26,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    private final AppUserRepository userRepository;
+    private final AuthUserRepository userRepository;
 
     @Value("${app.websocket.endpoint:/v1/api/b-post/ws}")
     private String endpoint;

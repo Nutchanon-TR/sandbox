@@ -1,6 +1,7 @@
 // backend/src/main/java/com/sandbox/sandman/backend/controllers/ChatController.java
 package com.sandbox.sandman.backend.controllers.MessageController;
 
+import com.sandbox.sandman.backend.commonauth.CurrentUser;
 import com.sandbox.sandman.backend.model.dto.MessageDto.ChatHistoryResponse;
 import com.sandbox.sandman.backend.model.dto.MessageDto.ChatRequestDto;
 import com.sandbox.sandman.backend.model.dto.MessageDto.ChatResponseDto;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 public class ChatController {
 
     private final ChatService chatService;
+    private final CurrentUser currentUser;
 
     @GetMapping("/chat/history/{roomId}")
     public ResponseEntity<ChatHistoryResponse> getChatHistory(
@@ -27,7 +29,7 @@ public class ChatController {
 
     @PostMapping("/chat")
     public ResponseEntity<ChatResponseDto> chatWithAi(@RequestBody ChatRequestDto request) {
-        String reply = chatService.getAiResponse(request);
+        String reply = chatService.getAiResponse(currentUser.requireUserId(), request);
         return ResponseEntity.ok(new ChatResponseDto(reply));
     }
 

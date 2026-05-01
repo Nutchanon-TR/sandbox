@@ -1,0 +1,21 @@
+# Build context = ./backend (used by chatapp/Dockerfile and bpost/Dockerfile)
+# Each Dockerfile only COPYs the directories it needs (common-auth/ + its own folder).
+
+# Maven build outputs
+**/target/
+
+# IDE / editor
+**/.idea/
+**/.classpath
+**/.project
+**/.settings/
+**/*.iml
+**/.vscode/
+
+# OS junk
+**/.DS_Store
+**/Thumbs.db
+
+# Git
+.git/
+.gitignore

@@ -1,7 +1,7 @@
 package com.sandbox.sandman.backend.controllers;
 
 import com.sandbox.sandman.backend.model.dto.NotificationDto;
-import com.sandbox.sandman.backend.security.CurrentUser;
+import com.sandbox.sandman.backend.commonauth.CurrentUser;
 import com.sandbox.sandman.backend.services.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

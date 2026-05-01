@@ -3,7 +3,7 @@ package com.sandbox.sandman.backend.controllers;
 import com.sandbox.sandman.backend.model.dto.CommentCreateRequest;
 import com.sandbox.sandman.backend.model.dto.CommentDto;
 import com.sandbox.sandman.backend.model.dto.PageResponse;
-import com.sandbox.sandman.backend.security.CurrentUser;
+import com.sandbox.sandman.backend.commonauth.CurrentUser;
 import com.sandbox.sandman.backend.services.CommentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

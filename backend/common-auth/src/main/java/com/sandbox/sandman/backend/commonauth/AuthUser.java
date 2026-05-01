@@ -1,4 +1,4 @@
-package com.sandbox.sandman.backend.model.entity;
+package com.sandbox.sandman.backend.commonauth;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -9,12 +9,15 @@ import java.util.UUID;
 
 /**
  * Read-only view onto chat_app.users — the shared identity table populated by user-service.
+ *
+ * Other services may keep their own JPA entity mapped to the same table for domain-specific
+ * needs; this class is the canonical entry-point for auth/identity resolution.
  */
 @Entity
 @Table(name = "users", schema = "chat_app")
 @Data
 @NoArgsConstructor
-public class AppUser {
+public class AuthUser {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

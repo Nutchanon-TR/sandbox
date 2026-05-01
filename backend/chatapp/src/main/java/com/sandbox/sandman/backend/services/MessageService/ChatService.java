@@ -69,7 +69,7 @@ public class ChatService {
         return new ChatHistoryResponse(dtos, hasMore);
     }
 
-    public String getAiResponse(ChatRequestDto request) {
+    public String getAiResponse(Long callerId, ChatRequestDto request) {
         Long reqRoomId = request.getRoomId();
         if (reqRoomId == null) {
             throw new RuntimeException("Room ID is required");
@@ -77,11 +77,8 @@ public class ChatService {
         Room room = roomRepository.findById(reqRoomId)
                 .orElseThrow(() -> new RuntimeException("Room not found"));
 
-        Long reqSenderId = request.getSenderId();
-        if (reqSenderId == null) {
-            throw new RuntimeException("Sender ID is required");
-        }
-        User user = userRepository.findById(reqSenderId)
+        // callerId is server-derived from JWT (CurrentUser); never trust request body for identity.
+        User user = userRepository.findById(callerId)
                 .orElseThrow(() -> new RuntimeException("Sender not found"));
 
         Chat userChat = new Chat();

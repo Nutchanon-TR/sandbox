@@ -29,10 +29,10 @@ public class CommentService {
     private final UserRepository userRepository;
 
     @Transactional
-    public CommentDto addComment(Long aiId, CommentCreateRequestDto request) {
+    public CommentDto addComment(Long callerId, Long aiId, CommentCreateRequestDto request) {
         Comment comment = new Comment();
         comment.setAiId(aiId);
-        comment.setUserId(request.getUserId());
+        comment.setUserId(callerId);
         comment.setContent(request.getContent());
         comment.setStar(request.getStar() == null ? 0 : request.getStar());
         Comment saved = commentRepository.save(comment);

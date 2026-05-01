@@ -5,6 +5,6 @@ import lombok.Data;
 @Data
 public class ChatRequestDto {
     private Long roomId;
-    private Long senderId;
     private String message;
+    // senderId removed: caller identity is resolved server-side from JWT (see CurrentUser).
 }
