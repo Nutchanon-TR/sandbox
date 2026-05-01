@@ -30,6 +30,12 @@ public final class JwtDecoder {
         try {
             byte[] payloadBytes = Base64.getUrlDecoder().decode(padBase64(parts[1]));
             JsonNode payload = MAPPER.readTree(new String(payloadBytes, StandardCharsets.UTF_8));
+            
+            JsonNode exp = payload.get("exp");
+            if (exp != null && exp.asLong() < java.time.Instant.now().getEpochSecond()) {
+                return null;
+            }
+
             JsonNode sub = payload.get("sub");
             if (sub == null || sub.isNull()) return null;
             return UUID.fromString(sub.asText());

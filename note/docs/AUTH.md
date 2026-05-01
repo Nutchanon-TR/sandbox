@@ -150,8 +150,8 @@ sequenceDiagram
 ```
 
 **Trust boundary 2 ชั้น:**
-- **ชั้น 1 (gateway)** — verify ลายเซ็นของ JWT ด้วย Supabase public key
-- **ชั้น 2 (JwtAuthFilter)** — แค่ decode payload เพื่อดึง `sub` ไม่ verify ซ้ำ (เชื่อ gateway แล้ว)
+- **ชั้น 1 (gateway)** — verify ลายเซ็นของ JWT ด้วย Supabase public key และ explicit forward `Authorization` header ไปให้ backend
+- **ชั้น 2 (JwtAuthFilter)** — แค่ decode payload เพื่อตรวจสอบเวลาหมดอายุ (`exp`) และดึง `sub` ไม่ verify signature ซ้ำ (เชื่อ gateway แล้ว)
 
 ---
 
@@ -205,14 +205,14 @@ sequenceDiagram
 
 | ประเด็น | 🟩 b-post | 🟩 chat-app | 🟧 dinner | 🟦 user-service |
 |--------|----------|------------|----------|----------------|
-| ใช้ common-auth? | ✅ | ✅ | ❌ ไม่ต้อง | ❌ (เป็น issuer) |
-| JwtAuthFilter รัน path ไหน | `/v1/api/b-post/*` | `/v1/api/chat-app/*` | — | — |
-| Resolve current user จากอะไร | JWT.sub → DB lookup | JWT.sub → DB lookup | — | request body (supabaseUid) |
+| ใช้ common-auth? | ✅ | ✅ | ✅ | ❌ (เป็น issuer) |
+| JwtAuthFilter รัน path ไหน | `/v1/api/b-post/*` | `/v1/api/chat-app/*` | `/v1/api/dinner/*` | — |
+| Resolve current user จากอะไร | JWT.sub → DB lookup | JWT.sub → DB lookup | JWT.sub → DB lookup | JWT.sub เทียบกับ request body |
 | Endpoint per-user | ✅ Posts, Comments, Friends, Messages | ✅ Chat, Rooms | ❌ มีแค่ supplier inquiry | ✅ POST /sync |
-| Endpoint ต้องมี Bearer JWT | ✅ ทุก endpoint | ✅ ทุก endpoint | ❌ public | ✅ |
+| Endpoint ต้องมี Bearer JWT | ✅ ทุก endpoint | ✅ ทุก endpoint | ✅ ทุก endpoint | ✅ |
 
-**dinner**: ไม่ต้องใช้ common-auth เพราะ endpoint ไม่ผูกกับ user (ใครเรียกก็ผลเหมือนกัน)
-**user-service**: เป็นคน "สร้าง" identity จึงไม่ใช้ common-auth — ใช้ supabaseUid ที่ frontend ส่งมาตอน sync
+**dinner**: ใช้ `common-auth` แล้วเพื่อป้องกันช่องโหว่และ security gap หากมีการเพิ่ม endpoint ผูกกับ user ในอนาคต
+**user-service**: เป็นคน "สร้าง" identity จึงไม่ได้ใช้ filter ตรงๆ — แต่มีการเช็ค validate `sub` ใน JWT เทียบกับ `supabaseUid` ที่รับมาตอน `/sync` เพื่อป้องกันการสวมรอยแก้อัปเดต Profile คนอื่น
 
 ---
 
@@ -392,9 +392,9 @@ cd ../bpost && mvn spring-boot:run
 
 ---
 
-### 🚨 3. dinner ยังเรียกได้แม้ไม่มี JWT
+### 🚨 3. dinner เคยเรียกได้แม้ไม่มี JWT (อัปเดตแล้ว)
 
-**ไม่ใช่ bug** — dinner ไม่ใช้ common-auth เพราะไม่มี data per-user ถ้าในอนาคตจะมี endpoint per-user → ต้องเพิ่ม common-auth dep + FilterRegistration ตามขั้นใน [§7](#7-common-auth-library)
+**ได้รับการแก้ไขแล้ว** — ก่อนหน้านี้ `dinner` ไม่ใช้ `common-auth` แต่เพื่อป้องกัน security gap ที่อาจเกิดขึ้นจากการเพิ่ม endpoint ต่อไปในอนาคต ปัจจุบันได้เพิ่มการกรองสิทธิ์และใช้งาน `JwtAuthFilter` ควบคุมการเข้าถึงเรียบร้อยแล้ว
 
 ---
 
@@ -417,11 +417,11 @@ cd ../bpost && mvn spring-boot:run
 
 ---
 
-### 🚨 5. Backend ส่ง 401 แต่ frontend ไม่ redirect
+### 🚨 5. Backend ส่ง 401 แต่ frontend ไม่ redirect (แก้ไขแล้ว)
 
-**สาเหตุ**: nginx `error_page 401 = @unauthorized` → redirect `/login` ทำงานบน gateway routes ที่ใช้ `auth_request` แต่ถ้า backend คืน 401 เอง (ผ่าน `UnauthorizedException`) จะไม่ trigger nginx redirect
+**สาเหตุเดิม**: nginx `error_page 401 = @unauthorized` → redirect `/login` ทำงานเฉพาะบน gateway routes ที่ติด `auth_request` แต่ถ้า backend คืน 401 ออกมาเอง จะไม่ trigger nginx redirect
 
-**วิธีแก้**: frontend axios interceptor ควรจัดการ 401 → ล้าง session + redirect `/login`
+**วิธีแก้ปัจจุบัน**: เพิ่ม Response Interceptor ใน `frontend/config/axiosConfig.tsx` ดักจับเมื่อมี status 401 จากนั้นล้าง state ออกด้วย `useSessionStore.getState().clear()` แล้ว redirect กลับไปยังหน้า `/login` อย่างสมบูรณ์
 
 ---
 
@@ -434,6 +434,7 @@ cd ../bpost && mvn spring-boot:run
 ### Service wiring
 - `backend/bpost/src/main/java/com/sandbox/sandman/backend/config/FilterRegistration.java`
 - `backend/chatapp/src/main/java/com/sandbox/sandman/backend/config/FilterRegistration.java`
+- `backend/dinner/src/main/java/com/sandbox/sandman/backend/dinner/config/FilterRegistration.java`
 - `backend/{bpost,chatapp}/src/main/java/com/sandbox/sandman/backend/error/GlobalExceptionHandler.java`
 
 ### User-service (sync endpoint)

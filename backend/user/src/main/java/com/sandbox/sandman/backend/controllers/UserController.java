@@ -21,8 +21,15 @@ public class UserController {
     }
 
     @PostMapping("/sync")
-    public ResponseEntity<UserResolveResponseDto> syncUser(@RequestBody UserResolveRequestDto request) {
+    public ResponseEntity<UserResolveResponseDto> syncUser(@RequestBody UserResolveRequestDto request, jakarta.servlet.http.HttpServletRequest httpReq) {
         log.info("POST /sync received supabaseUid={}", request == null ? "<null>" : request.getSupabaseUid());
+        
+        java.util.UUID jwtUid = com.sandbox.sandman.backend.commonauth.JwtDecoder.extractSupabaseUid(httpReq.getHeader("Authorization"));
+        if (jwtUid == null || !jwtUid.toString().equals(request != null ? request.getSupabaseUid() : null)) {
+            log.warn("POST /sync unauthorized. JWT sub: {}, Request supabaseUid: {}", jwtUid, request != null ? request.getSupabaseUid() : null);
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+
         try {
             UserResolveResponseDto response = userResolutionService.resolveUser(request);
             log.info("POST /sync resolved userId={} for supabaseUid={}",

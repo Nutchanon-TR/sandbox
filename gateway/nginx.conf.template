@@ -108,6 +108,7 @@ server {
         error_page 401 = @unauthorized;
         auth_request_set $user $upstream_http_x_auth_request_user;
         proxy_set_header X-User-Id $user;
+        proxy_set_header Authorization $http_authorization;
 
         proxy_pass http://chat-service/v1/api/chat-app/;
         proxy_set_header Host $proxy_host;
@@ -121,6 +122,7 @@ server {
         error_page 401 = @unauthorized;
         auth_request_set $user $upstream_http_x_auth_request_user;
         proxy_set_header X-User-Id $user;
+        proxy_set_header Authorization $http_authorization;
 
         proxy_pass http://dinner-service/v1/api/dinner/;
         proxy_set_header Host $proxy_host;
@@ -149,6 +151,7 @@ server {
         error_page 401 = @unauthorized;
         auth_request_set $user $upstream_http_x_auth_request_user;
         proxy_set_header X-User-Id $user;
+        proxy_set_header Authorization $http_authorization;
 
         proxy_pass http://bpost-service/v1/api/b-post/;
         proxy_set_header Host $proxy_host;
@@ -180,6 +183,7 @@ server {
         error_page 401 = @unauthorized;
         auth_request_set $user $upstream_http_x_auth_request_user;
         proxy_set_header X-User-Id $user;
+        proxy_set_header Authorization $http_authorization;
 
         proxy_pass http://user-service/v1/api/user/;
         proxy_set_header Host $proxy_host;
