@@ -1,12 +1,14 @@
 'use client';
 
-import { Avatar, Button, Empty, Input, Spin, Typography, Upload } from 'antd';
-import { PictureOutlined, SendOutlined } from '@ant-design/icons';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Avatar, Button, Empty, Input, Space, Spin, Typography, Upload } from 'antd';
 import Image from 'next/image';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { MoreOutlined, PhoneOutlined, PictureOutlined, SendOutlined, VideoCameraOutlined } from '@ant-design/icons';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { TITLE } from '@/constants/Title';
 import { useChangeTitle } from '@/utils/breadCrumbUtil';
+import { useChangeSubSideBar } from '@/utils/subSideBarUtil';
+import { useLoadingContext } from '@/providers/LoadingBarProvider';
 import { API_SANDBOX } from '@/constants/api/ApiSandbox';
 import { fetchApi } from '@/utils/api';
 import api from '@/config/axiosConfig';
@@ -19,11 +21,18 @@ import { PresenceDot } from '@/components/Bpost/PresenceDot';
 
 const { Text } = Typography;
 
+const BORDER = {
+    main: 'border-slate-300 dark:border-border-main',
+    secondary: 'border-slate-300 dark:border-border-secondary',
+    input: '!border-slate-300 dark:!border-border-secondary hover:!border-slate-400 dark:hover:!border-border-main',
+} as const;
+
 export default function MessagesPage() {
     useChangeTitle(TITLE.B_POST, 'MESSAGES');
 
     const me = useSessionStore((s) => s.internalUserId);
     const realtime = useBPostRealtime();
+    const pathname = usePathname();
     const searchParams = useSearchParams();
 
     const conversations = useBPostStore((s) => s.conversations);
@@ -35,16 +44,20 @@ export default function MessagesPage() {
     const prependMessages = useBPostStore((s) => s.prependMessages);
     const clearUnread = useBPostStore((s) => s.clearUnread);
 
+    const { setIsLoading } = useLoadingContext();
     const [loadingList, setLoadingList] = useState(false);
+    const [initialLoaded, setInitialLoaded] = useState(false);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(false);
     const [cursor, setCursor] = useState<number | null>(null);
     const [text, setText] = useState('');
     const [uploading, setUploading] = useState(false);
-    const endRef = useRef<HTMLDivElement>(null);
+
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const queryConvId = Number(searchParams.get('conversationId') ?? '') || null;
-
     const activeConv = conversations.find((c) => c.id === activeId) ?? null;
 
     const refreshList = useCallback(async () => {
@@ -53,12 +66,20 @@ export default function MessagesPage() {
             setConversations(await fetchApi<ConversationDto[]>(API_SANDBOX.B_POST_CONVERSATION_LIST));
         } finally {
             setLoadingList(false);
+            setInitialLoaded(true);
         }
     }, [setConversations]);
 
     useEffect(() => {
         if (me != null) refreshList();
     }, [me, refreshList]);
+
+    // Drive the global loading overlay until the initial conversation list has loaded
+    useEffect(() => {
+        const blocking = me === null || (!initialLoaded && loadingList);
+        setIsLoading(blocking);
+        return () => setIsLoading(false);
+    }, [me, initialLoaded, loadingList, setIsLoading]);
 
     useEffect(() => {
         if (queryConvId && queryConvId !== activeId) setActiveId(queryConvId);
@@ -74,7 +95,6 @@ export default function MessagesPage() {
                     { limit: 30 },
                     { conversationId: id }
                 );
-                // backend returns newest-first; reverse for chronological display
                 setMessages([...res.items].reverse());
                 setHasMore(res.hasMore);
                 setCursor(res.nextCursor);
@@ -93,12 +113,65 @@ export default function MessagesPage() {
     }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
-        endRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages, loadingHistory]);
 
-    const loadMore = async () => {
-        if (!hasMore || cursor == null || activeId == null || loadingHistory) return;
-        setLoadingHistory(true);
+    // ── SubSideBar config (conversation list) ──
+    const conversationItems = useMemo(
+        () =>
+            conversations.map((c) => ({
+                key: c.id,
+                label: c.otherUser?.displayName ?? 'Unknown',
+                description:
+                    c.lastMessage?.content ||
+                    (c.lastMessage?.imageUrl ? '📷 Photo' : 'Say hi…'),
+                icon: (
+                    <div className="relative">
+                        <Avatar src={c.otherUser?.avatarUrl ?? undefined} size={36}>
+                            {c.otherUser?.displayName?.[0]}
+                        </Avatar>
+                        <div className="absolute -bottom-0.5 -right-0.5">
+                            <PresenceDot userId={c.otherUser?.id} />
+                        </div>
+                    </div>
+                ),
+                badge: c.unreadCount,
+            })),
+        [conversations]
+    );
+
+    const handleSelectConversation = useCallback(
+        (key: string | number) => {
+            const id = Number(key);
+            const nextParams = new URLSearchParams(searchParams.toString());
+            nextParams.set('conversationId', String(id));
+            window.history.replaceState(null, '', `${pathname}?${nextParams.toString()}`);
+            void openConversation(id);
+        },
+        [openConversation, pathname, searchParams]
+    );
+
+    const subSideBarConfig = useMemo(
+        () => ({
+            title: 'Conversations',
+            items: conversationItems,
+            selectedKey: activeId ?? undefined,
+            emptyText: 'No conversations',
+            loading: me === null || loadingList,
+            onSelect: handleSelectConversation,
+        }),
+        [conversationItems, activeId, me, loadingList, handleSelectConversation]
+    );
+
+    useChangeSubSideBar(subSideBarConfig);
+
+    const loadMoreMessages = useCallback(async () => {
+        if (!hasMore || cursor == null || activeId == null || isLoadingMore) return;
+
+        setIsLoadingMore(true);
+        const container = scrollContainerRef.current;
+        const previousScrollHeight = container?.scrollHeight ?? 0;
+
         try {
             const res = await fetchApi<PageResponse<MessageDto>>(
                 API_SANDBOX.B_POST_CONVERSATION_HISTORY,
@@ -108,10 +181,25 @@ export default function MessagesPage() {
             prependMessages([...res.items].reverse());
             setHasMore(res.hasMore);
             setCursor(res.nextCursor);
+
+            requestAnimationFrame(() => {
+                if (container) {
+                    container.scrollTop = container.scrollHeight - previousScrollHeight;
+                }
+            });
         } finally {
-            setLoadingHistory(false);
+            setIsLoadingMore(false);
         }
-    };
+    }, [hasMore, cursor, activeId, isLoadingMore, prependMessages]);
+
+    const handleScroll = useCallback(
+        (event: React.UIEvent<HTMLDivElement>) => {
+            if (event.currentTarget.scrollTop === 0 && hasMore && !isLoadingMore) {
+                void loadMoreMessages();
+            }
+        },
+        [hasMore, isLoadingMore, loadMoreMessages]
+    );
 
     const handleSend = async () => {
         const content = text.trim();
@@ -122,7 +210,6 @@ export default function MessagesPage() {
                 conversationId: activeId,
                 content,
             });
-            // STOMP push will deliver the message back via /user/queue/messages
         } catch (e) {
             console.error(e);
             setText(content);
@@ -148,121 +235,159 @@ export default function MessagesPage() {
         return false;
     };
 
-    return (
-        <div className="mx-auto flex h-full w-full max-w-6xl gap-3 pb-4">
-            {/* Conversation list */}
-            <aside className="hidden w-72 shrink-0 flex-col rounded-3xl border bg-surface p-3 md:flex">
-                <h3 className="mb-2 px-2">Conversations</h3>
-                {loadingList ? (
-                    <div className="flex justify-center py-6"><Spin /></div>
-                ) : conversations.length === 0 ? (
-                    <Empty description="No conversations" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                ) : (
-                    <ul className="flex flex-col gap-1 overflow-auto">
-                        {conversations.map((c) => (
-                            <li key={c.id}>
-                                <button
-                                    type="button"
-                                    onClick={() => openConversation(c.id)}
-                                    className={`flex w-full items-center gap-2 rounded-2xl px-2 py-2 text-left hover:bg-muted ${
-                                        c.id === activeId ? 'bg-muted' : ''
-                                    }`}
-                                >
-                                    <div className="relative">
-                                        <Avatar src={c.otherUser?.avatarUrl ?? undefined} size={40}>
-                                            {c.otherUser?.displayName?.[0]}
-                                        </Avatar>
-                                        <div className="absolute -bottom-0.5 -right-0.5">
-                                            <PresenceDot userId={c.otherUser?.id} />
-                                        </div>
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-baseline justify-between gap-2">
-                                            <Text strong className="truncate">{c.otherUser?.displayName}</Text>
-                                            <span className="shrink-0 text-xs text-text-secondary">{formatRelative(c.lastMessageAt)}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between gap-2">
-                                            <span className="truncate text-xs text-text-secondary">
-                                                {c.lastMessage?.content || (c.lastMessage?.imageUrl ? '📷 Photo' : 'Say hi…')}
-                                            </span>
-                                            {c.unreadCount > 0 && (
-                                                <span className="rounded-full bg-blue-500 px-2 text-xs text-white">{c.unreadCount}</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </aside>
+    const isSyncing = me === null || !initialLoaded;
 
-            {/* Active conversation */}
-            <main className="flex flex-1 flex-col rounded-3xl border bg-surface">
-                {activeConv == null ? (
-                    <div className="flex flex-1 items-center justify-center text-text-secondary">
-                        Select a conversation to start chatting.
+    return (
+        <div className={`flex h-full min-h-0 flex-1 overflow-hidden rounded-[28px] border bg-background shadow-sm ${BORDER.main}`}>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                {isSyncing ? (
+                    <div className="flex flex-1 items-center justify-center px-6">
+                        <Spin size="large" />
+                    </div>
+                ) : activeConv == null ? (
+                    <div className="flex flex-1 items-center justify-center px-6">
+                        <Empty description="Select a conversation to start chatting." image={Empty.PRESENTED_IMAGE_SIMPLE} />
                     </div>
                 ) : (
                     <>
-                        <header className="flex items-center justify-between border-b px-5 py-3">
-                            <div className="flex items-center gap-2">
-                                <Avatar src={activeConv.otherUser?.avatarUrl ?? undefined}>
-                                    {activeConv.otherUser?.displayName?.[0]}
-                                </Avatar>
-                                <div>
-                                    <Text strong>{activeConv.otherUser?.displayName}</Text>
-                                    <div className="flex items-center gap-1 text-xs text-text-secondary">
+                        {/* Header */}
+                        <div className={`sticky top-0 z-20 flex items-center justify-between border-b bg-surface px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface/80 ${BORDER.main}`}>
+                            <Space size="middle">
+                                <div className="relative">
+                                    <Avatar
+                                        src={activeConv.otherUser?.avatarUrl ?? undefined}
+                                        size={42}
+                                        className={`border bg-muted ${BORDER.secondary}`}
+                                    >
+                                        {activeConv.otherUser?.displayName?.[0]}
+                                    </Avatar>
+                                    <div className="absolute -bottom-0.5 -right-0.5">
                                         <PresenceDot userId={activeConv.otherUser?.id} />
-                                        <span>online status</span>
                                     </div>
                                 </div>
-                            </div>
-                        </header>
-
-                        <div className="flex-1 space-y-3 overflow-auto px-4 py-4">
-                            {hasMore && (
-                                <div className="flex justify-center">
-                                    <Button size="small" onClick={loadMore} loading={loadingHistory}>Load older</Button>
+                                <div className="flex flex-col">
+                                    <Text strong className="text-lg leading-none !text-foreground">
+                                        {activeConv.otherUser?.displayName}
+                                    </Text>
+                                    <Text type="secondary" className="mt-1 text-xs font-medium">
+                                        online status
+                                    </Text>
                                 </div>
-                            )}
-                            {messages.map((m) => {
-                                const mine = m.senderId === me;
-                                return (
-                                    <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[70%] rounded-2xl px-3 py-2 shadow-sm ${mine ? 'bg-blue-500 text-white' : 'bg-muted'}`}>
-                                            {m.content && <p className="m-0 whitespace-pre-wrap text-sm">{m.content}</p>}
-                                            {m.imageUrl && (
-                                                <Image src={m.imageUrl} alt="msg" width={240} height={240} className="rounded-xl object-cover" />
-                                            )}
-                                            <div className={`mt-1 text-[10px] ${mine ? 'text-blue-100' : 'text-text-secondary'}`}>
-                                                {formatRelative(m.createdAt)}
-                                                {mine && m.readAt && <span className="ml-1">· read</span>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            <div ref={endRef} />
+                            </Space>
+                            <Space size="small">
+                                <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<PhoneOutlined />} />
+                                <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<VideoCameraOutlined />} />
+                                <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<MoreOutlined />} />
+                            </Space>
                         </div>
 
-                        <footer className="flex items-center gap-2 border-t px-3 py-3">
-                            <Upload beforeUpload={(f) => handleUpload(f as File)} showUploadList={false} accept="image/*">
-                                <Button icon={<PictureOutlined />} loading={uploading} type="text" />
-                            </Upload>
-                            <Input
-                                value={text}
-                                onChange={(e) => setText(e.target.value)}
-                                onPressEnter={handleSend}
-                                placeholder="Type a message…"
-                                size="large"
-                                className="flex-1"
-                            />
-                            <Button type="primary" shape="circle" icon={<SendOutlined />} size="large" onClick={handleSend} disabled={!text.trim()} />
-                        </footer>
+                        {/* Messages area */}
+                        <div
+                            ref={scrollContainerRef}
+                            onScroll={handleScroll}
+                            className="flex-1 overflow-y-auto bg-background px-4 py-5 md:px-6"
+                        >
+                            {loadingHistory ? (
+                                <div className="flex h-full items-center justify-center">
+                                    <Spin size="large" />
+                                </div>
+                            ) : (
+                                <>
+                                    {isLoadingMore && (
+                                        <div className="flex justify-center py-3">
+                                            <Spin size="small" />
+                                        </div>
+                                    )}
+
+                                    <div className={`flex min-h-full flex-col gap-4 ${messages.length === 0 ? 'items-center justify-center' : 'justify-end'}`}>
+                                        {messages.length === 0 && (
+                                            <div className="flex max-w-md flex-col items-center text-center text-text-secondary">
+                                                <p className="m-0">Say hello to start the conversation!</p>
+                                            </div>
+                                        )}
+
+                                        {messages.map((m) => {
+                                            const mine = m.senderId === me;
+                                            return (
+                                                <div
+                                                    key={m.id}
+                                                    className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}
+                                                >
+                                                    <div className="flex max-w-[85%] items-end gap-2 md:max-w-[72%]">
+                                                        {!mine && (
+                                                            <Avatar
+                                                                src={activeConv.otherUser?.avatarUrl ?? undefined}
+                                                                size={32}
+                                                                className={`shrink-0 border bg-muted ${BORDER.secondary}`}
+                                                            >
+                                                                {activeConv.otherUser?.displayName?.[0]}
+                                                            </Avatar>
+                                                        )}
+                                                        <div
+                                                            className={`rounded-3xl p-3 shadow-sm ${mine
+                                                                ? 'rounded-br-md bg-blue-600 text-white dark:bg-blue-500'
+                                                                : `rounded-bl-md border bg-surface text-foreground ${BORDER.main}`
+                                                                }`}
+                                                        >
+                                                            {m.content && (
+                                                                <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">
+                                                                    {m.content}
+                                                                </p>
+                                                            )}
+                                                            {m.imageUrl && (
+                                                                <Image
+                                                                    src={m.imageUrl}
+                                                                    alt="msg"
+                                                                    width={240}
+                                                                    height={240}
+                                                                    className="rounded-xl object-cover"
+                                                                />
+                                                            )}
+                                                            <div className={`mt-1 text-[10px] ${mine ? 'text-blue-100' : 'text-text-secondary'}`}>
+                                                                {formatRelative(m.createdAt)}
+                                                                {mine && m.readAt && <span className="ml-1">· read</span>}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                        <div ref={messagesEndRef} />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Input bar */}
+                        <div className={`sticky bottom-0 z-20 border-t bg-surface px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface/85 md:px-6 ${BORDER.main}`}>
+                            <div className="mx-auto flex w-full max-w-4xl items-center gap-2">
+                                <Upload beforeUpload={(f) => handleUpload(f as File)} showUploadList={false} accept="image/*">
+                                    <Button icon={<PictureOutlined />} loading={uploading} type="text" size="large" />
+                                </Upload>
+                                <Input
+                                    size="large"
+                                    value={text}
+                                    onChange={(e) => setText(e.target.value)}
+                                    onPressEnter={handleSend}
+                                    placeholder="Type a message..."
+                                    disabled={loadingHistory}
+                                    className={`rounded-full !bg-muted px-5 !text-foreground placeholder:!text-text-secondary focus:!border-accent ${BORDER.input}`}
+                                />
+                                <Button
+                                    type="primary"
+                                    shape="circle"
+                                    size="large"
+                                    icon={<SendOutlined />}
+                                    onClick={handleSend}
+                                    disabled={!text.trim() || loadingHistory}
+                                    className="flex items-center justify-center"
+                                />
+                            </div>
+                        </div>
                     </>
                 )}
-            </main>
+            </div>
         </div>
     );
 }

@@ -33,6 +33,7 @@ export const TITLE: Record<string, TitleDetail> = {
                 key: "MESSAGES",
                 title: "Messages",
                 urlPath: "/b-post/messages",
+                isSubSideBar: true,
             },
         ],
     },
