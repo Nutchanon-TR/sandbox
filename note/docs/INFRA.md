@@ -208,3 +208,159 @@ http://localhost
 ```
 
 Frontend API ใช้ relative URL เป็นค่า default (`NEXT_PUBLIC_API_URL` ว่าง) ทำให้ยิงผ่าน gateway อัตโนมัติ
+
+---
+
+## Local dev แบบไม่ใช้ Docker Compose
+
+โหมดนี้เป็นทางหลักสำหรับ dev backend ทีละ service บนเครื่อง local โดยไม่ต้องเปิด Docker Compose
+
+### Port local ที่ fix ไว้
+
+แต่ละ Spring service มี port ประจำผ่าน `application-local.yml`
+เวลารันให้เปิด Spring profile `local` แล้ว service จะใช้ port ของตัวเองอัตโนมัติ ไม่ต้องส่ง port เองทุกครั้ง
+
+| Service | Port | หมายเหตุ |
+|---|---:|---|
+| Frontend | `3000` | รัน `npm run dev` ใน `frontend/` |
+| user-service | `8081` | จำเป็นหลัง login เพราะมี `USER_SYNC` |
+| chatapp | `8082` | API ของ ChatApp |
+| dinner | `8083` | API ของ Dinner |
+| bpost | `8084` | API และ websocket ของ B-Post |
+| common-auth | n/a | เป็น Maven library เท่านั้น ไม่ต้องรันเป็น service |
+
+ถ้าเครื่องใหม่ Maven ยัง resolve `common-auth` ไม่ได้ ให้ install ครั้งแรก:
+
+```bash
+cd backend/common-auth
+mvn install
+```
+
+### Frontend dev rewrites
+
+ตอน dev local ให้ browser ยิง API เป็น relative URL เพราะ `NEXT_PUBLIC_API_URL` ว่าง
+จากนั้น `frontend/next.config.ts` จะ rewrite แต่ละ API family ไปยัง backend local ของมัน:
+
+| Frontend path | Env ปลายทาง local | ค่า default |
+|---|---|---|
+| `/v1/api/user/*` | `BACKEND_USER_URL` | `http://localhost:8081` |
+| `/v1/api/chat-app/*` | `BACKEND_CHAT_URL` | `http://localhost:8082` |
+| `/v1/api/dinner/*` | `BACKEND_DINNER_URL` | `http://localhost:8083` |
+| `/v1/api/b-post/*` | `BACKEND_BPOST_URL` | `http://localhost:8084` |
+| fallback `/v1/api/*` | `BACKEND_URL` | `http://localhost:8080` |
+
+### ต้องรันอะไรถ้าจะดู feature เดียวบน local
+
+ต้องรันอย่างน้อย:
+
+- `frontend`
+- `user-service`
+- backend service ที่กำลัง dev
+
+| Feature ที่จะดู | Process ที่ต้องรัน |
+|---|---|
+| Login/profile อย่างเดียว | `frontend` + `user-service` |
+| ChatApp | `frontend` + `user-service` + `chatapp` |
+| Dinner | `frontend` + `user-service` + `dinner` |
+| B-Post | `frontend` + `user-service` + `bpost` |
+
+ต้องมี `user-service` เพราะ `AuthProvider` เรียก `USER_SYNC` หลัง Supabase login
+ถ้าไม่เปิด `user-service` อาจ login สำเร็จ แต่ profile/internal user sync จะ fail
+
+### Env สำหรับ local auth
+
+`frontend/.env.local` ควรเป็น local-first:
+
+```env
+NEXT_PUBLIC_API_URL=
+NEXT_PUBLIC_USER_API_URL=
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_AUTH_REDIRECT_URL=
+BACKEND_USER_URL=http://localhost:8081
+BACKEND_CHAT_URL=http://localhost:8082
+BACKEND_DINNER_URL=http://localhost:8083
+BACKEND_BPOST_URL=http://localhost:8084
+```
+
+เก็บค่า cloud login เป็น comment เท่านั้น เพื่อสลับกลับได้ง่าย:
+
+```env
+# CLOUD_NEXT_PUBLIC_AUTH_REDIRECT_URL=https://gateway-service.<env>.<region>.azurecontainerapps.io
+# CLOUD_NEXT_PUBLIC_USER_API_URL=https://gateway-service.<env>.<region>.azurecontainerapps.io
+```
+
+ใน Supabase Auth URL Configuration ต้อง allow:
+
+```text
+http://localhost:3000/auth/callback
+```
+
+จำเป็นเพราะ Supabase Auth ตรวจ OAuth redirect URL ก่อน redirect กลับแอป
+ถ้า URL นี้ตั้งไว้ใน Supabase แล้ว ไม่ต้องแก้ Dashboard เพิ่ม
+
+---
+
+## สิ่งที่ต้องเปิดตอนรันบน Cloud
+
+เมื่อใช้ Azure gateway URL จำนวน ACA apps ที่ต้องเปิดขึ้นกับ feature ที่จะทดสอบ
+Supabase เป็น remote service อยู่แล้ว ไม่ได้รันใน Azure Container Apps
+
+สำหรับ browser flow ต้องมีเสมอ:
+
+- `gateway-service`
+- `frontend`
+- `oauth2-proxy`
+- `user-service`
+- backend service เป้าหมาย
+
+| Feature ที่จะดู | ACA apps ที่ต้องมี |
+|---|---|
+| Login/profile อย่างเดียว | `gateway-service` + `frontend` + `oauth2-proxy` + `user-service` |
+| ChatApp | ชุดด้านบน + `chat-service` |
+| Dinner | ชุดด้านบน + `dinner-service` |
+| B-Post | ชุดด้านบน + `bpost-service` |
+
+---
+
+## นโยบาย scale ของ Azure Container Apps
+
+ค่า default เพื่อลด cost ของ sandbox:
+
+```text
+min-replicas = 0
+max-replicas = 1
+```
+
+ACA apps ที่ตั้งใจใช้ policy นี้:
+
+- `frontend`
+- `gateway-service`
+- `oauth2-proxy`
+- `chat-service`
+- `dinner-service`
+- `bpost-service`
+- `user-service`
+- `redis`
+
+ไม่ต้อง `stop` container apps เป็น default
+เมื่อ `min-replicas=0` app อาจยัง `Running` อยู่ช่วงสั้น ๆ หลังมี traffic แล้วค่อย scale down หลัง idle/cooldown
+ใช้ `az containerapp stop` เฉพาะตอนที่ต้องการให้ app unavailable ทันที
+
+GitHub Actions workflow จะ enforce `min-replicas 0` และ `max-replicas 1` หลัง deploy
+เพราะ `azure/container-apps-deploy-action` อาจไม่รักษา scale settings ให้คงที่ทุกครั้ง
+
+นโยบาย VM:
+
+- ปล่อย VM `Sandbox` ไว้ ไม่แตะ
+- VM แยกจาก ACA scale policy
+
+---
+
+## Directory local ที่ ignore
+
+repo ignore directory สำหรับ local agent/tooling:
+
+```gitignore
+.claude/
+.agents/
+```
