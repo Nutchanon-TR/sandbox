@@ -12,3 +12,4 @@ backend/*/src/main/resources/application-local.yml
 
 # Claude Code local settings
 .claude/
+.agents/

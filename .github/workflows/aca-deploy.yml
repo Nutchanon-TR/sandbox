@@ -62,6 +62,14 @@ jobs:
           targetPort: 3000
           minReplicas: 0
           maxReplicas: 1
+
+      - name: Enforce min/max replicas on frontend
+        run: |
+          az containerapp update \
+            --name frontend \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --min-replicas 0 \
+            --max-replicas 1
         # ACA ingress reminder: set frontend ingress to "Internal" (Gateway will route traffic).
         # Note: NEXT_PUBLIC_* vars are baked into the image at build time — no runtime secret injection needed.
 
@@ -136,6 +144,14 @@ jobs:
               GROK_API_KEY=secretref:grok-api-key \
               HUGGINGFACE_API_KEY=secretref:huggingface-api-key
 
+      - name: Enforce min/max replicas on chat-service
+        run: |
+          az containerapp update \
+            --name chat-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --min-replicas 0 \
+            --max-replicas 1
+
   build_and_deploy_dinner_service:
     name: Build and Deploy Dinner Service
     runs-on: ubuntu-latest
@@ -205,6 +221,14 @@ jobs:
               SUPABASE_SERVICE_ROLE_KEY=secretref:supabase-service-role-key \
               GROK_API_KEY=secretref:grok-api-key
 
+      - name: Enforce min/max replicas on dinner-service
+        run: |
+          az containerapp update \
+            --name dinner-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --min-replicas 0 \
+            --max-replicas 1
+
   build_and_deploy_bpost_service:
     name: Build and Deploy B-Post Service
     runs-on: ubuntu-latest
@@ -273,6 +297,14 @@ jobs:
               SUPABASE_URL=secretref:supabase-url \
               SUPABASE_SERVICE_ROLE_KEY=secretref:supabase-service-role-key \
               GROK_API_KEY=secretref:grok-api-key
+
+      - name: Enforce min/max replicas on bpost-service
+        run: |
+          az containerapp update \
+            --name bpost-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --min-replicas 0 \
+            --max-replicas 1
 
   build_and_deploy_user_service:
     name: Build and Deploy User Service
@@ -395,6 +427,16 @@ jobs:
           ingress: external
           targetPort: 80
           environmentVariables: FRONTEND_PORT=80 BACKEND_PORT=80 OAUTH2_PROXY_PORT=80
+          minReplicas: 0
+          maxReplicas: 1
+
+      - name: Enforce min/max replicas on gateway-service
+        run: |
+          az containerapp update \
+            --name gateway-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --min-replicas 0 \
+            --max-replicas 1
         # ACA ingress reminder: set gateway-service ingress to "External".
         # Note: gateway uses plain port env vars only — no secret injection needed.
 
@@ -417,6 +459,8 @@ jobs:
           imageToDeploy: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
           ingress: internal
           targetPort: 4180
+          minReplicas: 0
+          maxReplicas: 1
 
       - name: Set secrets on oauth2-proxy
         run: |
@@ -456,6 +500,6 @@ jobs:
           az containerapp update \
             --name oauth2-proxy \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --min-replicas 1 \
+            --min-replicas 0 \
             --max-replicas 1
 
