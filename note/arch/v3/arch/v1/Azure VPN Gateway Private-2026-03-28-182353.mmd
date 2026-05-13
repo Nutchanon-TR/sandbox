@@ -1,0 +1,116 @@
+graph TD
+
+    %% ══════════════════════════════════════════
+    %%  BLOCK 1 — CI/CD Pipeline
+    %% ══════════════════════════════════════════
+
+    subgraph CICD ["  🚀  CI/CD Pipeline"]
+        direction LR
+        Dev(["👨‍💻 Developer"])
+        GHA["⚙️ GitHub Actions"]
+        ACR[("📦 Container Registry")]
+        ACADeploy(["🚢 Deploy to ACA"])
+
+        Dev -->|push code| GHA
+        GHA -->|build & push image| ACR
+        ACR -->|pull & rolling update| ACADeploy
+    end
+
+    %% ══════════════════════════════════════════
+    %%  BLOCK 2 — Network & Runtime
+    %% ══════════════════════════════════════════
+
+    User(["🌐 User"])
+    Admin(["🔐 Admin"])
+    EntraID(["🪪 Microsoft Entra ID\nJWT · RBAC · fine-grained perms"])
+    Groq["⚡ Groq API\nLlama 3 · circuit breaker"]
+
+    subgraph Azure ["☁️  Azure Region"]
+        subgraph VNet ["  🔒  Virtual Network — Private"]
+
+            subgraph GWSub ["  📡  Subnet: Gateway"]
+                VPN["Azure VPN Gateway\nP2S tunnel"]
+            end
+
+            subgraph AGWSub ["  🛡️  Subnet: App Gateway"]
+                AppGW["Application Gateway\nWAF v2 · DDoS protection"]
+            end
+
+            subgraph APIMSub ["  🔀  Subnet: APIM"]
+                APIM["API Management\nRate limit · Auth · Routing"]
+            end
+
+            subgraph ACASub ["  📦  Subnet: ACA — Internal Ingress"]
+
+                subgraph Services ["Microservices"]
+                    direction LR
+                    FE["🖼️ Next.js\nFrontend"]
+                    Chat["💬 Chat Service\nSpring Boot"]
+                    Dinner["🍽️ Dinner Service\nSpring Boot"]
+                end
+
+                subgraph Data ["Data Layer"]
+                    direction LR
+                    Redis[("⚡ Redis\nAzure Cache · private ep.")]
+                    PG[("🐘 PostgreSQL\nAzure Flexible Server")]
+                    Vec[("🔮 pgvector\nSupabase · secure tunnel")]
+                    Blob[("🖼️ Blob Storage\nAzure · private ep.")]
+                end
+            end
+        end
+    end
+
+    %% ── Entry points ──────────────────────────
+    User -->|HTTPS| AppGW
+    Admin -->|P2S VPN| VPN
+    VPN -->|private access, bypass WAF| ACASub
+
+    %% ── Public traffic path ───────────────────
+    AppGW -->|clean traffic| APIM
+    APIM -.->|validate JWT| EntraID
+    APIM -->|/| FE
+    APIM -->|/api| Chat
+    APIM -->|/api| Dinner
+
+    %% ── Internal service calls ────────────────
+    FE -.->|server-side fetch| Chat
+
+    %% ── Cache pattern ─────────────────────────
+    Chat -->|① check cache| Redis
+    Redis -.->|cache hit ↩| Chat
+    Chat -->|② cache miss → query| PG
+    PG -.->|result| Chat
+    Chat -.->|③ write to cache| Redis
+
+    %% ── Other BE calls ────────────────────────
+    Chat -->|vector search| Vec
+    Chat -->|upload| Blob
+    FE -.->|image CDN link| Blob
+    Chat -->|LLM inference| Groq
+
+    %% ── CI/CD deploy ──────────────────────────
+    ACADeploy -.->|rolling deploy| ACASub
+
+    %% ══════════════════════════════════════════
+    %%  Styling
+    %% ══════════════════════════════════════════
+
+    classDef actor     fill:#FBEAF0,stroke:#993556,stroke-width:2px,color:#72243E,font-weight:bold
+    classDef security  fill:#FAECE7,stroke:#993C1D,stroke-width:2px,color:#712B13
+    classDef compute   fill:#E6F1FB,stroke:#185FA5,stroke-width:2px,color:#0C447C
+    classDef cache     fill:#FAEEDA,stroke:#854F0B,stroke-width:2px,color:#633806
+    classDef database  fill:#E1F5EE,stroke:#0F6E56,stroke-width:2px,color:#085041
+    classDef identity  fill:#FFF3E0,stroke:#E65100,stroke-width:2px,color:#BF360C
+    classDef llm       fill:#EEEDFE,stroke:#534AB7,stroke-width:2px,color:#3C3489
+    classDef cicd      fill:#F1EFE8,stroke:#5F5E5A,stroke-width:2px,color:#444441
+    classDef network   fill:#E3F2FD,stroke:#0277BD,stroke-width:1px,color:#01579B
+
+    class User,Admin actor
+    class AppGW,APIM security
+    class FE,Chat,Dinner compute
+    class Redis cache
+    class PG,Vec,Blob database
+    class EntraID identity
+    class Groq llm
+    class Dev,GHA,ACR,ACADeploy cicd
+    class VPN network

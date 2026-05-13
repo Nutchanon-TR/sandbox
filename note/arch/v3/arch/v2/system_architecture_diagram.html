@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Architecture Diagram</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #f5f4f0;
+    font-family: system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+    min-height: 100vh;
+  }
+  h1 {
+    font-size: 18px;
+    font-weight: 500;
+    color: #2c2c2a;
+    margin-bottom: 20px;
+    letter-spacing: -0.01em;
+  }
+  .card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+    width: 100%;
+    max-width: 760px;
+  }
+  svg text { font-family: system-ui, -apple-system, sans-serif; }
+  .th { font-size: 14px; font-weight: 500; fill: #0c447c; }
+  .ts { font-size: 12px; font-weight: 400; fill: #185fa5; }
+
+  /* Color ramps */
+  .c-pink > rect, .c-pink > circle  { fill: #FBEAF0; stroke: #993556; }
+  .c-pink .th { fill: #72243E; }
+  .c-pink .ts { fill: #993556; }
+
+  .c-gray > rect  { fill: #F1EFE8; stroke: #5F5E5A; }
+  .c-gray .th { fill: #444441; }
+  .c-gray .ts { fill: #5F5E5A; }
+
+  .c-coral > rect { fill: #FAECE7; stroke: #993C1D; }
+  .c-coral .th { fill: #712B13; }
+  .c-coral .ts { fill: #993C1D; }
+
+  .c-blue > rect  { fill: #E6F1FB; stroke: #185FA5; }
+  .c-blue .th { fill: #0C447C; }
+  .c-blue .ts { fill: #185FA5; }
+
+  .c-amber > rect { fill: #FAEEDA; stroke: #854F0B; }
+  .c-amber .th { fill: #633806; }
+  .c-amber .ts { fill: #854F0B; }
+
+  .c-teal > rect  { fill: #E1F5EE; stroke: #0F6E56; }
+  .c-teal .th { fill: #085041; }
+  .c-teal .ts { fill: #0F6E56; }
+
+  .c-purple > rect { fill: #EEEDFE; stroke: #534AB7; }
+  .c-purple .th { fill: #3C3489; }
+  .c-purple .ts { fill: #534AB7; }
+</style>
+</head>
+<body>
+<h1>System Architecture Diagram</h1>
+<div class="card">
+<svg width="100%" viewBox="0 0 680 900" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<!-- CI/CD Pipeline -->
+<g class="c-gray">
+  <rect x="20" y="16" width="640" height="108" rx="14" stroke-width="0.5"/>
+  <text class="th" x="340" y="36" text-anchor="middle" dominant-baseline="central">🚀 CI/CD Pipeline</text>
+</g>
+<g class="c-pink">
+  <rect x="36" y="50" width="110" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="91" y="72" text-anchor="middle" dominant-baseline="central">Developer</text>
+  <text class="ts" x="91" y="90" text-anchor="middle" dominant-baseline="central">push code</text>
+</g>
+<g class="c-gray">
+  <rect x="182" y="50" width="120" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="242" y="72" text-anchor="middle" dominant-baseline="central">GitHub Actions</text>
+  <text class="ts" x="242" y="90" text-anchor="middle" dominant-baseline="central">build &amp; push</text>
+</g>
+<g class="c-gray">
+  <rect x="348" y="50" width="100" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="398" y="72" text-anchor="middle" dominant-baseline="central">GHCR</text>
+  <text class="ts" x="398" y="90" text-anchor="middle" dominant-baseline="central">container image</text>
+</g>
+<g class="c-gray">
+  <rect x="494" y="50" width="114" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="551" y="72" text-anchor="middle" dominant-baseline="central">Deploy to ACA</text>
+  <text class="ts" x="551" y="90" text-anchor="middle" dominant-baseline="central">rolling deploy</text>
+</g>
+<line x1="146" y1="78" x2="180" y2="78" stroke="#888780" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+<line x1="302" y1="78" x2="346" y2="78" stroke="#888780" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+<line x1="448" y1="78" x2="492" y2="78" stroke="#888780" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+
+<!-- Actors -->
+<g class="c-pink">
+  <rect x="36" y="160" width="80" height="44" rx="8" stroke-width="0.5"/>
+  <text class="th" x="76" y="182" text-anchor="middle" dominant-baseline="central">User</text>
+</g>
+<g class="c-pink">
+  <rect x="36" y="218" width="80" height="44" rx="8" stroke-width="0.5"/>
+  <text class="th" x="76" y="240" text-anchor="middle" dominant-baseline="central">Admin</text>
+</g>
+<g class="c-coral">
+  <rect x="156" y="172" width="120" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="216" y="194" text-anchor="middle" dominant-baseline="central">Cloudflare</text>
+  <text class="ts" x="216" y="212" text-anchor="middle" dominant-baseline="central">DNS · WAF · Rate Limit</text>
+</g>
+<line x1="116" y1="182" x2="154" y2="194" stroke="#993C1D" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+<line x1="116" y1="240" x2="154" y2="208" stroke="#993C1D" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+
+<!-- Azure -->
+<g class="c-blue">
+  <rect x="20" y="278" width="640" height="360" rx="14" stroke-width="0.5"/>
+  <text class="th" x="340" y="298" text-anchor="middle" dominant-baseline="central">☁️ Azure — Container Apps Environment (VNet)</text>
+</g>
+<g class="c-blue">
+  <rect x="36" y="316" width="130" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="101" y="338" text-anchor="middle" dominant-baseline="central">Nginx Gateway</text>
+  <text class="ts" x="101" y="356" text-anchor="middle" dominant-baseline="central">External ingress</text>
+</g>
+<line x1="276" y1="200" x2="101" y2="316" stroke="#993C1D" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+
+<g class="c-blue">
+  <rect x="210" y="306" width="430" height="260" rx="10" stroke-width="0.5" stroke-dasharray="5 3"/>
+  <text class="ts" x="424" y="322" text-anchor="middle" dominant-baseline="central">Microservices (Internal Ingress)</text>
+</g>
+<g class="c-blue">
+  <rect x="226" y="334" width="120" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="286" y="356" text-anchor="middle" dominant-baseline="central">Next.js</text>
+  <text class="ts" x="286" y="374" text-anchor="middle" dominant-baseline="central">Frontend</text>
+</g>
+<g class="c-blue">
+  <rect x="380" y="334" width="120" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="440" y="356" text-anchor="middle" dominant-baseline="central">Chat Service</text>
+  <text class="ts" x="440" y="374" text-anchor="middle" dominant-baseline="central">Spring Boot</text>
+</g>
+<g class="c-blue">
+  <rect x="516" y="334" width="116" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="574" y="356" text-anchor="middle" dominant-baseline="central">Dinner Service</text>
+  <text class="ts" x="574" y="374" text-anchor="middle" dominant-baseline="central">Spring Boot</text>
+</g>
+<line x1="166" y1="344" x2="224" y2="344" stroke="#185FA5" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+<line x1="166" y1="344" x2="378" y2="355" stroke="#185FA5" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+<line x1="166" y1="344" x2="514" y2="362" stroke="#185FA5" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+
+<g class="c-amber">
+  <rect x="226" y="430" width="120" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="286" y="452" text-anchor="middle" dominant-baseline="central">Redis</text>
+  <text class="ts" x="286" y="470" text-anchor="middle" dominant-baseline="central">Cache (internal)</text>
+</g>
+<g class="c-amber">
+  <rect x="380" y="430" width="120" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="440" y="452" text-anchor="middle" dominant-baseline="central">ACA Secrets</text>
+  <text class="ts" x="440" y="470" text-anchor="middle" dominant-baseline="central">Env variables</text>
+</g>
+<g class="c-amber">
+  <rect x="516" y="430" width="116" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="574" y="452" text-anchor="middle" dominant-baseline="central">Entra ID</text>
+  <text class="ts" x="574" y="470" text-anchor="middle" dominant-baseline="central">JWT validation</text>
+</g>
+<line x1="440" y1="390" x2="340" y2="430" stroke="#854F0B" stroke-width="1" stroke-dasharray="4 2" marker-end="url(#arrow)" fill="none"/>
+<line x1="574" y1="390" x2="360" y2="446" stroke="#854F0B" stroke-width="1" stroke-dasharray="4 2" marker-end="url(#arrow)" fill="none"/>
+<line x1="440" y1="390" x2="440" y2="428" stroke="#854F0B" stroke-width="1" stroke-dasharray="4 2" marker-end="url(#arrow)" fill="none"/>
+<line x1="574" y1="390" x2="500" y2="428" stroke="#854F0B" stroke-width="1" stroke-dasharray="4 2" marker-end="url(#arrow)" fill="none"/>
+<line x1="166" y1="360" x2="514" y2="452" stroke="#854F0B" stroke-width="1" stroke-dasharray="4 2" marker-end="url(#arrow)" fill="none"/>
+
+<!-- CI/CD deploy -->
+<line x1="551" y1="106" x2="551" y2="276" stroke="#888780" stroke-width="1" stroke-dasharray="4 2" marker-end="url(#arrow)" fill="none"/>
+<text style="font-size:11px;fill:#5F5E5A;" x="564" y="200" dominant-baseline="central">rolling deploy</text>
+
+<!-- Groq -->
+<g class="c-purple">
+  <rect x="36" y="690" width="130" height="56" rx="8" stroke-width="0.5"/>
+  <text class="th" x="101" y="712" text-anchor="middle" dominant-baseline="central">Groq API</text>
+  <text class="ts" x="101" y="730" text-anchor="middle" dominant-baseline="central">LLM inference (Llama 3)</text>
+</g>
+<line x1="440" y1="642" x2="130" y2="690" stroke="#534AB7" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+
+<!-- Supabase -->
+<g class="c-teal">
+  <rect x="210" y="670" width="450" height="120" rx="14" stroke-width="0.5"/>
+  <text class="th" x="435" y="690" text-anchor="middle" dominant-baseline="central">🔥 Supabase — Data Layer (Free Tier)</text>
+</g>
+<g class="c-teal">
+  <rect x="226" y="706" width="120" height="68" rx="8" stroke-width="0.5"/>
+  <text class="th" x="286" y="730" text-anchor="middle" dominant-baseline="central">PostgreSQL</text>
+  <text class="ts" x="286" y="748" text-anchor="middle" dominant-baseline="central">Main database</text>
+</g>
+<g class="c-teal">
+  <rect x="376" y="706" width="120" height="68" rx="8" stroke-width="0.5"/>
+  <text class="th" x="436" y="730" text-anchor="middle" dominant-baseline="central">pgvector</text>
+  <text class="ts" x="436" y="748" text-anchor="middle" dominant-baseline="central">Vector search</text>
+</g>
+<g class="c-teal">
+  <rect x="516" y="706" width="128" height="68" rx="8" stroke-width="0.5"/>
+  <text class="th" x="580" y="730" text-anchor="middle" dominant-baseline="central">Storage</text>
+  <text class="ts" x="580" y="748" text-anchor="middle" dominant-baseline="central">Images &amp; files</text>
+</g>
+<line x1="440" y1="642" x2="286" y2="706" stroke="#0F6E56" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+<line x1="440" y1="642" x2="436" y2="706" stroke="#0F6E56" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+<line x1="440" y1="642" x2="580" y2="706" stroke="#0F6E56" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+<line x1="574" y1="642" x2="346" y2="706" stroke="#0F6E56" stroke-width="1" marker-end="url(#arrow)" fill="none"/>
+
+<text style="font-size:11px;fill:#185FA5;" x="340" y="648" text-anchor="middle" dominant-baseline="central">↑ Azure boundary</text>
+</svg>
+</div>
+</body>
+</html>
