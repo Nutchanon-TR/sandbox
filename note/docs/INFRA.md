@@ -243,11 +243,10 @@ mvn install
 
 | Frontend path | Env ปลายทาง local | ค่า default |
 |---|---|---|
-| `/v1/api/user/*` | `BACKEND_USER_URL` | `http://localhost:8081` |
-| `/v1/api/chat-app/*` | `BACKEND_CHAT_URL` | `http://localhost:8082` |
-| `/v1/api/dinner/*` | `BACKEND_DINNER_URL` | `http://localhost:8083` |
-| `/v1/api/b-post/*` | `BACKEND_BPOST_URL` | `http://localhost:8084` |
-| fallback `/v1/api/*` | `BACKEND_URL` | `http://localhost:8080` |
+| `/v1/api/user/*` | `BACKEND_USER_URL` | `http://localhost:8080` |
+| `/v1/api/chat-app/*` | `BACKEND_CHAT_URL` | `http://localhost:8081` |
+| `/v1/api/dinner/*` | `BACKEND_DINNER_URL` | `http://localhost:8082` |
+| `/v1/api/b-post/*` | `BACKEND_BPOST_URL` | `http://localhost:8083` |
 
 ### ต้องรันอะไรถ้าจะดู feature เดียวบน local
 
@@ -276,10 +275,10 @@ NEXT_PUBLIC_API_URL=
 NEXT_PUBLIC_USER_API_URL=
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 NEXT_PUBLIC_AUTH_REDIRECT_URL=
-BACKEND_USER_URL=http://localhost:8081
-BACKEND_CHAT_URL=http://localhost:8082
-BACKEND_DINNER_URL=http://localhost:8083
-BACKEND_BPOST_URL=http://localhost:8084
+BACKEND_USER_URL=http://localhost:8080
+BACKEND_CHAT_URL=http://localhost:8081
+BACKEND_DINNER_URL=http://localhost:8082
+BACKEND_BPOST_URL=http://localhost:8083
 ```
 
 เก็บค่า cloud login เป็น comment เท่านั้น เพื่อสลับกลับได้ง่าย:

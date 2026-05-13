@@ -199,11 +199,10 @@ NEXT_PUBLIC_API_URL=
 NEXT_PUBLIC_USER_API_URL=
 
 # dev rewrite targets ใน frontend/next.config.ts
-BACKEND_URL=http://localhost:8080
-BACKEND_USER_URL=http://localhost:8081
-BACKEND_CHAT_URL=http://localhost:8082
-BACKEND_DINNER_URL=http://localhost:8083
-BACKEND_BPOST_URL=http://localhost:8084
+BACKEND_USER_URL=http://localhost:8080
+BACKEND_CHAT_URL=http://localhost:8081
+BACKEND_DINNER_URL=http://localhost:8082
+BACKEND_BPOST_URL=http://localhost:8083
 ```
 
 สำหรับ production Docker image ของ frontend ค่า `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` และ `NEXT_PUBLIC_SITE_URL` ต้องถูกส่งเป็น Docker build args เพราะ Next.js bake ค่า `NEXT_PUBLIC_*` ตอน build
@@ -238,19 +237,19 @@ cd backend\chatapp
 ```powershell
 cd backend\user
 .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
-# -> http://localhost:8081
+# -> http://localhost:8080
 
 cd backend\chatapp
 .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
-# -> http://localhost:8082
+# -> http://localhost:8081
 
 cd backend\dinner
 .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
-# -> http://localhost:8083
+# -> http://localhost:8082
 
 cd backend\bpost
 .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
-# -> http://localhost:8084
+# -> http://localhost:8083
 ```
 
 รัน frontend:
@@ -264,11 +263,10 @@ npm run dev
 
 ใน dev, `frontend/next.config.ts` จะ rewrite:
 
-- `/v1/api/user/*` -> `BACKEND_USER_URL` หรือ `http://localhost:8081`
-- `/v1/api/chat-app/*` -> `BACKEND_CHAT_URL` หรือ `http://localhost:8082`
-- `/v1/api/dinner/*` -> `BACKEND_DINNER_URL` หรือ `http://localhost:8083`
-- `/v1/api/b-post/*` -> `BACKEND_BPOST_URL` หรือ `http://localhost:8084`
-- `/v1/api/*` อื่น ๆ -> `BACKEND_URL` หรือ `http://localhost:8080`
+- `/v1/api/user/*` -> `BACKEND_USER_URL` หรือ `http://localhost:8080`
+- `/v1/api/chat-app/*` -> `BACKEND_CHAT_URL` หรือ `http://localhost:8081`
+- `/v1/api/dinner/*` -> `BACKEND_DINNER_URL` หรือ `http://localhost:8082`
+- `/v1/api/b-post/*` -> `BACKEND_BPOST_URL` หรือ `http://localhost:8083`
 
 ## Build และ Test
 

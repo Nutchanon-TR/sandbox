@@ -15,11 +15,10 @@ const nextConfig: NextConfig = {
     // In production, nginx handles proxying; dev rewrites target local services.
     if (process.env.NODE_ENV === "production") return [];
 
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:8080";
-    const backendUserUrl = process.env.BACKEND_USER_URL || "http://localhost:8081";
-    const backendChatUrl = process.env.BACKEND_CHAT_URL || "http://localhost:8082";
-    const backendDinnerUrl = process.env.BACKEND_DINNER_URL || "http://localhost:8083";
-    const backendBpostUrl = process.env.BACKEND_BPOST_URL || "http://localhost:8084";
+    const backendUserUrl = process.env.BACKEND_USER_URL || "http://localhost:8080";
+    const backendChatUrl = process.env.BACKEND_CHAT_URL || "http://localhost:8081";
+    const backendDinnerUrl = process.env.BACKEND_DINNER_URL || "http://localhost:8082";
+    const backendBpostUrl = process.env.BACKEND_BPOST_URL || "http://localhost:8083";
 
     return [
       {
@@ -37,10 +36,6 @@ const nextConfig: NextConfig = {
       {
         source: "/v1/api/b-post/:path*",
         destination: `${backendBpostUrl}/v1/api/b-post/:path*`,
-      },
-      {
-        source: "/v1/api/:path*",
-        destination: `${backendUrl}/v1/api/:path*`,
       },
     ];
   },

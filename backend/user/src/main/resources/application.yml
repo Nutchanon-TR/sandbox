@@ -3,9 +3,9 @@ spring:
     name: user-service
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://db.xabewjiiewyhhjfekazv.supabase.co:5432/postgres
-    username: ${SUPABASE_DB_USERNAME:postgres}
-    password: ${SUPABASE_DB_PASSWORD:}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?prepareThreshold=0}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres.xabewjiiewyhhjfekazv}
+    password: ${SPRING_DATASOURCE_PASSWORD:${SUPABASE_DB_PASSWORD:}}
   jpa:
     hibernate:
       ddl-auto: none

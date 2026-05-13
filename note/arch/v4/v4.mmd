@@ -80,7 +80,7 @@ graph TD
         Bpost -.->|env_file: .env| Secret
 
         %% ── FE → Backend (local dev) ──
-        FE -.->|"Axios baseURL\nlocalhost:8080 (local dev)\nหรือ NEXT_PUBLIC_API_URL (prod)"| Chat
+        FE -.->|"Axios relative URLs\nNext.js rewrites (local dev)\nหรือ NEXT_PUBLIC_API_URL (prod)"| Chat
 
         %% ── Redis Cache ──
         Chat -->|"① check cache\n@Cacheable"| Redis

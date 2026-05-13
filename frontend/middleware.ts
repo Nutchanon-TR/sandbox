@@ -2,6 +2,12 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  if (pathname.startsWith("/v1/api")) {
+    return NextResponse.next();
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -35,9 +41,9 @@ export async function middleware(request: NextRequest) {
 
   if (
     !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth") &&
-    request.nextUrl.pathname !== "/"
+    !pathname.startsWith("/login") &&
+    !pathname.startsWith("/auth") &&
+    pathname !== "/"
   ) {
     // Users are not logged in and not trying to access an unprotected route
     const url = request.nextUrl.clone();
@@ -46,7 +52,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // If the user is logged in, and tries to go to login, redirect to home
-  if (user && request.nextUrl.pathname.startsWith("/login")) {
+  if (user && pathname.startsWith("/login")) {
       const url = request.nextUrl.clone();
       url.pathname = "/";
       return NextResponse.redirect(url);
@@ -64,6 +70,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * Feel free to modify this pattern to include more paths.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|v1/api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
