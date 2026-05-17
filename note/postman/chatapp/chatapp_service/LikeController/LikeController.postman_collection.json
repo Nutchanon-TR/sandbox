@@ -1,0 +1,56 @@
+{
+  "info": {
+    "_postman_id": "e58dba2c-6335-834c-dc16-45b32af895b2",
+    "name": "Sandbox - chatapp_service - LikeController",
+    "description": "Legacy SyncHub like APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Like AI",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/like",
+        "description": "Like an AI card as the current JWT user."
+      }
+    },
+    {
+      "name": "Unlike AI",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/like",
+        "description": "Remove the current user like from an AI card."
+      }
+    }
+  ]
+}

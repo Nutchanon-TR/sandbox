@@ -1,0 +1,133 @@
+{
+  "info": {
+    "_postman_id": "13674c99-69e9-4e60-f1d0-84da0a37cbb6",
+    "name": "Sandbox - chatapp_service - CommentController",
+    "description": "Legacy SyncHub comment APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "List AI Comments",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/comments",
+        "description": "List comments for an AI card."
+      }
+    },
+    {
+      "name": "Add AI Comment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/comments",
+        "description": "Add a comment to an AI card as the current JWT user.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"Mock comment from Postman\",\n  \"star\": 5\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const json = pm.response.json();",
+              "  const value = json.id;",
+              "  if (value !== undefined && value !== null) pm.environment.set('chatCommentId', value);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete AI Comment",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/comments/{{chatCommentId}}",
+        "description": "Delete a comment owned by the current user."
+      }
+    },
+    {
+      "name": "Like AI Comment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/comments/{{chatCommentId}}/like",
+        "description": "Like an AI card comment."
+      }
+    },
+    {
+      "name": "Unlike AI Comment",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/comments/{{chatCommentId}}/like",
+        "description": "Remove the current user like from an AI card comment."
+      }
+    }
+  ]
+}

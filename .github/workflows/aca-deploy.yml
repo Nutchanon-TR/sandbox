@@ -386,6 +386,7 @@ jobs:
       - build_and_deploy_dinner_service
       - build_and_deploy_bpost_service
       - build_and_deploy_user_service
+      - deploy_oauth2_proxy
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -502,4 +503,44 @@ jobs:
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --min-replicas 0 \
             --max-replicas 1
+
+  verify_cloud_ingress:
+    name: Verify Cloud Ingress Guardrails
+    needs:
+      - build_and_deploy_gateway_service
+      - deploy_oauth2_proxy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Ensure only gateway is public
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          check_ingress() {
+            local app_name="$1"
+            local expected_external="$2"
+            local actual_external
+
+            actual_external="$(az containerapp show \
+              --name "$app_name" \
+              --resource-group "${RESOURCE_GROUP}" \
+              --query "properties.configuration.ingress.external" \
+              -o tsv | tr '[:upper:]' '[:lower:]')"
+
+            if [[ "$actual_external" != "$expected_external" ]]; then
+              echo "::error::${app_name} ingress.external=${actual_external:-<empty>}, expected ${expected_external}"
+              exit 1
+            fi
+          }
+
+          check_ingress gateway-service true
+
+          for app_name in frontend chat-service dinner-service bpost-service user-service oauth2-proxy; do
+            check_ingress "$app_name" false
+          done
 

@@ -1,0 +1,79 @@
+{
+  "info": {
+    "_postman_id": "9b8e0d3a-cd9a-c6a0-a6ce-40f333b0afe9",
+    "name": "Sandbox - chatapp_service - RoomController",
+    "description": "Chat room APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "List Rooms",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/room/list",
+        "description": "List chat rooms for the current JWT user."
+      }
+    },
+    {
+      "name": "Create Room",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/room/create",
+        "description": "Create a new chat room for the current user.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Mock AI Room\",\n  \"isGroup\": false,\n  \"systemPrompt\": \"You are a concise assistant for local API testing.\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const json = pm.response.json();",
+              "  const value = json.id;",
+              "  if (value !== undefined && value !== null) pm.environment.set('roomId', value);",
+              "}"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

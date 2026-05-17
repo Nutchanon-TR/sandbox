@@ -1,18 +1,11 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Avatar, Badge, Button, Empty, Input, Space, Spin, Typography } from 'antd';
-import Image from 'next/image';
-import {
-    MoreOutlined,
-    PhoneOutlined,
-    RobotOutlined,
-    SendOutlined,
-    TeamOutlined,
-    VideoCameraOutlined,
-} from "@ant-design/icons";
+import { Empty, Spin } from 'antd';
+import { RobotOutlined, TeamOutlined } from "@ant-design/icons";
 import { TITLE } from "@/constants/Title";
 import { API_SANDBOX } from '@/constants/api/ApiSandbox';
+import { CHAT_BORDER, ChatHeader, MessageInputBar, MessagesArea } from '@/components/ChatApp';
 import { useNotification } from '@/providers/NotificationProvider';
 import { useSessionStore } from '@/stores/sessionStore';
 import {
@@ -25,8 +18,6 @@ import { fetchApi } from '@/utils/api';
 import { useChangeTitle } from "@/utils/breadCrumbUtil";
 import { useChangeSubSideBar } from '@/utils/subSideBarUtil';
 import { usePathname, useSearchParams } from 'next/navigation';
-
-const { Text } = Typography;
 
 // --- Helpers ---
 
@@ -55,14 +46,6 @@ function getRoomSubtitle(room: RoomSummary | null): string | undefined {
     if (room.aiModel) return `AI model: ${room.aiModel}`;
     return undefined;
 }
-
-// --- Style constants ---
-
-const BORDER = {
-    main: 'border-slate-300 dark:border-border-main',
-    secondary: 'border-slate-300 dark:border-border-secondary',
-    input: '!border-slate-300 dark:!border-border-secondary hover:!border-slate-400 dark:hover:!border-border-main',
-} as const;
 
 // --- Component ---
 
@@ -255,6 +238,14 @@ export default function MessagePage() {
         }
     }, [hasMore, isLoadingMore, loadMoreMessages]);
 
+    const handleFixedChromeWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        container.scrollTop += event.deltaY;
+        event.preventDefault();
+    }, []);
+
     // ── Send message ──
     const handleSendMessage = async () => {
         if (!inputText.trim() || isSending || activeRoomId === null || currentUserId === null) return;
@@ -313,8 +304,8 @@ export default function MessagePage() {
     const aiAvatarSrc = selectedRoom?.aiAvatarUrl || '/ai_avatar.png';
 
     return (
-        <div className={`flex h-full min-h-0 flex-1 overflow-hidden rounded-[28px] border bg-background shadow-sm ${BORDER.main}`}>
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className={`flex h-full min-h-0 max-h-full min-w-0 flex-1 overflow-hidden rounded-[28px] border bg-background shadow-sm ${CHAT_BORDER.main}`}>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                 {isSyncing || isRoomsLoading ? (
                     <div className="flex flex-1 items-center justify-center px-6">
                         <Spin size="large" />
@@ -325,143 +316,31 @@ export default function MessagePage() {
                     </div>
                 ) : (
                     <>
-                        {/* Header */}
-                        <div className={`sticky top-0 z-20 flex items-center justify-between border-b bg-surface px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface/80 ${BORDER.main}`}>
-                            <Space size="middle">
-                                <Badge dot color="green" offset={[-5, 35]}>
-                                    <Avatar
-                                        src={aiAvatarSrc}
-                                        size={42}
-                                        className={`border bg-muted ${BORDER.secondary}`}
-                                    />
-                                </Badge>
-                                <div className="flex flex-col">
-                                    <Text strong className="text-lg leading-none !text-foreground">
-                                        {selectedRoom.name}
-                                    </Text>
-                                    {roomSubtitle && (
-                                        <Text type="secondary" className="mt-1 text-xs font-medium">
-                                            {roomSubtitle}
-                                        </Text>
-                                    )}
-                                </div>
-                            </Space>
-                            <Space size="small">
-                                <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<PhoneOutlined />} />
-                                <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<VideoCameraOutlined />} />
-                                <Button type="text" className="!text-text-secondary hover:!bg-muted" icon={<MoreOutlined />} />
-                            </Space>
-                        </div>
-
-                        {/* Messages area */}
-                        <div
-                            ref={scrollContainerRef}
+                        <ChatHeader
+                            room={selectedRoom}
+                            subtitle={roomSubtitle}
+                            avatarSrc={aiAvatarSrc}
+                            onWheel={handleFixedChromeWheel}
+                        />
+                        <MessagesArea
+                            messages={messages}
+                            avatarSrc={aiAvatarSrc}
+                            isHistoryLoading={isHistoryLoading}
+                            isLoadingMore={isLoadingMore}
+                            isSending={isSending}
+                            scrollContainerRef={scrollContainerRef}
+                            messagesEndRef={messagesEndRef}
                             onScroll={handleScroll}
-                            className="flex-1 overflow-y-auto bg-background px-4 py-5 md:px-6"
-                        >
-                            {isHistoryLoading ? (
-                                <div className="flex h-full items-center justify-center">
-                                    <Spin size="large" />
-                                </div>
-                            ) : (
-                                <>
-                                    {isLoadingMore && (
-                                        <div className="flex justify-center py-3">
-                                            <Spin size="small" />
-                                        </div>
-                                    )}
-
-                                    <div className={`flex min-h-full flex-col gap-4 ${messages.length === 0 && !isSending ? 'items-center justify-center' : 'justify-end'}`}>
-                                        {messages.length === 0 && !isSending && (
-                                            <div className="flex max-w-md flex-col items-center text-center text-text-secondary">
-                                                <Image
-                                                    src={aiAvatarSrc}
-                                                    alt="AI Avatar"
-                                                    width={80}
-                                                    height={80}
-                                                    className="mb-4 opacity-45 dark:opacity-60"
-                                                />
-                                                <p className="m-0">Say hello to start the conversation!</p>
-                                            </div>
-                                        )}
-
-                                        {messages.map((message, index) => {
-                                            const ai = isAiMessage(message);
-
-                                            return (
-                                                <div
-                                                    key={message.id ?? `msg-${index}`}
-                                                    className={`flex flex-col ${ai ? 'items-start' : 'items-end'}`}
-                                                >
-                                                    <div className="flex max-w-[85%] items-end gap-2 md:max-w-[72%]">
-                                                        {ai && (
-                                                            <Avatar
-                                                                src={aiAvatarSrc}
-                                                                size={32}
-                                                                className={`shrink-0 border bg-muted ${BORDER.secondary}`}
-                                                            />
-                                                        )}
-                                                        <div
-                                                            className={`rounded-3xl p-3 shadow-sm ${ai
-                                                                ? `rounded-bl-md border bg-surface text-foreground ${BORDER.main}`
-                                                                : 'rounded-br-md bg-blue-600 text-white dark:bg-blue-500'
-                                                                }`}
-                                                        >
-                                                            <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">
-                                                                {message.content}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-
-                                        {isSending && (
-                                            <div className="flex justify-start">
-                                                <div className="flex max-w-[70%] items-end gap-2">
-                                                    <Avatar
-                                                        src={aiAvatarSrc}
-                                                        size={32}
-                                                        className={`border bg-muted ${BORDER.secondary}`}
-                                                    />
-                                                    <div className={`flex items-center gap-1 rounded-3xl rounded-bl-md border bg-surface p-4 shadow-sm ${BORDER.main}`}>
-                                                        <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60 [animation-delay:-0.3s]" />
-                                                        <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60 [animation-delay:-0.15s]" />
-                                                        <div className="h-2 w-2 animate-bounce rounded-full bg-text-secondary/60" />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <div ref={messagesEndRef} />
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-                        {/* Input bar */}
-                        <div className={`sticky bottom-0 z-20 border-t bg-surface px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface/85 md:px-6 ${BORDER.main}`}>
-                            <div className="mx-auto flex w-full max-w-4xl items-center gap-2">
-                                <Input
-                                    size="large"
-                                    value={inputText}
-                                    onChange={(event) => setInputText(event.target.value)}
-                                    onPressEnter={handleSendMessage}
-                                    placeholder="Type a message..."
-                                    disabled={isSending || isHistoryLoading}
-                                    className={`rounded-full !bg-muted px-5 !text-foreground placeholder:!text-text-secondary focus:!border-accent ${BORDER.input}`}
-                                />
-                                <Button
-                                    type="primary"
-                                    shape="circle"
-                                    size="large"
-                                    icon={<SendOutlined />}
-                                    onClick={handleSendMessage}
-                                    disabled={!inputText.trim() || isSending || isHistoryLoading}
-                                    className="flex items-center justify-center"
-                                />
-                            </div>
-                        </div>
+                            isAiMessage={isAiMessage}
+                        />
+                        <MessageInputBar
+                            value={inputText}
+                            disabled={isSending || isHistoryLoading}
+                            isSending={isSending}
+                            onChange={setInputText}
+                            onSend={handleSendMessage}
+                            onWheel={handleFixedChromeWheel}
+                        />
                     </>
                 )}
             </div>

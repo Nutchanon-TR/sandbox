@@ -1,0 +1,102 @@
+{
+  "info": {
+    "_postman_id": "6da1ed59-bcc5-41a3-9ad3-3b912de4694f",
+    "name": "Sandbox - Users Service",
+    "description": "Mock requests for backend/user. Use the Sandbox Local environment and paste a real Supabase access token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Sync User",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"supabaseUid\": \"{{supabaseUid}}\",\n  \"email\": \"{{userEmail}}\",\n  \"username\": \"{{username}}\",\n  \"avatarUrl\": \"{{avatarUrl}}\"\n}"
+        },
+        "url": "{{usersBaseUrl}}/sync",
+        "description": "Requires Authorization Bearer token. The request supabaseUid must match the JWT sub claim."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const json = pm.response.json();",
+              "  if (json.userId) pm.environment.set('internalUserId', json.userId);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{usersBaseUrl}}/profile/{{supabaseUid}}"
+      }
+    },
+    {
+      "name": "Create Or Update Profile",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"supabaseUid\": \"{{supabaseUid}}\",\n  \"username\": \"{{username}}\",\n  \"email\": \"{{userEmail}}\"\n}"
+        },
+        "url": "{{usersBaseUrl}}/profile"
+      }
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "info": {
+    "_postman_id": "c0ead9e3-1aa7-4f3f-4012-2d8c844c2cfb",
+    "name": "Sandbox - chatapp_service - FriendController",
+    "description": "Legacy SyncHub AI friend APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Add AI Friend",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/friend",
+        "description": "Add an AI as a friend for the current user."
+      }
+    },
+    {
+      "name": "Remove AI Friend",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/friend",
+        "description": "Remove an AI friend for the current user."
+      }
+    },
+    {
+      "name": "List AI Friends",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/user/friends",
+        "description": "List AI friends for the current user."
+      }
+    }
+  ]
+}

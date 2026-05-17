@@ -1,0 +1,373 @@
+{
+  "info": {
+    "_postman_id": "a1221faf-73db-4c33-8d26-9de5cdd96dc1",
+    "name": "Sandbox - Chat App Service",
+    "description": "Mock requests for backend/chatapp. Most write actions resolve the caller from Authorization Bearer JWT.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Rooms",
+      "item": [
+        {
+          "name": "List Rooms",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{chatAppBaseUrl}}/room/list"
+          }
+        },
+        {
+          "name": "Create Room",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mock AI Room\",\n  \"isGroup\": false,\n  \"systemPrompt\": \"You are a concise assistant for local API testing.\"\n}"
+            },
+            "url": "{{chatAppBaseUrl}}/room/create"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.environment.set('roomId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AI Chat",
+      "item": [
+        {
+          "name": "Get Chat History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{chatAppBaseUrl}}/chat/history/{{roomId}}?limit=20"
+          }
+        },
+        {
+          "name": "Send Chat Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": {{roomId}},\n  \"message\": \"Summarize this mock API request in one sentence.\"\n}"
+            },
+            "url": "{{chatAppBaseUrl}}/chat"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.reply) pm.environment.set('lastAiReply', json.reply);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SyncHub Legacy",
+      "item": [
+        {
+          "name": "Blog List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{chatAppBaseUrl}}/blog/list"
+          }
+        },
+        {
+          "name": "Blog Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{chatAppBaseUrl}}/blog/detail/{{aiId}}"
+          }
+        },
+        {
+          "name": "Like AI",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/like"
+          }
+        },
+        {
+          "name": "Unlike AI",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/like"
+          }
+        },
+        {
+          "name": "Add AI Friend",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/friend"
+          }
+        },
+        {
+          "name": "Remove AI Friend",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/friend"
+          }
+        },
+        {
+          "name": "List AI Friends",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{chatAppBaseUrl}}/user/friends"
+          }
+        },
+        {
+          "name": "List AI Comments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/comments"
+          }
+        },
+        {
+          "name": "Add AI Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Mock comment from Postman\",\n  \"star\": 5\n}"
+            },
+            "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/comments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.environment.set('chatCommentId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Like AI Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{chatAppBaseUrl}}/comments/{{chatCommentId}}/like"
+          }
+        },
+        {
+          "name": "Unlike AI Comment",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{chatAppBaseUrl}}/comments/{{chatCommentId}}/like"
+          }
+        },
+        {
+          "name": "Delete AI Comment",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{chatAppBaseUrl}}/comments/{{chatCommentId}}"
+          }
+        }
+      ]
+    }
+  ]
+}

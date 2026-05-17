@@ -1,0 +1,56 @@
+{
+  "info": {
+    "_postman_id": "853668e6-842e-042e-5f58-e60c981745b9",
+    "name": "Sandbox - dinner_service - SupplierOrderController",
+    "description": "Dinner supplier order APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Supplier Inquiry",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{dinnerBaseUrl}}/supplier/inquiry?page={{page}}&size={{pageSize}}",
+        "description": "List supplier orders with pagination."
+      }
+    },
+    {
+      "name": "Supplier Inquiry - Sort Desc",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{dinnerBaseUrl}}/supplier/inquiry?page={{page}}&size={{pageSize}}&sort[0].field=id&sort[0].direction=desc",
+        "description": "List supplier orders sorted by id descending."
+      }
+    }
+  ]
+}

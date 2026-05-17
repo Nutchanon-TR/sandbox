@@ -1,0 +1,735 @@
+{
+  "info": {
+    "_postman_id": "d8b2ec3d-e698-4e52-a83b-ef61664555f5",
+    "name": "Sandbox - B-Post Service",
+    "description": "Mock requests for backend/bpost posts, comments, friends, messages, notifications, presence, and image uploads.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Posts",
+      "item": [
+        {
+          "name": "Upload Post Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "imageFile",
+                  "type": "file",
+                  "src": "{{imageFilePath}}"
+                }
+              ]
+            },
+            "url": "{{bpostBaseUrl}}/posts/upload-image"
+          }
+        },
+        {
+          "name": "Create Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hello from Postman mock data\",\n  \"imageUrls\": [\n    \"https://example.com/mock-post-image.png\"\n  ],\n  \"visibility\": \"PUBLIC\"\n}"
+            },
+            "url": "{{bpostBaseUrl}}/posts"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.environment.set('postId', json.id);",
+                  "  if (json.author && json.author.id) pm.environment.set('authorId', json.author.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Feed",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/posts/feed?limit=20"
+          }
+        },
+        {
+          "name": "Posts By Author",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/posts/by-author/{{authorId}}?limit=20"
+          }
+        },
+        {
+          "name": "Get Post",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/posts/{{postId}}"
+          }
+        },
+        {
+          "name": "Update Post",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Updated Postman mock post\",\n  \"imageUrls\": [],\n  \"visibility\": \"PUBLIC\"\n}"
+            },
+            "url": "{{bpostBaseUrl}}/posts/{{postId}}"
+          }
+        },
+        {
+          "name": "Like Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/posts/{{postId}}/likes"
+          }
+        },
+        {
+          "name": "Unlike Post",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/posts/{{postId}}/likes"
+          }
+        },
+        {
+          "name": "Delete Post",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/posts/{{postId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "List Comments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/posts/{{postId}}/comments?limit=30"
+          }
+        },
+        {
+          "name": "Add Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Mock comment from Postman\"\n}"
+            },
+            "url": "{{bpostBaseUrl}}/posts/{{postId}}/comments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.environment.set('bpostCommentId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Edit Comment",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Edited mock comment from Postman\"\n}"
+            },
+            "url": "{{bpostBaseUrl}}/comments/{{bpostCommentId}}"
+          }
+        },
+        {
+          "name": "Delete Comment",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/comments/{{bpostCommentId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Friends",
+      "item": [
+        {
+          "name": "Search Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/users/search?q={{username}}"
+          }
+        },
+        {
+          "name": "Send Friend Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addresseeId\": {{targetUserId}}\n}"
+            },
+            "url": "{{bpostBaseUrl}}/friends/requests"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.environment.set('friendshipRequestId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Accept Friend Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/friends/requests/{{friendshipRequestId}}/accept"
+          }
+        },
+        {
+          "name": "Decline Friend Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/friends/requests/{{friendshipRequestId}}/decline"
+          }
+        },
+        {
+          "name": "List Friends",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/friends"
+          }
+        },
+        {
+          "name": "Incoming Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/friends/requests/incoming"
+          }
+        },
+        {
+          "name": "Outgoing Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/friends/requests/outgoing"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "List Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/conversations"
+          }
+        },
+        {
+          "name": "Open Conversation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": {{targetUserId}}\n}"
+            },
+            "url": "{{bpostBaseUrl}}/conversations"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.environment.set('conversationId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conversation History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/conversations/{{conversationId}}/messages?limit=30"
+          }
+        },
+        {
+          "name": "Mark Conversation Read",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/conversations/{{conversationId}}/read"
+          }
+        },
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversationId\": {{conversationId}},\n  \"recipientId\": {{targetUserId}},\n  \"content\": \"Mock direct message from Postman\",\n  \"imageUrl\": null\n}"
+            },
+            "url": "{{bpostBaseUrl}}/messages"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.environment.set('messageId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload Message Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "imageFile",
+                  "type": "file",
+                  "src": "{{imageFilePath}}"
+                }
+              ]
+            },
+            "url": "{{bpostBaseUrl}}/messages/upload-image"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/notifications?unreadOnly=false&limit=30"
+          }
+        },
+        {
+          "name": "Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/notifications/unread-count"
+          }
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/notifications/{{notificationId}}/read"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Presence",
+      "item": [
+        {
+          "name": "Online Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{bpostBaseUrl}}/presence/online"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Legacy Image Upload",
+      "item": [
+        {
+          "name": "Upload Blog Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "sourceSystem",
+                "value": "{{sourceSystem}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "imageFile",
+                  "type": "file",
+                  "src": "{{imageFilePath}}"
+                }
+              ]
+            },
+            "url": "{{bpostBaseUrl}}/blog/upload-image"
+          }
+        }
+      ]
+    }
+  ]
+}

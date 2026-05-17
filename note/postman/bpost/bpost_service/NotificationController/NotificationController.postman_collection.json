@@ -1,0 +1,74 @@
+{
+  "info": {
+    "_postman_id": "d293d6ad-0302-e78b-48ca-b88cf37bbdd8",
+    "name": "Sandbox - bpost_service - NotificationController",
+    "description": "B-Post notification APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "List Notifications",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/notifications?unreadOnly=false&limit=30",
+        "description": "List notifications for the current user."
+      }
+    },
+    {
+      "name": "Unread Count",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/notifications/unread-count",
+        "description": "Get unread notification count."
+      }
+    },
+    {
+      "name": "Mark Notification Read",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/notifications/{{notificationId}}/read",
+        "description": "Mark one notification as read."
+      }
+    }
+  ]
+}

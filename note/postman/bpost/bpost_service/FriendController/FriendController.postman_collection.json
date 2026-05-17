@@ -1,0 +1,169 @@
+{
+  "info": {
+    "_postman_id": "ada72a3d-4ca4-a1b3-2b72-78d0831d9524",
+    "name": "Sandbox - bpost_service - FriendController",
+    "description": "B-Post friend APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Search Users",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/users/search?q={{username}}",
+        "description": "Search users for friend discovery."
+      }
+    },
+    {
+      "name": "Send Friend Request",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/friends/requests",
+        "description": "Send a friend request to a target user id.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"addresseeId\": \"{{targetUserId}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const json = pm.response.json();",
+              "  const value = json.id;",
+              "  if (value !== undefined && value !== null) pm.environment.set('friendshipRequestId', value);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Accept Friend Request",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/friends/requests/{{friendshipRequestId}}/accept",
+        "description": "Accept a pending friend request."
+      }
+    },
+    {
+      "name": "Decline Friend Request",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/friends/requests/{{friendshipRequestId}}/decline",
+        "description": "Decline a pending friend request."
+      }
+    },
+    {
+      "name": "List Friends",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/friends",
+        "description": "List friends for the current user."
+      }
+    },
+    {
+      "name": "Incoming Requests",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/friends/requests/incoming",
+        "description": "List incoming pending friend requests."
+      }
+    },
+    {
+      "name": "Outgoing Requests",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/friends/requests/outgoing",
+        "description": "List outgoing pending friend requests."
+      }
+    }
+  ]
+}

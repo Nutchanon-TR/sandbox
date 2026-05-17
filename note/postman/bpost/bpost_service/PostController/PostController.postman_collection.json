@@ -1,0 +1,159 @@
+{
+  "info": {
+    "_postman_id": "5da743bf-a7cc-f689-2d43-6f78a28a1acb",
+    "name": "Sandbox - bpost_service - PostController",
+    "description": "B-Post post APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Create Post",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/posts",
+        "description": "Create a new post. Author identity is resolved from JWT.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"Hello from Postman mock data\",\n  \"imageUrls\": [\n    \"https://example.com/mock-post-image.png\"\n  ],\n  \"visibility\": \"PUBLIC\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const json = pm.response.json();",
+              "  if (json.id) pm.environment.set('postId', json.id);",
+              "  if (json.author && json.author.id) pm.environment.set('authorId', json.author.id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Feed",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/posts/feed?limit=20",
+        "description": "List feed posts for the current user."
+      }
+    },
+    {
+      "name": "Posts By Author",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/posts/by-author/{{authorId}}?limit=20",
+        "description": "List posts by author internal user id."
+      }
+    },
+    {
+      "name": "Get Post",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/posts/{{postId}}",
+        "description": "Read post details by postId."
+      }
+    },
+    {
+      "name": "Update Post",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/posts/{{postId}}",
+        "description": "Update a post owned by the current user.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"Updated Postman mock post\",\n  \"imageUrls\": [],\n  \"visibility\": \"PUBLIC\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Delete Post",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/posts/{{postId}}",
+        "description": "Soft-delete a post owned by the current user."
+      }
+    }
+  ]
+}

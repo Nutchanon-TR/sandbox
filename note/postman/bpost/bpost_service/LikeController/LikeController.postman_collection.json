@@ -1,0 +1,56 @@
+{
+  "info": {
+    "_postman_id": "82319b53-3623-980b-c4ea-dc29dc9fb078",
+    "name": "Sandbox - bpost_service - LikeController",
+    "description": "B-Post like APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Like Post",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/posts/{{postId}}/likes",
+        "description": "Like a post as the current JWT user."
+      }
+    },
+    {
+      "name": "Unlike Post",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/posts/{{postId}}/likes",
+        "description": "Remove the current user like from a post."
+      }
+    }
+  ]
+}

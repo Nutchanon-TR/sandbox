@@ -1,0 +1,212 @@
+{
+  "info": {
+    "_postman_id": "9c829152-1716-3ed4-2040-2aa65a0ff8bd",
+    "name": "Sandbox - bpost_service - MessageController",
+    "description": "B-Post conversation/message APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "List Conversations",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/conversations",
+        "description": "List conversations for the current user."
+      }
+    },
+    {
+      "name": "Open Conversation",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/conversations",
+        "description": "Open or create a conversation with a target user.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"{{targetUserId}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const json = pm.response.json();",
+              "  const value = json.id;",
+              "  if (value !== undefined && value !== null) pm.environment.set('conversationId', value);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Conversation History",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/conversations/{{conversationId}}/messages?limit=30",
+        "description": "Load cursor-paginated messages in a conversation."
+      }
+    },
+    {
+      "name": "Mark Conversation Read",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/conversations/{{conversationId}}/read",
+        "description": "Mark messages in a conversation as read."
+      }
+    },
+    {
+      "name": "Send Message",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/messages",
+        "description": "Send a direct message. Sender identity is resolved from JWT.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversationId\": \"{{conversationId}}\",\n  \"recipientId\": \"{{targetUserId}}\",\n  \"content\": \"Mock direct message from Postman\",\n  \"imageUrl\": null\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const json = pm.response.json();",
+              "  const value = json.id;",
+              "  if (value !== undefined && value !== null) pm.environment.set('messageId', value);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Upload Message Image",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/messages/upload-image",
+        "description": "Upload an image for a direct message.",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "imageFile",
+              "type": "file",
+              "src": "{{imageFilePath}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Upload Post Image",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/posts/upload-image",
+        "description": "Upload an image for a post.",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "imageFile",
+              "type": "file",
+              "src": "{{imageFilePath}}"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

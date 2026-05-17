@@ -146,6 +146,8 @@ ACA ingress ปัจจุบันใน workflow:
 | backend services | internal | 8080 |
 | `oauth2-proxy` | internal | 4180 |
 
+CI/CD มี job `verify_cloud_ingress` ตรวจซ้ำหลัง deploy ว่า public ingress เปิดเฉพาะ `gateway-service` เท่านั้น ถ้า `frontend`, backend service หรือ `oauth2-proxy` ถูกตั้งเป็น external workflow จะ fail ทันที
+
 Gateway บน ACA ใช้ env:
 
 ```text
@@ -223,10 +225,10 @@ Frontend API ใช้ relative URL เป็นค่า default (`NEXT_PUBLIC_
 | Service | Port | หมายเหตุ |
 |---|---:|---|
 | Frontend | `3000` | รัน `npm run dev` ใน `frontend/` |
-| user-service | `8081` | จำเป็นหลัง login เพราะมี `USER_SYNC` |
-| chatapp | `8082` | API ของ ChatApp |
-| dinner | `8083` | API ของ Dinner |
-| bpost | `8084` | API และ websocket ของ B-Post |
+| user-service | `8080` | จำเป็นหลัง login เพราะมี `USER_SYNC` |
+| chatapp | `8081` | API ของ ChatApp |
+| dinner | `8082` | API ของ Dinner |
+| bpost | `8083` | API และ websocket ของ B-Post |
 | common-auth | n/a | เป็น Maven library เท่านั้น ไม่ต้องรันเป็น service |
 
 ถ้าเครื่องใหม่ Maven ยัง resolve `common-auth` ไม่ได้ ให้ install ครั้งแรก:

@@ -1,0 +1,79 @@
+{
+  "info": {
+    "_postman_id": "d5bfd393-f587-5b19-38f1-87f46aec9267",
+    "name": "Sandbox - chatapp_service - ChatController",
+    "description": "AI chat APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Get Chat History",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/chat/history/{{roomId}}?limit=20",
+        "description": "Load cursor-paginated chat history for a room."
+      }
+    },
+    {
+      "name": "Send Chat Message",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/chat",
+        "description": "Send a message to the AI. Sender identity is resolved from JWT.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{roomId}}\",\n  \"message\": \"Summarize this mock API request in one sentence.\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const json = pm.response.json();",
+              "  const value = json.reply;",
+              "  if (value !== undefined && value !== null) pm.environment.set('lastAiReply', value);",
+              "}"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

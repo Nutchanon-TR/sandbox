@@ -1,0 +1,123 @@
+{
+  "info": {
+    "_postman_id": "cbac883e-a072-cc07-af22-6dfe6c4fde17",
+    "name": "Sandbox - bpost_service - CommentController",
+    "description": "B-Post comment APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "List Comments",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/posts/{{postId}}/comments?limit=30",
+        "description": "List comments for a post with pagination."
+      }
+    },
+    {
+      "name": "Add Comment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/posts/{{postId}}/comments",
+        "description": "Add a comment to a post as the current JWT user.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"Mock comment from Postman\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const json = pm.response.json();",
+              "  const value = json.id;",
+              "  if (value !== undefined && value !== null) pm.environment.set('bpostCommentId', value);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Edit Comment",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/comments/{{bpostCommentId}}",
+        "description": "Edit a comment owned by the current user.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"Edited mock comment from Postman\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Delete Comment",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{bpostBaseUrl}}/comments/{{bpostCommentId}}",
+        "description": "Delete a comment owned by the current user."
+      }
+    }
+  ]
+}

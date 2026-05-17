@@ -1,264 +1,318 @@
-# ChatApp Backend — Bug & Action Report
+# Sandbox Architecture Action Report
 
-> อัปเดต 2026-04-12 | สาขา: `main`
-
----
-
-## สถานะ Supabase Schema (ตรวจสอบแล้ว)
-
-| ส่วน | สถานะ |
-|------|--------|
-| `vector` extension (pgvector) | ✅ ติดตั้งแล้ว |
-| `chat.message_embeddings` (`vector(384)`) | ✅ มีอยู่แล้ว |
-| Vector index HNSW cosine ops | ✅ มีอยู่แล้ว (`idx_message_embeddings_vector`) |
-| `chat.room_members.ai_id` (FK → `ai_context.id`) | ✅ มี column จริง |
-| `chat.ai_context` | ✅ มีอยู่แล้ว |
-
-> **หมายเหตุ:** schema management ทำผ่าน Supabase โดยตรง รายละเอียดดูได้ที่ `note/docs/SUPABASE.md`
+> อัปเดต 2026-05-13 | โฟกัส: งาน architecture หลังระบบหลักเริ่มใช้งานได้
 
 ---
 
-## Bug 1: HuggingFace API Response Type ผิด — `double[]` แทน `double[][]`
+## ภาพรวมปัจจุบัน
 
-**ไฟล์:** `backend/chatapp/.../services/EmbeddingService.java`
-**ความรุนแรง:** Critical
-**สถานะ:** ✅ แก้แล้ว (2026-04-12)
+ระบบตอนนี้มีแกนหลักครบแล้ว: Next.js frontend, Nginx gateway, Spring Boot microservices, Supabase Auth/Postgres/Storage, GitHub Actions, Docker และ Azure Container Apps. จุดที่ควรขยับต่อไม่ใช่ feature ใหม่อย่างเดียว แต่เป็น production readiness: observability, security edge, infrastructure as code, caching, CI/CD guardrails และ operational runbook
 
-### สาเหตุ
-
-HuggingFace feature-extraction endpoint คืน response เป็น nested array `[[...]]`
-แต่โค้ดเดิม deserialize เป็น `double[]` (flat) → Jackson โยน `HttpMessageConversionException`
-
-### การแก้ไข
-
-```java
-// ก่อน (ผิด)
-ResponseEntity<double[]> response = restTemplate.exchange(..., double[].class);
-double[] doubles = response.getBody();
-
-// หลัง (ถูก)
-ResponseEntity<double[][]> response = restTemplate.exchange(..., double[][].class);
-double[][] body = response.getBody();
-double[] doubles = body[0];
-```
+รายงานนี้ตัดส่วนสถานะปัญหาเดิมออกแล้ว เพื่อให้ใช้เป็น action backlog สำหรับ architecture ต่อจากนี้
 
 ---
 
-## Bug 2: Cache Invalidation ล้างทุก Room — `allEntries = true`
+## สิ่งที่ยังขาด
 
-**ไฟล์:** `backend/chatapp/.../services/ChatService.java`
-**ความรุนแรง:** Medium (functional ถูก แต่ performance แย่เมื่อ scale)
-**สถานะ:** ✅ แก้แล้ว (2026-04-12)
-
-### สาเหตุ
-
-`@CacheEvict(value = "chatHistory", allEntries = true)` ล้าง cache ทุกห้องแชตทุกครั้งที่มีข้อความใหม่แม้จะอยู่ห้องเดียว
-
-### การแก้ไข
-
-ลบ `@CacheEvict` ออก แล้วเพิ่ม method `evictRoomCache(roomId)` ที่ใช้ `RedisTemplate.keys()` ลบเฉพาะ key ที่ match pattern `chatHistory::{roomId}_*`
-
----
-
-## Bug 3: ACA Port Mapping ผิดทั้งหมด
-
-**ไฟล์:** `.github/workflows/aca-deploy.yml`
-**ความรุนแรง:** Critical (ACA deployment พัง)
-**สถานะ:** ✅ แก้แล้ว (2026-04-12)
-
-### สาเหตุ
-
-`environmentVariables: FRONTEND_PORT=80 BACKEND_PORT=80 OAUTH2_PROXY_PORT=80`
-ทั้งที่ services ฟังคนละ port จริงๆ
-
-### การแก้ไข
-
-```yaml
-environmentVariables: FRONTEND_PORT=3000 BACKEND_PORT=8080 OAUTH2_PROXY_PORT=4180
-```
+| Area | สิ่งที่ขาด | ทำไมสำคัญ |
+|---|---|---|
+| Observability | logs, metrics, traces, dashboards, alerts แบบรวมศูนย์ | ตอน production มีปัญหาจะรู้เร็วว่าเสียที่ frontend, gateway, service, DB หรือ external API |
+| Edge Security | Cloudflare DNS/WAF/rate limiting และ origin protection | กัน traffic แปลก, brute force, spike API และช่วยซ่อน origin |
+| Infrastructure as Code | Terraform/Bicep สำหรับ Azure resources, secrets, DNS, Redis, monitoring | ลด config drift และ rebuild environment ได้ |
+| Caching | Redis/cache strategy สำหรับข้อมูลอ่านซ้ำและ realtime state | ลด DB load และรองรับ scale-out หลาย replica |
+| CI/CD Guardrails | test/build/scan/deploy gates ที่ชัด | กัน deploy image เสีย, dependency risk และ config ผิด |
+| Secrets & Identity | Key Vault/managed identity/GitHub OIDC | ลด secret leakage และไม่ต้องใช้ long-lived credentials |
+| Database Governance | migrations, RLS, advisors, backups, restore drill | กัน schema drift, data leak และ recover ได้เมื่อพลาด |
+| Resilience | timeout, retry budget, circuit breaker, health checks | กัน service ค้างลากทั้งระบบล้ม |
+| Cost Control | budget, quota, scale rules, retention policy | กันค่าใช้จ่ายบานจาก logs, traffic, AI calls และ DB |
 
 ---
 
-## Bug 4: WebConfig CORS Hardcode — ไม่อ่านจาก Config
+## Architecture Direction
 
-**ไฟล์:** `backend/*/config/WebConfig.java` (ทั้ง 3 services)
-**ความรุนแรง:** Medium (ACA/production จะเกิด CORS Error)
-**สถานะ:** ✅ แก้แล้ว (2026-04-12)
+แนวทางที่แนะนำคืออย่าเพิ่มทุกอย่างพร้อมกัน ให้ทำเป็น 3 ชั้น:
 
-### สาเหตุ
+1. **Operate** - ทำให้เห็นระบบก่อน: Azure Monitor/Log Analytics, OpenTelemetry, alerts, health dashboards
+2. **Protect** - ป้องกันขอบระบบ: Cloudflare, rate limiting, CORS/origin policy, Key Vault, RLS
+3. **Codify & Scale** - ทำให้ซ้ำได้และขยายได้: Terraform, Redis, CI/CD gates, load test, runbooks
 
-`allowedOrigins("http://localhost:3000")` hardcode อยู่ใน code ทำให้ deploy บน ACA แล้ว browser ยิงจาก domain จริงไม่ได้
-
-### การแก้ไข
-
-ใช้ `@Value("${app.cors.allowedOrigins}")` อ่านจาก `application.yml` แทน
-เพิ่ม domain production ใน `application.yml` ของแต่ละ service:
-
-```yaml
-app:
-  cors:
-    allowedOrigins:
-      - http://localhost:3000
-      # TODO: เพิ่ม ACA/Cloudflare domain เมื่อ deploy
-```
+ลำดับนี้เหมาะกับโปรเจกต์นี้ เพราะถ้าเริ่มจาก Terraform หรือ cache ก่อน แต่ยังไม่มี monitor จะไล่สาเหตุยากมากเมื่อ deploy แล้วเจอปัญหา
 
 ---
 
-## รายการที่ต้องทำเอง (Manual Actions)
+## Actions
 
-รายการต่อไปนี้ **ไม่สามารถแก้ในโค้ดได้** ต้องดำเนินการใน portal/console ภายนอก
+### A1 - Baseline Observability
 
----
+**Priority:** P0  
+**Where:** Azure Container Apps, Azure Monitor, Log Analytics  
+**Goal:** เห็น logs/metrics ของ frontend, gateway และทุก backend service ในที่เดียว
 
-### 🔵 M1 — Azure for Students + ACA Setup
+**Tasks:**
+1. สร้าง Log Analytics workspace สำหรับ ACA environment
+2. เปิด container app logs และ system logs
+3. ทำ dashboard สำหรับ request count, error rate, latency, CPU, memory, restart count
+4. ตั้ง alert ขั้นต่ำ:
+   - 5xx spike
+   - container restart
+   - CPU/memory สูงต่อเนื่อง
+   - gateway unhealthy
+5. กำหนด log retention เพื่อคุม cost
 
-**ที่ไหน:** [Azure Portal](https://portal.azure.com)
-**ค่าใช้จ่าย:** ฟรี ($100 student credit)
-
-**ขั้นตอน:**
-1. สมัคร Azure for Students ที่ `https://azure.microsoft.com/free/students` ด้วย email มหาวิทยาลัย
-2. สร้าง Resource Group: `sandbox-rg` (region: `Southeast Asia` หรือ `East Asia`)
-3. สร้าง ACA Environment: `sandbox-env` ใน Resource Group เดียวกัน
-4. ตั้ง GitHub Secrets ต่อไปนี้ใน repo Settings → Secrets:
-   - `AZURE_CREDENTIALS` — JSON จาก `az ad sp create-for-rbac ...`
-   - `RESOURCE_GROUP` — ชื่อ Resource Group (เช่น `sandbox-rg`)
-5. เพิ่ม domain production ใน `app.cors.allowedOrigins` ของทุก `application.yml`
-
-**คำสั่งสร้าง Azure Credentials:**
-```bash
-az ad sp create-for-rbac \
-  --name "sandbox-github-actions" \
-  --role contributor \
-  --scopes /subscriptions/<subscription-id>/resourceGroups/sandbox-rg \
-  --sdk-auth
-```
+**Done when:** มี dashboard กลางและ alert ยิงได้จริงจาก incident จำลอง
 
 ---
 
-### 🔵 M2 — OAuth2 Proxy Secrets
+### A2 - Distributed Tracing with OpenTelemetry
 
-**ที่ไหน:** GitHub Secrets + Supabase Dashboard
-**ค่าใช้จ่าย:** ฟรี
+**Priority:** P0  
+**Where:** Spring Boot services, ACA OpenTelemetry, Azure Monitor หรือ vendor ที่เลือก  
+**Goal:** ตาม request เดียวจาก gateway ไป service และ DB/external API ได้
 
-**ขั้นตอน:**
-1. ไปที่ Supabase Dashboard → Project → Authentication → Providers
-2. เปิด **Email** หรือ OAuth provider ที่ต้องการ และจด `Client ID` / `Client Secret`
-3. สร้าง `OAUTH2_PROXY_COOKIE_SECRET`:
-   ```bash
-   openssl rand -base64 32 | tr -- '+/' '-_'
-   ```
-4. ตั้ง GitHub Secrets:
-   - `SUPABASE_PROJECT_ID` — เช่น `xabewjiiewyhhjfekazv`
-   - `OAUTH2_PROXY_CLIENT_ID`
-   - `OAUTH2_PROXY_CLIENT_SECRET`
-   - `OAUTH2_PROXY_COOKIE_SECRET`
-5. ตั้ง `--oidc-issuer-url` ใน oauth2-proxy ให้ชี้ไป:
-   `https://<project-id>.supabase.co/auth/v1`
+**Tasks:**
+1. เพิ่ม OpenTelemetry Java agent หรือ Spring Boot starter ให้ `user`, `chatapp`, `dinner`, `bpost`
+2. ตั้ง service name ให้ชัด: `user-service`, `chat-service`, `dinner-service`, `bpost-service`
+3. propagate trace headers ผ่าน gateway
+4. ใส่ correlation id ใน logs
+5. ตรวจ trace สำหรับ flow สำคัญ:
+   - login -> `/v1/api/user/sync`
+   - chat -> Groq/HuggingFace
+   - b-post message -> notification
+
+**Done when:** เปิด trace แล้วเห็น latency แตกตาม service ได้ ไม่ใช่เห็นแค่ request รวม
 
 ---
 
-### 🔵 M3 — Cloudflare DNS + WAF (Free Tier)
+### A3 - Cloudflare Edge Protection
 
-**ที่ไหน:** [Cloudflare Dashboard](https://dash.cloudflare.com)
-**ค่าใช้จ่าย:** ฟรี
+**Priority:** P0  
+**Where:** Cloudflare DNS/WAF/Rate Limiting  
+**Goal:** ให้ public traffic ผ่าน edge ก่อนถึง ACA gateway
 
-**ขั้นตอน:**
-1. สมัคร Cloudflare Free และเพิ่ม domain (หรือใช้ subdomain ฟรีจาก ACA FQDN ก็พอ)
-2. ตั้ง DNS CNAME ชี้ไปยัง ACA gateway external FQDN:
-   `gateway-service.<env-id>.<region>.azurecontainerapps.io`
-3. เปิด **Proxy** (orange cloud) เพื่อได้ WAF และ DDoS protection ฟรี
-4. ตั้ง Rate Limiting rule (Free: 1 rule):
-   - Path: `/v1/api/*`
-   - Threshold: 100 requests / 1 minute per IP
-5. เพิ่ม Cloudflare domain ใน `app.cors.allowedOrigins` ของทุก service
+**Tasks:**
+1. ชี้ domain/subdomain ไปที่ ACA gateway FQDN
+2. เปิด proxy mode สำหรับ public hostname
+3. ตั้ง WAF/rate limiting สำหรับ:
+   - `/login`
+   - `/auth/*`
+   - `/v1/api/*`
+   - upload endpoints
+4. ตั้ง cache bypass สำหรับ authenticated API
+5. จำกัด allowed origins ใน backend ให้เหลือ localhost dev + production domain
+6. วางแผน origin protection เพื่อไม่ให้ยิง ACA FQDN ตรงได้ง่าย
 
----
-
-### 🔵 M4 — New Relic APM (Free Tier)
-
-**ที่ไหน:** [New Relic](https://newrelic.com) (100 GB/month ฟรี)
-**ค่าใช้จ่าย:** ฟรี
-
-**ขั้นตอน:**
-1. สมัคร New Relic Free ด้วย email นักศึกษา
-2. ดาวน์โหลด New Relic Java Agent: `newrelic-agent.jar`
-3. เพิ่มใน Dockerfile ของแต่ละ backend service:
-   ```dockerfile
-   ADD https://download.newrelic.com/newrelic/java-agent/newrelic-agent/current/newrelic-agent.jar /app/newrelic-agent.jar
-   ENV JAVA_TOOL_OPTIONS="-javaagent:/app/newrelic-agent.jar"
-   ENV NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY}
-   ENV NEW_RELIC_APP_NAME="chat-service"
-   ```
-4. ตั้ง GitHub Secret `NEW_RELIC_LICENSE_KEY` และเพิ่มใน ACA Secrets
-5. ได้ APM Dashboard + Distributed Tracing + Logs ทันทีโดยไม่ต้องแก้โค้ด
+**Done when:** API ผ่าน domain จริง, rate limit ทำงาน, CORS ไม่เปิดกว้าง และ origin URL ไม่ใช่ primary entrypoint
 
 ---
 
-### 🔵 M5 — Supabase RLS (Row-Level Security)
+### A4 - Infrastructure as Code
 
-**ที่ไหน:** Supabase Dashboard → SQL Editor
-**ค่าใช้จ่าย:** ฟรี
+**Priority:** P1  
+**Where:** `infra/terraform` หรือ `infra/bicep`  
+**Goal:** สร้างและแก้ Azure resources ผ่าน code ไม่ใช่ portal click
 
-**ขั้นตอน:**
-1. เปิด RLS บน tables หลัก:
-   ```sql
-   ALTER TABLE chat.messages ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE chat.rooms ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE chat.room_members ENABLE ROW LEVEL SECURITY;
-   ```
-2. สร้าง policies:
-   ```sql
-   -- User เห็นเฉพาะข้อความในห้องที่ตัวเองเป็นสมาชิก
-   CREATE POLICY "members see room messages"
-     ON chat.messages FOR SELECT
-     USING (
-       room_id IN (
-         SELECT room_id FROM chat.room_members rm
-         JOIN chat.users u ON u.id = rm.user_id
-         WHERE u.supabase_uid = auth.uid()
-       )
-     );
-   ```
-3. ทดสอบด้วย Supabase SQL Editor โดยเซ็ต `auth.uid()` เป็น UID จริงของ test user
+**Tasks:**
+1. สร้าง module สำหรับ:
+   - resource group
+   - Log Analytics workspace
+   - Container Apps environment
+   - frontend/gateway/backend container apps
+   - Key Vault
+   - managed identities
+   - Redis/cache
+2. แยก environment: `dev`, `prod`
+3. ตั้ง remote state storage
+4. เพิ่ม `terraform fmt`, `terraform validate`, `terraform plan` ใน GitHub Actions
+5. ใช้ manual approval ก่อน `terraform apply` สำหรับ prod
+
+**Done when:** ลบ environment แล้ว recreate จาก IaC ได้โดยไม่ต้องจำขั้นตอนใน portal
 
 ---
 
-### 🔵 M6 — เพิ่ม CORS Domain หลัง Deploy
+### A5 - Secrets and Identity Hardening
 
-**ที่ไหน:** ไฟล์ `application.yml` ของแต่ละ service
-**ค่าใช้จ่าย:** ฟรี
+**Priority:** P1  
+**Where:** Azure Key Vault, GitHub Actions, ACA secrets  
+**Goal:** ลด long-lived secrets และแยก secret/runtime config ชัดเจน
 
-หลังจากได้ ACA External FQDN และ/หรือ Cloudflare domain แล้ว ให้เพิ่มใน `application.yml` ทั้ง 3 services:
+**Tasks:**
+1. ย้าย secrets runtime ไป Azure Key Vault หรือ ACA secrets
+2. ใช้ managed identity ให้ container apps อ่าน secrets เท่าที่จำเป็น
+3. ใช้ GitHub OIDC แทน service principal secret แบบยาว
+4. ตั้ง secret rotation checklist
+5. ตรวจว่า frontend ไม่มี `service_role` หรือ secret key ที่ expose ผ่าน `NEXT_PUBLIC_*`
 
-```yaml
-app:
-  cors:
-    allowedOrigins:
-      - http://localhost:3000
-      - https://yourdomain.com                          # Cloudflare domain
-      - https://gateway-service.xxx.azurecontainerapps.io  # ACA FQDN
-```
-
-แล้ว push → CI/CD จะ rebuild และ deploy อัตโนมัติ
+**Done when:** GitHub ไม่มี cloud credential อายุยาว และ service แต่ละตัวเห็นเฉพาะ secret ที่ต้องใช้
 
 ---
 
-## สรุปสถานะ Bug ทั้งหมด
+### A6 - Redis and Cache Strategy
 
-| # | รายการ | ไฟล์ | สถานะ |
-|---|--------|------|-------|
-| B1 | EmbeddingService `double[]` → `double[][]` | `EmbeddingService.java` | ✅ แก้แล้ว |
-| B2 | Cache Invalidation ล้างทุก room | `ChatService.java` | ✅ แก้แล้ว |
-| B3 | ACA Port Mapping ผิด (80 ทั้งหมด) | `aca-deploy.yml` | ✅ แก้แล้ว |
-| B4 | WebConfig CORS hardcode | `WebConfig.java` (×3) | ✅ แก้แล้ว |
+**Priority:** P1  
+**Where:** Azure Cache for Redis หรือ managed Redis provider  
+**Goal:** ลด DB load และเตรียม scale-out realtime
 
-## สรุป Manual Actions
+**Tasks:**
+1. เลือก cache use cases ก่อนเพิ่ม dependency:
+   - chat history page cache แบบ TTL สั้น
+   - user/profile summary cache
+   - friend/search result cache
+   - presence online set สำหรับ b-post realtime
+2. กำหนด key format เช่น `chat:history:{roomId}:{cursor}:{limit}`
+3. กำหนด invalidation rule ต่อ write action
+4. หลีกเลี่ยง `KEYS` ใน production ให้ใช้ explicit keys หรือ SCAN pattern อย่างระวัง
+5. ใส่ fallback ถ้า Redis down ให้ยังอ่าน DB ได้
 
-| # | รายการ | ที่ไหน | สถานะ |
-|---|--------|--------|-------|
-| M1 | Azure for Students + ACA Setup | Azure Portal | ⬜ รอดำเนินการ |
-| M2 | OAuth2 Proxy Secrets | GitHub Secrets + Supabase | ⬜ รอดำเนินการ |
-| M3 | Cloudflare DNS + WAF | Cloudflare Dashboard | ⬜ รอดำเนินการ |
-| M4 | New Relic APM | New Relic + Dockerfile | ⬜ รอดำเนินการ |
-| M5 | Supabase RLS Policies | Supabase SQL Editor | ⬜ รอดำเนินการ |
-| M6 | เพิ่ม CORS Domain หลัง Deploy | application.yml (×3) | ⬜ รอ domain จริง |
+**Done when:** endpoint ที่อ่านซ้ำบ่อย latency ลดลง และ cache miss/fallback ไม่ทำให้ระบบล้ม
+
+---
+
+### A7 - API Rate Limiting and Abuse Control
+
+**Priority:** P1  
+**Where:** Cloudflare, Nginx gateway, application layer  
+**Goal:** กัน abuse ทั้งก่อนเข้า origin และในระบบเอง
+
+**Tasks:**
+1. ตั้ง edge rate limit สำหรับ `/v1/api/*`
+2. ตั้ง limit เข้มขึ้นสำหรับ login/auth/upload/chat AI endpoints
+3. เพิ่ม request size limit สำหรับ upload
+4. เพิ่ม per-user quota สำหรับ expensive AI calls
+5. log blocked/limited requests เป็น metric
+
+**Done when:** ยิง load เกิน limit แล้วได้ 429/blocked response และมี log ให้ตรวจ
+
+---
+
+### A8 - CI/CD Quality Gates
+
+**Priority:** P1  
+**Where:** `.github/workflows`  
+**Goal:** กัน build เสียและ deploy ผิด environment
+
+**Tasks:**
+1. Frontend: `npm ci`, `npm run build`, `npx tsc --noEmit`
+2. Backend: Maven test/build แยก service
+3. Docker build ทุก image
+4. Dependency/container vulnerability scan
+5. Separate deploy jobs ต่อ environment พร้อม manual approval
+6. Smoke test หลัง deploy:
+   - `/`
+   - `/v1/api/user/profile/...`
+   - `/v1/api/chat-app/room/list`
+   - `/v1/api/b-post/presence/online`
+
+**Done when:** PR เสียโดน block ก่อน merge และ deploy เสร็จมี smoke result
+
+---
+
+### A9 - Database Governance and RLS
+
+**Priority:** P1  
+**Where:** Supabase, migration files, SQL review  
+**Goal:** schema เปลี่ยนอย่างควบคุมได้ และ data access ปลอดภัย
+
+**Tasks:**
+1. ย้าย schema changes สำคัญเข้า migration workflow
+2. เปิด RLS สำหรับ exposed/public tables ที่จำเป็น
+3. ตรวจ policy ด้วย test user จริง
+4. ตั้ง backup/restore drill
+5. เปิด/ใช้ database advisors และ index review
+6. แยก service role usage ให้อยู่เฉพาะ backend ที่จำเป็น
+
+**Done when:** มี migration history, RLS policy ทดสอบได้ และ restore path ไม่ใช่แค่ทฤษฎี
+
+---
+
+### A10 - Runtime Resilience
+
+**Priority:** P2  
+**Where:** Spring Boot services, gateway, external API clients  
+**Goal:** ลด blast radius เวลา Groq, HuggingFace, Supabase หรือ service ใด service หนึ่งช้า/ล่ม
+
+**Tasks:**
+1. ตั้ง timeout ทุก outbound HTTP client
+2. ใช้ retry แบบมี budget และไม่ retry non-idempotent write มั่ว
+3. ใช้ circuit breaker กับ Groq/HuggingFace
+4. เพิ่ม readiness/liveness health endpoints
+5. กำหนด graceful degradation เช่น AI down แต่ history ยังอ่านได้
+
+**Done when:** external API ช้าแล้ว service ไม่ค้างยาวและผู้ใช้ได้ error ที่เข้าใจได้
+
+---
+
+### A11 - Storage and Upload Policy
+
+**Priority:** P2  
+**Where:** Supabase Storage, bpost upload APIs, Cloudflare  
+**Goal:** อัปโหลดไฟล์ปลอดภัยและคุม cost ได้
+
+**Tasks:**
+1. จำกัด content type และ file size
+2. scan/validate image metadata เท่าที่จำเป็น
+3. แยก path ต่อ domain: posts, messages, legacy blog
+4. กำหนด public vs signed URL ให้ชัด
+5. ตั้ง lifecycle/cleanup policy สำหรับ orphan uploads
+
+**Done when:** upload endpoint ไม่รับไฟล์แปลก/ใหญ่เกิน และมี cleanup strategy
+
+---
+
+### A12 - Performance and Load Testing
+
+**Priority:** P2  
+**Where:** local, staging, GitHub Actions optional  
+**Goal:** รู้ limit ของระบบก่อนเจอ traffic จริง
+
+**Tasks:**
+1. สร้าง k6 หรือ Artillery scenario:
+   - login/sync mock
+   - feed read
+   - chat history read
+   - send chat message
+   - upload image
+2. เก็บ baseline latency p50/p95/p99
+3. เทียบผลก่อน/หลัง Redis และ rate limiting
+4. ตั้ง load test แบบเบาใน staging ก่อน release ใหญ่
+
+**Done when:** มีตัวเลข baseline และรู้ bottleneck หลัก
+
+---
+
+### A13 - Operational Runbooks
+
+**Priority:** P2  
+**Where:** `note/docs` หรือ `runbooks/`  
+**Goal:** เวลาเสียจริงมี playbook ไม่ต้องไล่เดาจากศูนย์
+
+**Tasks:**
+1. Runbook: 5xx spike
+2. Runbook: Supabase auth/session issue
+3. Runbook: DB connection pool exhausted
+4. Runbook: AI provider outage
+5. Runbook: rollback ACA revision
+6. Runbook: rotate leaked secret
+
+**Done when:** คนอื่นในทีมทำตาม runbook แล้วแก้ incident จำลองได้
+
+---
+
+## Recommended Order
+
+| Phase | Actions | เหตุผล |
+|---|---|---|
+| Phase 1 | A1, A2, A3 | เห็นระบบและป้องกันขอบระบบก่อน |
+| Phase 2 | A4, A5, A8, A9 | ทำ deploy/config ให้ repeatable และปลอดภัย |
+| Phase 3 | A6, A7, A10 | เพิ่ม scale/performance/resilience หลังมี monitor |
+| Phase 4 | A11, A12, A13 | polish ด้าน operations และ long-term maintenance |
+
+---
+
+## Reference Links
+
+- Azure Container Apps observability: https://learn.microsoft.com/en-us/azure/container-apps/observability
+- Azure Container Apps OpenTelemetry: https://learn.microsoft.com/en-us/azure/container-apps/opentelemetry-agents
+- OpenTelemetry Java instrumentation: https://opentelemetry.io/docs/languages/java/instrumentation/
+- Cloudflare WAF rate limiting rules: https://developers.cloudflare.com/waf/rate-limiting-rules/
+- Terraform AzureRM Container App resource: https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app
+- Azure Cache for Redis overview: https://learn.microsoft.com/en-us/azure/azure-cache-for-redis/cache-overview

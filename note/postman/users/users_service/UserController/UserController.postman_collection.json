@@ -1,0 +1,61 @@
+{
+  "info": {
+    "_postman_id": "5d187e2a-58fc-a921-e4a3-9bbf9f855634",
+    "name": "Sandbox - users_service - UserController",
+    "description": "User sync APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Sync User",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{usersBaseUrl}}/sync",
+        "description": "Sync Supabase user into the app database and return internal userId. supabaseUid must match JWT sub.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"supabaseUid\": \"{{supabaseUid}}\",\n  \"email\": \"{{userEmail}}\",\n  \"username\": \"{{username}}\",\n  \"avatarUrl\": \"{{avatarUrl}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const json = pm.response.json();",
+              "  const value = json.userId;",
+              "  if (value !== undefined && value !== null) pm.environment.set('internalUserId', value);",
+              "}"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
