@@ -203,15 +203,12 @@ sequenceDiagram
 
 ## 6) เปรียบเทียบแต่ละ service
 
-| ประเด็น | 🟩 b-post | 🟩 chat-app | 🟧 dinner | 🟦 user-service |
 |--------|----------|------------|----------|----------------|
 | ใช้ common-auth? | ✅ | ✅ | ✅ | ❌ (เป็น issuer) |
-| JwtAuthFilter รัน path ไหน | `/v1/api/b-post/*` | `/v1/api/chat-app/*` | `/v1/api/dinner/*` | — |
 | Resolve current user จากอะไร | JWT.sub → DB lookup | JWT.sub → DB lookup | JWT.sub → DB lookup | JWT.sub เทียบกับ request body |
 | Endpoint per-user | ✅ Posts, Comments, Friends, Messages | ✅ Chat, Rooms | ❌ มีแค่ supplier inquiry | ✅ POST /sync |
 | Endpoint ต้องมี Bearer JWT | ✅ ทุก endpoint | ✅ ทุก endpoint | ✅ ทุก endpoint | ✅ |
 
-**dinner**: ใช้ `common-auth` แล้วเพื่อป้องกันช่องโหว่และ security gap หากมีการเพิ่ม endpoint ผูกกับ user ในอนาคต
 **user-service**: เป็นคน "สร้าง" identity จึงไม่ได้ใช้ filter ตรงๆ — แต่มีการเช็ค validate `sub` ใน JWT เทียบกับ `supabaseUid` ที่รับมาตอน `/sync` เพื่อป้องกันการสวมรอยแก้อัปเดต Profile คนอื่น
 
 ---
@@ -392,9 +389,7 @@ cd ../bpost && mvn spring-boot:run
 
 ---
 
-### 🚨 3. dinner เคยเรียกได้แม้ไม่มี JWT (อัปเดตแล้ว)
 
-**ได้รับการแก้ไขแล้ว** — ก่อนหน้านี้ `dinner` ไม่ใช้ `common-auth` แต่เพื่อป้องกัน security gap ที่อาจเกิดขึ้นจากการเพิ่ม endpoint ต่อไปในอนาคต ปัจจุบันได้เพิ่มการกรองสิทธิ์และใช้งาน `JwtAuthFilter` ควบคุมการเข้าถึงเรียบร้อยแล้ว
 
 ---
 
@@ -434,7 +429,6 @@ cd ../bpost && mvn spring-boot:run
 ### Service wiring
 - `backend/bpost/src/main/java/com/sandbox/sandman/backend/config/FilterRegistration.java`
 - `backend/chatapp/src/main/java/com/sandbox/sandman/backend/config/FilterRegistration.java`
-- `backend/dinner/src/main/java/com/sandbox/sandman/backend/dinner/config/FilterRegistration.java`
 - `backend/{bpost,chatapp}/src/main/java/com/sandbox/sandman/backend/error/GlobalExceptionHandler.java`
 
 ### User-service (sync endpoint)

@@ -56,7 +56,6 @@ graph TD
             direction LR
             FE["🖼️ Next.js\nFrontend"]
             Chat["💬 Chat Service\nSpring Boot"]
-            Dinner["🍽️ Dinner Service\nSpring Boot"]
             Bpost["📸 B-Post Service\nSpring Boot"]
         end
 
@@ -65,11 +64,9 @@ graph TD
 
         Nginx -->|"/"| FE
         Nginx -->|"/v1/api/chat-app/ + X-User-Id"| Chat
-        Nginx -->|"/v1/api/dinner/ + X-User-Id"| Dinner
         Nginx -->|"/v1/api/b-post/ + X-User-Id"| Bpost
 
         Chat -.->|read secrets| Secret
-        Dinner -.->|read secrets| Secret
         Bpost -.->|read secrets| Secret
 
         FE -.->|internal · server-side fetch| Chat
@@ -78,7 +75,6 @@ graph TD
         Redis -.->|cache hit ↩| Chat
         Chat -->|② cache miss → query| SupabasePG
         Chat -.->|③ write to cache| Redis
-        Dinner -->|cache read / write| Redis
     end
 
     subgraph Supabase ["🔥 Supabase (Free Tier)"]
@@ -103,7 +99,6 @@ graph TD
     Chat -->|read / write| SupabasePG
     Chat -->|vector search| Vec
     Chat -->|upload| Storage
-    Dinner -->|read / write| SupabasePG
     Bpost -->|upload / read| Storage
     FE -.->|image link| Storage
 
@@ -113,7 +108,6 @@ graph TD
     %% ── Observability ──────────────────────────
     FE -.->|APM + logs + traces| NR
     Chat -.->|APM + logs + traces| NR
-    Dinner -.->|APM + logs + traces| NR
     Bpost -.->|APM + logs + traces| NR
     OAuth2Proxy -.->|logs| NR
 
@@ -135,7 +129,7 @@ graph TD
 
     class User,Admin,UserLogin actor
     class CF,Nginx,OAuth2Proxy security
-    class FE,Chat,Dinner,Bpost compute
+    class FE,Chat,Bpost compute
     class Redis cache
     class SupabasePG,Vec,Storage database
     class SupabaseAuth,SupabaseAuthVerify,JWTToken,Secret auth

@@ -70,8 +70,6 @@
 **Goal:** ตาม request เดียวจาก gateway ไป service และ DB/external API ได้
 
 **Tasks:**
-1. เพิ่ม OpenTelemetry Java agent หรือ Spring Boot starter ให้ `user`, `chatapp`, `dinner`, `bpost`
-2. ตั้ง service name ให้ชัด: `user-service`, `chat-service`, `dinner-service`, `bpost-service`
 3. propagate trace headers ผ่าน gateway
 4. ใส่ correlation id ใน logs
 5. ตรวจ trace สำหรับ flow สำคัญ:

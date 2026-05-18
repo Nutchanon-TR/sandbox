@@ -1,6 +1,5 @@
 import React from "react";
 import {
-    CoffeeOutlined,
     HomeOutlined,
     ReadOutlined,
     RobotOutlined,
@@ -34,18 +33,6 @@ export const TITLE: Record<string, TitleDetail> = {
                 title: "Messages",
                 urlPath: "/b-post/messages",
                 isSubSideBar: true,
-            },
-        ],
-    },
-    DINNER: {
-        key: "DINNER",
-        title: "Dinner",
-        icon: <CoffeeOutlined />,
-        subTitles: [
-            {
-                key: "SUPPLIER",
-                title: "Supplier",
-                urlPath: "/dinner/supplier",
             },
         ],
     },

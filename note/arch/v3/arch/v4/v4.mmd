@@ -61,7 +61,6 @@ graph TD
             direction LR
             FE["🖼️ Next.js 15\nStandalone Build\nport 3000"]
             Chat["💬 Chat Service\nSpring Boot 3\nport 8080"]
-            Dinner["🍽️ Dinner Service\nSpring Boot 3\nport 8080"]
             Bpost["📸 B-Post Service\nSpring Boot 3\nport 8080"]
         end
 
@@ -71,12 +70,10 @@ graph TD
         %% ── Nginx Routing ──
         Nginx -->|"/"| FE
         Nginx -->|"/v1/api/chat-app/"| Chat
-        Nginx -->|"/v1/api/dinner/"| Dinner
         Nginx -->|"/v1/api/b-post/"| Bpost
 
         %% ── Secrets ──
         Chat -.->|env_file: .env| Secret
-        Dinner -.->|env_file: .env| Secret
         Bpost -.->|env_file: .env| Secret
 
         %% ── FE → Backend (local dev) ──
@@ -88,7 +85,6 @@ graph TD
         Chat -->|"② miss → query DB"| SupabasePG
         Chat -.->|"③ write cache"| Redis
         Chat -.->|"@CacheEvict allEntries\n⚠️ ล้างทุกห้อง"| Redis
-        Dinner -->|"cache read/write\n@Cacheable"| Redis
     end
 
     %% ══════════════════════════════════════════
@@ -96,7 +92,7 @@ graph TD
     %% ══════════════════════════════════════════
     subgraph Supabase ["🔥 Supabase ✅"]
         direction LR
-        SupabasePG[("🐘 PostgreSQL\nschema: chat, dinner, public\npooler: aws-ap-northeast-1")]
+        SupabasePG[("🐘 PostgreSQL\nschema: chat,  public\npooler: aws-ap-northeast-1")]
         Vec[("🔮 pgvector\ncosine similarity\n🚧 มี schema แต่ embed ยังไม่ทำงาน")]
         Storage[("🖼️ Supabase Storage\nBucket: images")]
     end
@@ -126,7 +122,6 @@ graph TD
     %% ── DB & Storage ──
     Chat -->|"read/write\nchat.messages · chat.rooms\nchat.room_members · chat.ai_context"| SupabasePG
     Chat -->|"vector search (cosine <=>)\n🚧 blocked by embed bug"| Vec
-    Dinner -->|"read/write\ndinner.suppliers · dinner.orders"| SupabasePG
     Bpost -->|"upload via service_role key"| Storage
     FE -.->|"<img> remote pattern"| Storage
 
@@ -137,7 +132,6 @@ graph TD
     %% ── Observability (planned) ──
     FE -.->|"⬜ planned"| NR
     Chat -.->|"⬜ planned"| NR
-    Dinner -.->|"⬜ planned"| NR
     Bpost -.->|"⬜ planned"| NR
 
     %% ── CI/CD ──
@@ -178,7 +172,7 @@ graph TD
     class CF security
     class Nginx security
     class OAuth2Proxy blocked
-    class FE,Chat,Dinner,Bpost compute
+    class FE,Chat,Bpost compute
     class Redis cache
     class SupabasePG,Storage database
     class Vec blocked

@@ -9,10 +9,6 @@ export const API_SANDBOX: Record<string, ApiDetail> = {
         path: `${contextPath}/v1/api/b-post/blog/upload-image`,
         method: 'POST',
     },
-    DINNER_SUPPLIER_ORDER: {
-        path: `${contextPath}/v1/api/dinner/supplier/inquiry`,
-        method: 'GET',
-    },
     CHAT_APP_MESSAGE: {
         path: `${contextPath}/v1/api/chat-app/chat`,
         method: 'POST',

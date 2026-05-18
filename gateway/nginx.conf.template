@@ -19,10 +19,6 @@ upstream chat-service {
     server chat-service:${BACKEND_PORT};
 }
 
-upstream dinner-service {
-    server dinner-service:${BACKEND_PORT};
-}
-
 upstream bpost-service {
     server bpost-service:${BACKEND_PORT};
 }
@@ -111,20 +107,6 @@ server {
         proxy_set_header Authorization $http_authorization;
 
         proxy_pass http://chat-service/v1/api/chat-app/;
-        proxy_set_header Host $proxy_host;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-
-    # Dinner Service
-    location /v1/api/dinner/ {
-        auth_request /oauth2/auth;
-        error_page 401 = @unauthorized;
-        auth_request_set $user $upstream_http_x_auth_request_user;
-        proxy_set_header X-User-Id $user;
-        proxy_set_header Authorization $http_authorization;
-
-        proxy_pass http://dinner-service/v1/api/dinner/;
         proxy_set_header Host $proxy_host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;

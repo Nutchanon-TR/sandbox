@@ -4,7 +4,6 @@
 
 ## Phase 1: Ingress Layer & Gateway Security
 เป้าหมาย: นำ Nginx และ OAuth2Proxy มาเป็นประตูด่านหน้า (Gateway) จัดการเส้นทางเครือข่ายและความปลอดภัย
-- `[x]` **Setup Nginx:** สร้าง `nginx.conf` กำหนด Routing ให้ครบ (`/` วิ่งไป FE, `/v1/api/chat-app/` ไป Chat, `/v1/api/dinner/` ไป Dinner, `/v1/api/b-post/` ไป B-Post)
 - `[x]` **Setup OAuth2Proxy:** uncomment `auth_request` ใน nginx.conf.template แล้ว — รอตั้งค่า Secrets (`OAUTH2_PROXY_CLIENT_ID`, `OAUTH2_PROXY_CLIENT_SECRET`, `OAUTH2_PROXY_COOKIE_SECRET`) และ configure JWKS URL ใน oauth2-proxy ให้ชี้ไป Supabase (`/auth/v1/.well-known/jwks.json`) ดูขั้นตอน Manual M2 ใน `REPORT.md`
 - `[ ]` **Inject Headers:** ตั้งค่าให้ OAuth2Proxy นำข้อมูลหลัง Validate ผ่าน (เช่น `X-User-Id`, `X-User-Role`) แปะใส่ Header ส่งเข้าไปให้ Microservices ภายใน — nginx.conf พร้อมแล้ว รอ oauth2-proxy ทำงานจริงก่อน
 - `[x]` **Update Frontend API:** แก้ไข Base URL ฝั่งหน้าบ้าน (Frontend) ให้วิ่งยิงผ่าน Nginx แทนการยิงตรงไปที่ Backend แยกพอร์ต
@@ -16,7 +15,6 @@
 
 - `[ ]` **Spin up Redis Container:** เพิ่ม Image Redis เข้ามาในระบบ
 - `[ ]` **Integrate Redis with Chat Service:** แก้ไข Spring Boot (Chat) ให้ตรวจสอบแคชก่อนโหลดประวัติแชต หาก Cache Miss (ไม่เจอ) จึงค่อยไปดึง Database และนำผลกลับมาเก็บลงแคช
-- `[ ]` **Integrate Redis with Dinner Service:** นำแคชไปประยุกต์ใช้เพื่อเก็บผลลัพธ์ Supplier Orders ที่ถูกดึงมาบ่อยๆ (เพื่อเสิร์ฟไวขึ้น)
 - `[ ]` **Redis Security:** เพิ่ม `--requirepass` ให้ Redis และเอา port 6379 ออกจาก host (เข้าถึงได้เฉพาะใน internal network)
 - `[ ]` **Cache Invalidation Strategy:** ใช้ per-room eviction ผ่าน `RedisTemplate.keys("chatHistory::{roomId}_*")` — ล้างเฉพาะห้องที่เปลี่ยนแปลง
 
@@ -43,13 +41,11 @@
 ## Phase 5: Observability (New Relic)
 เป้าหมาย: ระบบตรวจสอบการทำงาน ข้อผิดพลาด และ Performance ในรูปแบบศูนย์กลาง
 - `[ ]` **Setup New Relic Account:** สมัครและตั้งค่า License Key เบื้องต้น — Free tier 100 GB/month สมัครด้วย email นักศึกษา ดูขั้นตอนใน Manual M4 ใน `REPORT.md`
-- `[ ]` **Backend APM:** ฝัง New Relic Java Agent (`-javaagent`) เข้ากับ Dockerfile ของ `backend/chatapp`, `backend/dinner` และ `backend/bpost`
 - `[ ]` **Frontend APM:** ติดตั้งตัวตรวจสอบ New Relic ฝั่งเบราว์เซอร์ และ Next.js Middleware เพื่อติดตาม Traces และ Logs
 - `[ ]` **Gateway Logging:** ส่งต่อ Access logs ของ Nginx และ OAuth2Proxy ไปยังหน้า Dashboard New Relic
 
 ## Phase 6: Containerization & Cloud Deployment
 เป้าหมาย: นำโปรเจกต์ทั้งหมดขึ้นรันบน Azure Container Apps (ACA) และผูก Cloudflare
-- `[x]` **Dockerize Everything:** Dockerfile ครบทุก Component แล้ว (`frontend/Dockerfile`, `backend/chatapp/Dockerfile`, `backend/dinner/Dockerfile`, `backend/bpost/Dockerfile`, `gateway/Dockerfile`) + `docker-compose.yml` ที่ root สำหรับ full stack orchestration
 - `[ ]` **Azure Container Apps Setup:** เตรียม Resource Group และสร้าง ACA Environment — ดูขั้นตอนใน Manual M1 ใน `REPORT.md` (ใส่ตัวแปรความลับ/DB URL ไว้ใน ACA Built-in Secrets ให้ปลอดภัย)
 - `[x]` **Fix ACA Port Mapping:** แก้ไข `aca-deploy.yml` ให้ใช้ port จริง (`FRONTEND_PORT=3000`, `BACKEND_PORT=8080`, `OAUTH2_PROXY_PORT=4180`) เรียบร้อยแล้ว
 - `[ ]` **Setup Cloudflare:** เปิดใช้งาน DNS, WAF (Web Application Firewall) และกำจัดการยิงแบบ Rate Limit ก่อนปล่อย Request ไปหา Nginx — ดูขั้นตอนใน Manual M3 ใน `REPORT.md`
@@ -60,7 +56,6 @@
 เป้าหมาย: สร้างระบบและปกป้องฟีเจอร์จากการบริหารสิทธิ์ (Roles) ของ Supabase
 - `[ ]` **Define RLS Policies:** จัดการ Row-level Security ภายในฐานข้อมูล Supabase — ดูตัวอย่าง SQL ใน Manual M5 ใน `REPORT.md`
 - `[ ]` **Admin Implementation:** ใช้ตัวแปร `app_metadata.role = admin` ที่ฝังใน JWT Token มากรอง Component ในหน้า Frontend และ Backend ให้ใช้งานฟีเจอร์ลับได้เฉพาะบางระดับผู้ใช้งาน
-- `[ ]` **Service Access Control — `allowed_services` column:** เพิ่ม column `allowed_services text[] DEFAULT '{all}'` ลงใน table `public.users` เพื่อควบคุมว่า user แต่ละคนเข้าถึง service ใดได้บ้าง ค่าที่เป็นไปได้: `{all}`, `{chat_app}`, `{bpost}`, `{dinner}` หรือ combination เช่น `{chat_app,dinner}` — ดูรายละเอียด SQL และ arch ใน `docs/AUTH.md`
 
   ```sql
   -- เพิ่ม column บน Supabase SQL Editor
@@ -102,9 +97,7 @@
                                     ▼
               ┌─────────────────────┼─────────────────────┐
               ▼                     ▼                     ▼
-      [chatapp BE]           [bpost BE]           [dinner BE]
      ServiceAccessFilter   ServiceAccessFilter   ServiceAccessFilter
-      ตรวจ "all"|"chat_app"  ตรวจ "all"|"bpost"   ตรวจ "all"|"dinner"
               │                     │                     │
            403 หรือ              403 หรือ              403 หรือ
          ผ่านเข้า service      ผ่านเข้า service      ผ่านเข้า service
@@ -114,7 +107,6 @@
 
 - `[ ]` สร้าง Supabase Function `sync_allowed_services_to_metadata()` + Trigger บน `public.users`
 - `[ ]` ตั้งค่า OAuth2Proxy ให้ pass JWT claims เป็น `X-Auth-Request-*` headers (Phase 1 item)
-- `[ ]` เพิ่ม `ServiceAccessFilter.java` ใน chatapp, bpost, dinner BE — อ่าน `X-Allowed-Services` header
 - `[ ]` ทดสอบ: แก้ `allowed_services` → signOut/signIn → ยืนยัน header ที่ BE ได้รับเปลี่ยนตาม
 
 ### ข้อควรระวัง

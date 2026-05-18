@@ -10,7 +10,6 @@
 |---|---|---|---|
 | Frontend | `frontend` | `3000` | `/` |
 | ChatApp | `chat-service` | `8080` | `/v1/api/chat-app/` |
-| Dinner | `dinner-service` | `8080` | `/v1/api/dinner/` |
 | B-Post | `bpost-service` | `8080` | `/v1/api/b-post/` |
 | User | `user-service` | `8080` | `/v1/api/user/` |
 | OAuth2 Proxy | `oauth2-proxy` | `4180` | `/oauth2/`, internal auth subrequest |
@@ -30,7 +29,6 @@
 - `gateway` inject env สำหรับ nginx template: `FRONTEND_PORT=3000`, `BACKEND_PORT=8080`, `OAUTH2_PROXY_PORT=4180`
 - backend services ใช้ `env_file: .env`
 - `chat-service` และ `bpost-service` ใช้ build context `./backend` เพราะ Dockerfile ต้อง copy `common-auth`
-- `dinner-service` และ `user-service` ใช้ context ย่อยของตัวเอง
 
 ```yaml
 chat-service:
@@ -55,7 +53,6 @@ Nginx upstream ใช้ service name จาก Docker/ACA:
 ```nginx
 upstream frontend       { server frontend:${FRONTEND_PORT}; }
 upstream chat-service   { server chat-service:${BACKEND_PORT}; }
-upstream dinner-service { server dinner-service:${BACKEND_PORT}; }
 upstream bpost-service  { server bpost-service:${BACKEND_PORT}; }
 upstream user-service   { server user-service:${BACKEND_PORT}; }
 upstream oauth2-proxy   { server oauth2-proxy:${OAUTH2_PROXY_PORT}; }
@@ -66,7 +63,6 @@ API routes ทั้งหมดผ่าน `auth_request /oauth2/auth` ยก�
 | Route | Auth | Upstream |
 |---|---|---|
 | `/v1/api/chat-app/` | oauth2-proxy | `chat-service` |
-| `/v1/api/dinner/` | oauth2-proxy | `dinner-service` |
 | `/v1/api/b-post/` | oauth2-proxy | `bpost-service` |
 | `/v1/api/user/` | oauth2-proxy + CORS preflight bypass | `user-service` |
 | `/v1/api/b-post/ws/` | STOMP CONNECT JWT, ไม่ใช้ `auth_request` | `bpost-service` |
@@ -113,9 +109,7 @@ proxy_set_header Host $proxy_host;
 - build service jar หลังจาก common-auth อยู่ใน local Maven cache ของ image
 - runtime ใช้ `eclipse-temurin:21-jre`
 
-### Dinner และ User
 
-`backend/dinner/Dockerfile` และ `backend/user/Dockerfile`
 
 - build จาก context ย่อยของแต่ละ service
 - runtime `eclipse-temurin:21-jre`
@@ -131,7 +125,6 @@ Workflow ปัจจุบัน build/deploy แยก job:
 
 - frontend
 - chat-service
-- dinner-service
 - bpost-service
 - user-service
 - gateway-service
@@ -176,11 +169,9 @@ Service-specific secrets:
 |---|---|
 | chat-service | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GROK_API_KEY`, `HUGGINGFACE_API_KEY` |
 | bpost-service | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GROK_API_KEY` |
-| dinner-service | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GROK_API_KEY` |
 | user-service | `SUPABASE_DB_PASSWORD` |
 | oauth2-proxy | `SUPABASE_PROJECT_ID`, OAuth2 client id/secret, cookie secret |
 
-หมายเหตุ: `GROK_API_KEY` ใน dinner/bpost มาจาก shared app.yml pattern แม้ service เหล่านี้ไม่ได้ใช้ AI flow หลักแบบ ChatApp
 
 ---
 
@@ -190,7 +181,6 @@ Service-specific secrets:
 |---|---|---|
 | CI build chat-service | workflow ใช้ context `./backend/chatapp` แต่ Dockerfile expect `./backend` | `COPY common-auth/...` fail |
 | CI build bpost-service | workflow ใช้ context `./backend/bpost` แต่ Dockerfile expect `./backend` | `COPY common-auth/...` fail |
-| dinner/user Dockerfile | ไม่ install `common-auth` แต่ `pom.xml` depend on `common-auth` | Maven resolve fail ถ้าไม่มี artifact ใน repo |
 | OAuth2 issuer | docker-compose กับ ACA workflow ใช้ issuer format ไม่เหมือนกัน | auth validate fail ได้ถ้า token issuer ไม่ตรง |
 
 ---
@@ -227,7 +217,6 @@ Frontend API ใช้ relative URL เป็นค่า default (`NEXT_PUBLIC_
 | Frontend | `3000` | รัน `npm run dev` ใน `frontend/` |
 | user-service | `8080` | จำเป็นหลัง login เพราะมี `USER_SYNC` |
 | chatapp | `8081` | API ของ ChatApp |
-| dinner | `8082` | API ของ Dinner |
 | bpost | `8083` | API และ websocket ของ B-Post |
 | common-auth | n/a | เป็น Maven library เท่านั้น ไม่ต้องรันเป็น service |
 
@@ -247,7 +236,6 @@ mvn install
 |---|---|---|
 | `/v1/api/user/*` | `BACKEND_USER_URL` | `http://localhost:8080` |
 | `/v1/api/chat-app/*` | `BACKEND_CHAT_URL` | `http://localhost:8081` |
-| `/v1/api/dinner/*` | `BACKEND_DINNER_URL` | `http://localhost:8082` |
 | `/v1/api/b-post/*` | `BACKEND_BPOST_URL` | `http://localhost:8083` |
 
 ### ต้องรันอะไรถ้าจะดู feature เดียวบน local
@@ -262,7 +250,6 @@ mvn install
 |---|---|
 | Login/profile อย่างเดียว | `frontend` + `user-service` |
 | ChatApp | `frontend` + `user-service` + `chatapp` |
-| Dinner | `frontend` + `user-service` + `dinner` |
 | B-Post | `frontend` + `user-service` + `bpost` |
 
 ต้องมี `user-service` เพราะ `AuthProvider` เรียก `USER_SYNC` หลัง Supabase login
@@ -279,7 +266,6 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 NEXT_PUBLIC_AUTH_REDIRECT_URL=
 BACKEND_USER_URL=http://localhost:8080
 BACKEND_CHAT_URL=http://localhost:8081
-BACKEND_DINNER_URL=http://localhost:8082
 BACKEND_BPOST_URL=http://localhost:8083
 ```
 
@@ -318,7 +304,6 @@ Supabase เป็น remote service อยู่แล้ว ไม่ได้
 |---|---|
 | Login/profile อย่างเดียว | `gateway-service` + `frontend` + `oauth2-proxy` + `user-service` |
 | ChatApp | ชุดด้านบน + `chat-service` |
-| Dinner | ชุดด้านบน + `dinner-service` |
 | B-Post | ชุดด้านบน + `bpost-service` |
 
 ---
@@ -338,7 +323,6 @@ ACA apps ที่ตั้งใจใช้ policy นี้:
 - `gateway-service`
 - `oauth2-proxy`
 - `chat-service`
-- `dinner-service`
 - `bpost-service`
 - `user-service`
 - `redis`

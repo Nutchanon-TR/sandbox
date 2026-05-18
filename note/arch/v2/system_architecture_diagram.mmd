@@ -33,7 +33,6 @@ graph TD
                 direction LR
                 FE["🖼️ Next.js\nFrontend"]
                 Chat["💬 Chat Service\nSpring Boot"]
-                Dinner["🍽️ Dinner Service\nSpring Boot"]
             end
             
             Redis[("⚡ Redis Container\n(Internal)")]
@@ -55,22 +54,18 @@ graph TD
     
     Gateway -->|/| FE
     Gateway -->|/api/main| Chat
-    Gateway -->|/api/dinner| Dinner
 
     %% ── Internal logic ────────────────
     Gateway -.->|validate JWT| EntraID
     Chat -.->|read| Secret
-    Dinner -.->|read| Secret
 
     %% ── Cache pattern ─────────────────────────
     Chat -->|cache read/write| Redis
-    Dinner -->|cache read/write| Redis
 
     %% ── DB & External calls ────────────────────────
     Chat -->|read/write| PG
     Chat -->|vector search| Vec
     Chat -->|upload image| Blob
-    Dinner -->|read/write| PG
     
     Chat -->|LLM inference| Groq
 
@@ -91,7 +86,7 @@ graph TD
 
     class User,Admin actor
     class CF security
-    class Gateway,FE,Chat,Dinner compute
+    class Gateway,FE,Chat compute
     class Redis cache
     class PG,Vec,Blob database
     class EntraID,Secret identity

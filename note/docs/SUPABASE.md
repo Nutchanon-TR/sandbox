@@ -99,7 +99,6 @@ jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?prepare
 | `chat_app` | user-service, chatapp, common-auth, bpost FK | identity กลาง + chat/AI tables |
 | `users` | user-service | profile เพิ่มเติม |
 | `b_post` | bpost-service | social posts/messages/notifications |
-| `dinner` | dinner-service | suppliers/orders |
 
 ---
 
@@ -182,19 +181,14 @@ Tables:
 
 ---
 
-## `dinner` Schema
 
-Dinner service ใช้:
 
 | table | ใช้โดย |
 |---|---|
-| `dinner.suppliers` | JPA entity `Supplier` |
-| `dinner.orders` | native join query ใน `SupplierRepository` |
 
 Endpoint หลัก:
 
 ```text
-GET /v1/api/dinner/supplier/inquiry?page=1&size=10
 ```
 
 Response เป็น `PageResponse<SupplierOrderDto>` จาก join `suppliers` + `orders`

@@ -40,7 +40,6 @@ Spring Boot ใช้ HikariCP เป็น connection pool default เมื่
 ```text
 chat-service   -> HikariCP สูงสุดประมาณ 10
 bpost-service  -> HikariCP สูงสุดประมาณ 10
-dinner-service -> HikariCP สูงสุดประมาณ 10
 user-service   -> HikariCP สูงสุดประมาณ 10
 รวมประมาณ 40 client connections
 ```

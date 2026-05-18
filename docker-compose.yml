@@ -17,7 +17,6 @@ services:
     depends_on:
       - frontend
       - chat-service
-      - dinner-service
       - bpost-service
       - user-service
       - oauth2-proxy
@@ -58,7 +57,7 @@ services:
     # No exposed ports because Gateway handles it
     networks:
       - sandbox_net
-    environment:
+    # Environment intentionally omitted; frontend uses relative URLs through gateway.
       # NOTE: NEXT_PUBLIC_* variables are baked into the Next.js bundle at BUILD TIME.
       # Runtime injection via docker-compose environment has NO effect on the compiled bundle.
       # → axios falls back to '' (relative URLs) which routes through Nginx gateway automatically.
@@ -77,15 +76,6 @@ services:
     build:
       context: ./backend
       dockerfile: chatapp/Dockerfile
-    env_file: .env
-    networks:
-      - sandbox_net
-    restart: unless-stopped
-
-  dinner-service:
-    build:
-      context: ./backend/dinner
-      dockerfile: Dockerfile
     env_file: .env
     networks:
       - sandbox_net

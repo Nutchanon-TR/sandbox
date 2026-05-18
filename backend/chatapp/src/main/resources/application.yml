@@ -61,7 +61,6 @@ app:
   api:
     prefix:
       b-post: v1/api/b-post
-      dinner: v1/api/dinner
       chat-app: v1/api/chat-app
   supabase:
     url: ${SUPABASE_URL:}

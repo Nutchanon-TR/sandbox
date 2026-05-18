@@ -15,7 +15,6 @@ gateway/                         Nginx reverse proxy + OAuth2 Proxy auth_request
   +-- frontend/                   Next.js App Router UI
   +-- backend/user/               user sync + profile service
   +-- backend/chatapp/            AI chat + room + legacy SyncHub APIs
-  +-- backend/dinner/             supplier order inquiry
   +-- backend/bpost/              social feed + friends + messages + realtime + storage
       ^
       |
@@ -49,7 +48,6 @@ Sandbox/
 |  |- common-auth/            shared JWT/current-user library
 |  |- user/                   user sync and profile APIs
 |  |- chatapp/                chat, AI response, embeddings, room APIs
-|  |- dinner/                 supplier order inquiry API
 |  \- bpost/                  posts, comments, friends, messages, websocket APIs
 |- gateway/                   Nginx image and routing template
 |- note/                      design docs, architecture diagrams, reports
@@ -69,7 +67,6 @@ Sandbox/
 | `/b-post/socials` | friends, requests, search users, open conversation |
 | `/b-post/messages` | conversation list, chat history, image messages, realtime updates |
 | `/b-post/profile/[supabaseUid]` | profile/feed ของผู้ใช้ใน B-Post |
-| `/dinner/supplier` | supplier order dashboard |
 | `/chat-app/message` | AI chat with rooms and infinite history |
 
 หมายเหตุ: เมนู `Chat App > Social` ยังอยู่ใน `frontend/constants/Title.tsx` แต่ยังไม่มี `frontend/app/chat-app/social/page.tsx`
@@ -84,7 +81,6 @@ Sandbox/
 | `/oauth2/*` | `oauth2-proxy:4180` | OAuth2 Proxy endpoints |
 | `/v1/api/user/*` | `user-service:8080` | `auth_request /oauth2/auth`, มี CORS สำหรับ localhost |
 | `/v1/api/chat-app/*` | `chat-service:8080` | `auth_request /oauth2/auth` |
-| `/v1/api/dinner/*` | `dinner-service:8080` | `auth_request /oauth2/auth` |
 | `/v1/api/b-post/ws/*` | `bpost-service:8080` | JWT ถูกส่งใน STOMP `CONNECT` header |
 | `/v1/api/b-post/*` | `bpost-service:8080` | `auth_request /oauth2/auth` |
 
@@ -118,14 +114,6 @@ Backend services ยังอ่าน `Authorization: Bearer <jwt>` ด้ว�
 | `POST/DELETE` | `/v1/api/chat-app/ai/{aiId}/friend` | add/remove AI friend |
 | `GET` | `/v1/api/chat-app/user/friends` | list AI friends |
 | `GET/POST` | `/v1/api/chat-app/ai/{aiId}/comments` | list/add AI comments |
-
-### Dinner Service (`backend/dinner`)
-
-ดูแล supplier order inquiry จาก Supabase Postgres
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `GET` | `/v1/api/dinner/supplier/inquiry?page=1&size=10` | supplier orders แบบแบ่งหน้า |
 
 ### B-Post Service (`backend/bpost`)
 
@@ -201,7 +189,6 @@ NEXT_PUBLIC_USER_API_URL=
 # dev rewrite targets ใน frontend/next.config.ts
 BACKEND_USER_URL=http://localhost:8080
 BACKEND_CHAT_URL=http://localhost:8081
-BACKEND_DINNER_URL=http://localhost:8082
 BACKEND_BPOST_URL=http://localhost:8083
 ```
 
@@ -243,10 +230,6 @@ cd backend\chatapp
 .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
 # -> http://localhost:8081
 
-cd backend\dinner
-.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
-# -> http://localhost:8082
-
 cd backend\bpost
 .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
 # -> http://localhost:8083
@@ -265,7 +248,6 @@ npm run dev
 
 - `/v1/api/user/*` -> `BACKEND_USER_URL` หรือ `http://localhost:8080`
 - `/v1/api/chat-app/*` -> `BACKEND_CHAT_URL` หรือ `http://localhost:8081`
-- `/v1/api/dinner/*` -> `BACKEND_DINNER_URL` หรือ `http://localhost:8082`
 - `/v1/api/b-post/*` -> `BACKEND_BPOST_URL` หรือ `http://localhost:8083`
 
 ## Build และ Test
@@ -287,7 +269,6 @@ cd backend\chatapp
 .\mvnw.cmd test
 ```
 
-ทำซ้ำกับ `backend\user`, `backend\dinner` และ `backend\bpost` ตาม service ที่แก้
 
 ## สถานะปัจจุบัน
 
@@ -299,7 +280,7 @@ cd backend\chatapp
 - AI chat ที่บันทึก history, สร้าง room, ใช้ internal user จาก JWT และเรียก Groq ผ่าน Resilience4j
 - HuggingFace embedding response รองรับ nested array แล้ว และบันทึกลง pgvector
 - B-Post feed, comments, likes, friends, notifications, conversations, image upload และ realtime presence/message hooks
-- Dockerfiles สำหรับ frontend, user, chatapp, dinner, bpost และ gateway
+- Dockerfiles for frontend, user, chatapp, bpost, and gateway
 - GitHub Actions deploy แยกแต่ละ container app ไป Azure Container Apps
 
 ข้อจำกัด/งานค้างที่เห็นจากโค้ด:

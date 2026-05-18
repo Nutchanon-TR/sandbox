@@ -13,7 +13,6 @@ Examples:
 ```text
 note/postman/users/users_service/UserController/UserController.postman_collection.json
 note/postman/chatapp/chatapp_service/ChatController/ChatController.postman_collection.json
-note/postman/dinner/dinner_service/SupplierOrderController/SupplierOrderController.postman_collection.json
 note/postman/bpost/bpost_service/CommentController/CommentController.postman_collection.json
 ```
 
@@ -32,7 +31,6 @@ For direct local Spring Boot services, use:
 ```text
 usersBaseUrl=http://localhost:8080/v1/api/user
 chatAppBaseUrl=http://localhost:8081/v1/api/chat-app
-dinnerBaseUrl=http://localhost:8082/v1/api/dinner
 bpostBaseUrl=http://localhost:8083/v1/api/b-post
 ```
 

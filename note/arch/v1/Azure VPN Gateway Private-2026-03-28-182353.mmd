@@ -46,7 +46,6 @@ graph TD
                     direction LR
                     FE["🖼️ Next.js\nFrontend"]
                     Chat["💬 Chat Service\nSpring Boot"]
-                    Dinner["🍽️ Dinner Service\nSpring Boot"]
                 end
 
                 subgraph Data ["Data Layer"]
@@ -70,7 +69,6 @@ graph TD
     APIM -.->|validate JWT| EntraID
     APIM -->|/| FE
     APIM -->|/api| Chat
-    APIM -->|/api| Dinner
 
     %% ── Internal service calls ────────────────
     FE -.->|server-side fetch| Chat
@@ -107,7 +105,7 @@ graph TD
 
     class User,Admin actor
     class AppGW,APIM security
-    class FE,Chat,Dinner compute
+    class FE,Chat compute
     class Redis cache
     class PG,Vec,Blob database
     class EntraID identity
