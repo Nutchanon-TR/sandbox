@@ -81,8 +81,8 @@ Sandbox/
 | `/oauth2/*` | `oauth2-proxy:4180` | OAuth2 Proxy endpoints |
 | `/v1/api/user/*` | `user-service:8080` | `auth_request /oauth2/auth`, มี CORS สำหรับ localhost |
 | `/v1/api/chat-app/*` | `chat-service:8080` | `auth_request /oauth2/auth` |
-| `/v1/api/b-post/ws/*` | `bpost-service:8080` | JWT ถูกส่งใน STOMP `CONNECT` header |
-| `/v1/api/b-post/*` | `bpost-service:8080` | `auth_request /oauth2/auth` |
+| `/v1/api/b-post/ws/*` | `bpost-service:8082` | JWT ถูกส่งใน STOMP `CONNECT` header |
+| `/v1/api/b-post/*` | `bpost-service:8082` | `auth_request /oauth2/auth` |
 
 Backend services ยังอ่าน `Authorization: Bearer <jwt>` ด้วย `common-auth` เพื่อหา Supabase UID และ internal user id จากตาราง `chat_app.users`
 
@@ -189,7 +189,7 @@ NEXT_PUBLIC_USER_API_URL=
 # dev rewrite targets ใน frontend/next.config.ts
 BACKEND_USER_URL=http://localhost:8080
 BACKEND_CHAT_URL=http://localhost:8081
-BACKEND_BPOST_URL=http://localhost:8083
+BACKEND_BPOST_URL=http://localhost:8082
 ```
 
 สำหรับ production Docker image ของ frontend ค่า `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` และ `NEXT_PUBLIC_SITE_URL` ต้องถูกส่งเป็น Docker build args เพราะ Next.js bake ค่า `NEXT_PUBLIC_*` ตอน build
@@ -207,7 +207,7 @@ docker compose up -d --build
 ข้อควรรู้:
 
 - Compose นี้รันเฉพาะ app containers, gateway และ oauth2-proxy; ไม่ได้สร้าง local Postgres/Supabase และปัจจุบันไม่มี Redis service ใน compose
-- Backend ทุกตัวใน container ฟัง port `8080` แล้วให้ Nginx route ด้วย path prefix
+- Docker Compose local ให้ `bpost-service` ฟัง port `8082`; บน ACA workflow override กลับไป `8080`; แล้วให้ Nginx route ด้วย path prefix
 - Frontend Docker build ต้องมี Supabase public env เป็น build args ถ้าต้องการ auth ใช้งานจริงใน image
 
 ## วิธีรันแบบ Local Development
@@ -232,7 +232,7 @@ cd backend\chatapp
 
 cd backend\bpost
 .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
-# -> http://localhost:8083
+# -> http://localhost:8082
 ```
 
 รัน frontend:
@@ -248,7 +248,7 @@ npm run dev
 
 - `/v1/api/user/*` -> `BACKEND_USER_URL` หรือ `http://localhost:8080`
 - `/v1/api/chat-app/*` -> `BACKEND_CHAT_URL` หรือ `http://localhost:8081`
-- `/v1/api/b-post/*` -> `BACKEND_BPOST_URL` หรือ `http://localhost:8083`
+- `/v1/api/b-post/*` -> `BACKEND_BPOST_URL` หรือ `http://localhost:8082`
 
 ## Build และ Test
 

@@ -10,7 +10,7 @@
 |---|---|---|---|
 | Frontend | `frontend` | `3000` | `/` |
 | ChatApp | `chat-service` | `8080` | `/v1/api/chat-app/` |
-| B-Post | `bpost-service` | `8080` | `/v1/api/b-post/` |
+| B-Post | `bpost-service` | `8082` | `/v1/api/b-post/` |
 | User | `user-service` | `8080` | `/v1/api/user/` |
 | OAuth2 Proxy | `oauth2-proxy` | `4180` | `/oauth2/`, internal auth subrequest |
 | Gateway | `gateway` | `80` | entry point |
@@ -26,7 +26,7 @@
 จุดสำคัญ:
 
 - `gateway` expose `80:80`
-- `gateway` inject env สำหรับ nginx template: `FRONTEND_PORT=3000`, `BACKEND_PORT=8080`, `OAUTH2_PROXY_PORT=4180`
+- `gateway` inject env สำหรับ nginx template: `FRONTEND_PORT=3000`, `BACKEND_PORT=8080`, `BPOST_PORT=8082`, `OAUTH2_PROXY_PORT=4180`
 - backend services ใช้ `env_file: .env`
 - `chat-service` และ `bpost-service` ใช้ build context `./backend` เพราะ Dockerfile ต้อง copy `common-auth`
 
@@ -53,7 +53,7 @@ Nginx upstream ใช้ service name จาก Docker/ACA:
 ```nginx
 upstream frontend       { server frontend:${FRONTEND_PORT}; }
 upstream chat-service   { server chat-service:${BACKEND_PORT}; }
-upstream bpost-service  { server bpost-service:${BACKEND_PORT}; }
+upstream bpost-service  { server bpost-service:${BPOST_PORT}; }
 upstream user-service   { server user-service:${BACKEND_PORT}; }
 upstream oauth2-proxy   { server oauth2-proxy:${OAUTH2_PROXY_PORT}; }
 ```
@@ -136,7 +136,8 @@ ACA ingress ปัจจุบันใน workflow:
 |---|---|---|
 | `gateway-service` | external | 80 |
 | `frontend` | internal | 3000 |
-| backend services | internal | 8080 |
+| chat-service/user-service | internal | 8080 |
+| bpost-service | internal | 8080 |
 | `oauth2-proxy` | internal | 4180 |
 
 CI/CD มี job `verify_cloud_ingress` ตรวจซ้ำหลัง deploy ว่า public ingress เปิดเฉพาะ `gateway-service` เท่านั้น ถ้า `frontend`, backend service หรือ `oauth2-proxy` ถูกตั้งเป็น external workflow จะ fail ทันที
@@ -146,6 +147,7 @@ Gateway บน ACA ใช้ env:
 ```text
 FRONTEND_PORT=80
 BACKEND_PORT=80
+BPOST_PORT=80
 OAUTH2_PROXY_PORT=80
 ```
 
@@ -217,7 +219,7 @@ Frontend API ใช้ relative URL เป็นค่า default (`NEXT_PUBLIC_
 | Frontend | `3000` | รัน `npm run dev` ใน `frontend/` |
 | user-service | `8080` | จำเป็นหลัง login เพราะมี `USER_SYNC` |
 | chatapp | `8081` | API ของ ChatApp |
-| bpost | `8083` | API และ websocket ของ B-Post |
+| bpost | `8082` | API และ websocket ของ B-Post |
 | common-auth | n/a | เป็น Maven library เท่านั้น ไม่ต้องรันเป็น service |
 
 ถ้าเครื่องใหม่ Maven ยัง resolve `common-auth` ไม่ได้ ให้ install ครั้งแรก:
@@ -236,7 +238,7 @@ mvn install
 |---|---|---|
 | `/v1/api/user/*` | `BACKEND_USER_URL` | `http://localhost:8080` |
 | `/v1/api/chat-app/*` | `BACKEND_CHAT_URL` | `http://localhost:8081` |
-| `/v1/api/b-post/*` | `BACKEND_BPOST_URL` | `http://localhost:8083` |
+| `/v1/api/b-post/*` | `BACKEND_BPOST_URL` | `http://localhost:8082` |
 
 ### ต้องรันอะไรถ้าจะดู feature เดียวบน local
 
@@ -266,7 +268,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 NEXT_PUBLIC_AUTH_REDIRECT_URL=
 BACKEND_USER_URL=http://localhost:8080
 BACKEND_CHAT_URL=http://localhost:8081
-BACKEND_BPOST_URL=http://localhost:8083
+BACKEND_BPOST_URL=http://localhost:8082
 ```
 
 เก็บค่า cloud login เป็น comment เท่านั้น เพื่อสลับกลับได้ง่าย:

@@ -31,7 +31,7 @@ For direct local Spring Boot services, use:
 ```text
 usersBaseUrl=http://localhost:8080/v1/api/user
 chatAppBaseUrl=http://localhost:8081/v1/api/chat-app
-bpostBaseUrl=http://localhost:8083/v1/api/b-post
+bpostBaseUrl=http://localhost:8082/v1/api/b-post
 ```
 
 Paste a real Supabase session access token into `accessToken`. The `supabaseUid` variable must match the JWT `sub` claim for `/user/sync`.

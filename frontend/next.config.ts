@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
 
     const backendUserUrl = process.env.BACKEND_USER_URL || "http://localhost:8080";
     const backendChatUrl = process.env.BACKEND_CHAT_URL || "http://localhost:8081";
-    const backendBpostUrl = process.env.BACKEND_BPOST_URL || "http://localhost:8083";
+    const backendBpostUrl = process.env.BACKEND_BPOST_URL || "http://localhost:8082";
 
     return [
       {

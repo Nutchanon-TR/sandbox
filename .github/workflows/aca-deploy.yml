@@ -219,7 +219,8 @@ jobs:
               SUPABASE_DB_PASSWORD=secretref:supabase-db-password \
               SUPABASE_URL=secretref:supabase-url \
               SUPABASE_SERVICE_ROLE_KEY=secretref:supabase-service-role-key \
-              GROK_API_KEY=secretref:grok-api-key
+              GROK_API_KEY=secretref:grok-api-key \
+              SERVER_PORT=8080
 
       - name: Enforce min/max replicas on bpost-service
         run: |
@@ -349,7 +350,7 @@ jobs:
           imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/gateway-service:${{ github.sha }}
           ingress: external
           targetPort: 80
-          environmentVariables: FRONTEND_PORT=80 BACKEND_PORT=80 OAUTH2_PROXY_PORT=80
+          environmentVariables: FRONTEND_PORT=80 BACKEND_PORT=80 BPOST_PORT=80 OAUTH2_PROXY_PORT=80
           minReplicas: 0
           maxReplicas: 1
 

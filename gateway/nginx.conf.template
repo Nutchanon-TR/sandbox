@@ -20,7 +20,7 @@ upstream chat-service {
 }
 
 upstream bpost-service {
-    server bpost-service:${BACKEND_PORT};
+    server bpost-service:${BPOST_PORT};
 }
 
 upstream user-service {

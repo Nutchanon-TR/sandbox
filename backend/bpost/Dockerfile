@@ -25,5 +25,5 @@ FROM eclipse-temurin:21-jre
 WORKDIR /app
 # common-auth is bundled INSIDE this jar at BOOT-INF/lib/common-auth-0.1.0.jar
 COPY --from=builder /build/bpost/target/*.jar app.jar
-EXPOSE 8080
+EXPOSE 8082
 ENTRYPOINT ["java", "-jar", "app.jar"]

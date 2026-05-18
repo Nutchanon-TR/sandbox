@@ -28,6 +28,7 @@
 | `SUPABASE_DB_PASSWORD` | Spring datasource password | ใช้ทุก backend service |
 | `SPRING_DATASOURCE_URL` | ACA runtime override | ใช้ Supavisor pooler `:6543` |
 | `SPRING_DATASOURCE_USERNAME` | ACA runtime override | format `postgres.<project-ref>` |
+| `SERVER_PORT` | Spring Boot service port override | bpost-service ใช้ local `8082`, ACA `8080` |
 | `CORS_ALLOWED_ORIGIN_GATEWAY` | `WebConfig` และ b-post websocket allowed origins | default ชี้ gateway ACA URL หรือ localhost สำหรับ websocket |
 
 ---
@@ -74,6 +75,7 @@ https://router.huggingface.co/hf-inference/models/intfloat/multilingual-e5-small
 |---|---|---|
 | `FRONTEND_PORT` | nginx template | local compose `3000`, ACA `80` |
 | `BACKEND_PORT` | nginx template | local compose `8080`, ACA `80` |
+| `BPOST_PORT` | nginx template | local compose `8082`, ACA `80` |
 | `OAUTH2_PROXY_PORT` | nginx template | local compose `4180`, ACA `80` |
 | `SUPABASE_PROJECT_ID` | oauth2-proxy issuer | ใช้ประกอบ Supabase issuer URL |
 | `OAUTH2_PROXY_CLIENT_ID` | oauth2-proxy | OIDC client id |
