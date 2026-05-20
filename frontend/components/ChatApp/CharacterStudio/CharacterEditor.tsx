@@ -95,6 +95,7 @@ export function CharacterEditor({
                             label="Avatar URL"
                             placeholder="https://example.com/avatar.png"
                             url={avatarUrl}
+                            enableAvatarUpload
                         />
                         <ImagePreviewField
                             name="posterUrl"
