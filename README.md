@@ -170,7 +170,9 @@ Frontend local development uses `frontend/.env.local`:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://<project-id>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-or-publishable-key>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-or-anon-key>
+# Optional fallback for older local env files.
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 NEXT_PUBLIC_AUTH_REDIRECT_URL=
 

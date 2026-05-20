@@ -9,7 +9,7 @@
 | Key | ใช้ที่ | Required | หมายเหตุ |
 |---|---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | `frontend/lib/supabase/*`, `middleware.ts` | yes | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `frontend/lib/supabase/*`, `middleware.ts` | yes | anon key ฝั่ง client/server middleware |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `frontend/lib/supabase/*`, `middleware.ts` | yes | Supabase public key; `NEXT_PUBLIC_SUPABASE_ANON_KEY` is still supported as a local fallback |
 | `NEXT_PUBLIC_SITE_URL` | `frontend/app/auth/callback/route.ts`, login redirect | prod recommended | build-time arg ใน Dockerfile |
 | `NEXT_PUBLIC_AUTH_REDIRECT_URL` | `frontend/app/login/page.tsx` | optional | override redirect URL ตอน login |
 | `NEXT_PUBLIC_API_URL` | axios/API constants/BPost websocket | optional | ว่างแล้วใช้ relative path ผ่าน gateway |
@@ -95,7 +95,7 @@ ACA workflow ยังตั้งค่า oauth2-proxy เพิ่มด้�
 | `CONTAINER_APP_ENVIRONMENT` | target ACA environment |
 | `GITHUB_TOKEN` | push/pull GHCR packages |
 | `NEXT_PUBLIC_SUPABASE_URL` | frontend build arg |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | frontend build arg |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | frontend build arg |
 | `NEXT_PUBLIC_SITE_URL` | frontend build arg |
 | `SUPABASE_PROJECT_ID` | DB username และ oauth2 issuer |
 | `SUPABASE_DB_PASSWORD` | backend datasource secret |
@@ -113,7 +113,7 @@ ACA workflow ยังตั้งค่า oauth2-proxy เพิ่มด้�
 - Supabase DB: `SUPABASE_DB_USERNAME`, `SUPABASE_DB_PASSWORD`
 - Supabase API: `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`
 - AI: `GROK_API_KEY`, `HUGGINGFACE_API_KEY`
-- Frontend redirect: `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_AUTH_REDIRECT_URL`, `NEXT_PUBLIC_USER_API_URL`
+- Frontend redirect/API: `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_AUTH_REDIRECT_URL`, `NEXT_PUBLIC_USER_API_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - OAuth2 Proxy: `SUPABASE_PROJECT_ID`, `OAUTH2_PROXY_CLIENT_ID`, `OAUTH2_PROXY_CLIENT_SECRET`, `OAUTH2_PROXY_COOKIE_SECRET`
 
 `NEXT_PUBLIC_API_URL` ถูกใช้ในโค้ด แต่ไม่ได้อยู่ใน `.env.example`; ถ้าไม่กำหนด ระบบจะใช้ relative URLs ผ่าน gateway
