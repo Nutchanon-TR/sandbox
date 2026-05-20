@@ -6,10 +6,10 @@ RUN npm ci
 COPY . .
 # NEXT_PUBLIC_* vars must be available at build time (baked into Next.js bundle)
 ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 RUN npm run build
 
@@ -31,6 +31,7 @@ COPY --from=builder /app/.next/static ./.next/static
 # COPY --from=builder /app/public ./public
 # CMD ["npm", "start"]
 
-EXPOSE 3000
+ARG EXPOSE_PORT=3000
+EXPOSE ${EXPOSE_PORT}
 # The server.js is created by Next.js standalone mode
 CMD ["node", "server.js"]

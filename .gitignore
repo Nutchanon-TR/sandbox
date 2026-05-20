@@ -7,6 +7,9 @@
 .DS_Store
 Thumbs.db
 
+# Build outputs
+**/target/
+
 # Local config (contains secrets)
 backend/*/src/main/resources/application-local.yml
 

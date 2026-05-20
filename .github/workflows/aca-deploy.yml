@@ -10,6 +10,8 @@ env:
   REGISTRY: ghcr.io
   RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
   CONTAINER_APP_ENVIRONMENT: ${{ secrets.CONTAINER_APP_ENVIRONMENT }}
+  MONITORING_MIN_REPLICAS: ${{ vars.MONITORING_MIN_REPLICAS || 0 }}
+  MONITORING_MAX_REPLICAS: ${{ vars.MONITORING_MAX_REPLICAS || 1 }}
 
 jobs:
   build_and_deploy_frontend:
@@ -37,7 +39,7 @@ jobs:
           docker build \
             --file ./frontend/Dockerfile \
             --build-arg NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
-            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
+            --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }} \
             --build-arg NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL }} \
             --tag ghcr.io/${LOWER_OWNER}/frontend:${{ github.sha }} \
             ./frontend
@@ -114,7 +116,7 @@ jobs:
           resourceGroup: ${{ env.RESOURCE_GROUP }}
           imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/chat-service:${{ github.sha }}
           ingress: internal
-          targetPort: 8080
+          targetPort: 8081
           minReplicas: 0
           maxReplicas: 1
 
@@ -142,7 +144,9 @@ jobs:
               SUPABASE_URL=secretref:supabase-url \
               SUPABASE_SERVICE_ROLE_KEY=secretref:supabase-service-role-key \
               GROK_API_KEY=secretref:grok-api-key \
-              HUGGINGFACE_API_KEY=secretref:huggingface-api-key
+              HUGGINGFACE_API_KEY=secretref:huggingface-api-key \
+              CORS_ALLOWED_ORIGINS="${{ vars.CORS_ALLOWED_ORIGINS || secrets.NEXT_PUBLIC_SITE_URL }}" \
+              SERVER_PORT=8081
 
       - name: Enforce min/max replicas on chat-service
         run: |
@@ -220,6 +224,7 @@ jobs:
               SUPABASE_URL=secretref:supabase-url \
               SUPABASE_SERVICE_ROLE_KEY=secretref:supabase-service-role-key \
               GROK_API_KEY=secretref:grok-api-key \
+              CORS_ALLOWED_ORIGINS="${{ vars.CORS_ALLOWED_ORIGINS || secrets.NEXT_PUBLIC_SITE_URL }}" \
               SERVER_PORT=8080
 
       - name: Enforce min/max replicas on bpost-service
@@ -291,7 +296,8 @@ jobs:
             --set-env-vars \
               SPRING_DATASOURCE_URL='jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?prepareThreshold=0' \
               SPRING_DATASOURCE_USERNAME=postgres.${{ secrets.SUPABASE_PROJECT_ID }} \
-              SUPABASE_DB_PASSWORD=secretref:supabase-db-password
+              SUPABASE_DB_PASSWORD=secretref:supabase-db-password \
+              CORS_ALLOWED_ORIGINS="${{ vars.CORS_ALLOWED_ORIGINS || secrets.NEXT_PUBLIC_SITE_URL }}"
 
       # Force scale settings — azure/container-apps-deploy-action sometimes ignores minReplicas/maxReplicas
       - name: Enforce min/max replicas on user-service
@@ -350,7 +356,7 @@ jobs:
           imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/gateway-service:${{ github.sha }}
           ingress: external
           targetPort: 80
-          environmentVariables: FRONTEND_PORT=80 BACKEND_PORT=80 BPOST_PORT=80 OAUTH2_PROXY_PORT=80
+          environmentVariables: FRONTEND_PORT=80 CHAT_PORT=80 BACKEND_PORT=80 BPOST_PORT=80 OAUTH2_PROXY_PORT=80
           minReplicas: 0
           maxReplicas: 1
 
@@ -427,11 +433,153 @@ jobs:
             --min-replicas 0 \
             --max-replicas 1
 
+  build_and_deploy_prometheus_service:
+    name: Build and Deploy Prometheus Service
+    needs:
+      - build_and_deploy_chat_service
+      - build_and_deploy_bpost_service
+      - build_and_deploy_user_service
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set lowercase owner
+        run: echo "LOWER_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push prometheus-service image
+        run: |
+          docker build --file ./monitoring/prometheus/Dockerfile --tag ghcr.io/${LOWER_OWNER}/prometheus-service:${{ github.sha }} ./monitoring/prometheus
+          docker push ghcr.io/${LOWER_OWNER}/prometheus-service:${{ github.sha }}
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy prometheus-service to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          registryUrl: ghcr.io
+          registryUsername: ${{ github.actor }}
+          registryPassword: ${{ secrets.GITHUB_TOKEN }}
+          containerAppName: prometheus-service
+          containerAppEnvironment: ${{ env.CONTAINER_APP_ENVIRONMENT }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/prometheus-service:${{ github.sha }}
+          ingress: internal
+          targetPort: 9090
+          minReplicas: ${{ env.MONITORING_MIN_REPLICAS }}
+          maxReplicas: ${{ env.MONITORING_MAX_REPLICAS }}
+
+      - name: Enforce min/max replicas on prometheus-service
+        run: |
+          az containerapp update \
+            --name prometheus-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --min-replicas ${{ env.MONITORING_MIN_REPLICAS }} \
+            --max-replicas ${{ env.MONITORING_MAX_REPLICAS }}
+
+  build_and_deploy_grafana_service:
+    name: Build and Deploy Grafana Service
+    needs:
+      - build_and_deploy_prometheus_service
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set lowercase owner
+        run: echo "LOWER_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push grafana-service image
+        run: |
+          docker build --file ./monitoring/grafana/Dockerfile --tag ghcr.io/${LOWER_OWNER}/grafana-service:${{ github.sha }} ./monitoring/grafana
+          docker push ghcr.io/${LOWER_OWNER}/grafana-service:${{ github.sha }}
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy grafana-service to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          registryUrl: ghcr.io
+          registryUsername: ${{ github.actor }}
+          registryPassword: ${{ secrets.GITHUB_TOKEN }}
+          containerAppName: grafana-service
+          containerAppEnvironment: ${{ env.CONTAINER_APP_ENVIRONMENT }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/grafana-service:${{ github.sha }}
+          ingress: internal
+          targetPort: 3000
+          environmentVariables: GF_SECURITY_ADMIN_USER=admin GF_USERS_ALLOW_SIGN_UP=false GF_AUTH_ANONYMOUS_ENABLED=false
+          minReplicas: ${{ env.MONITORING_MIN_REPLICAS }}
+          maxReplicas: ${{ env.MONITORING_MAX_REPLICAS }}
+
+      - name: Set secrets on grafana-service
+        run: |
+          az containerapp secret set \
+            --name grafana-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --secrets \
+              grafana-admin-password=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+
+      - name: Bind env vars to secrets on grafana-service
+        run: |
+          az containerapp update \
+            --name grafana-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --set-env-vars \
+              GF_SECURITY_ADMIN_USER=admin \
+              GF_SECURITY_ADMIN_PASSWORD=secretref:grafana-admin-password \
+              GF_USERS_ALLOW_SIGN_UP=false \
+              GF_AUTH_ANONYMOUS_ENABLED=false
+
+      - name: Enable external ingress on grafana-service
+        run: |
+          az containerapp ingress enable \
+            --name grafana-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --type external \
+            --target-port 3000 \
+            --transport auto
+
+      - name: Enforce min/max replicas on grafana-service
+        run: |
+          az containerapp update \
+            --name grafana-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --min-replicas ${{ env.MONITORING_MIN_REPLICAS }} \
+            --max-replicas ${{ env.MONITORING_MAX_REPLICAS }}
+
   verify_cloud_ingress:
     name: Verify Cloud Ingress Guardrails
     needs:
       - build_and_deploy_gateway_service
       - deploy_oauth2_proxy
+      - build_and_deploy_grafana_service
     runs-on: ubuntu-latest
     steps:
       - name: Log in to Azure
@@ -439,7 +587,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Ensure only gateway is public
+      - name: Ensure only gateway and Grafana are public
         shell: bash
         run: |
           set -euo pipefail
@@ -462,8 +610,9 @@ jobs:
           }
 
           check_ingress gateway-service true
+          check_ingress grafana-service true
 
-          for app_name in frontend chat-service bpost-service user-service oauth2-proxy; do
+          for app_name in frontend chat-service bpost-service user-service oauth2-proxy prometheus-service; do
             check_ingress "$app_name" false
           done
 

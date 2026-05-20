@@ -1,5 +1,6 @@
 package com.sandbox.sandman.backend.services.MessageService;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.sandbox.sandman.backend.model.entity.MessageEntity.Chat;
 import com.sandbox.sandman.backend.repositories.MessageRepository.EmbeddingRepository;
 import lombok.RequiredArgsConstructor;
@@ -55,20 +56,35 @@ public class EmbeddingService {
         Map<String, Object> body = Map.of("inputs", text);
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 
-        // HuggingFace feature-extraction returns nested array [[...]] not flat array [...]
-        ResponseEntity<double[][]> response = restTemplate.exchange(
-                HF_API_URL, HttpMethod.POST, request, double[][].class);
+        ResponseEntity<JsonNode> response = restTemplate.exchange(
+                HF_API_URL, HttpMethod.POST, request, JsonNode.class);
 
-        double[][] responseBody = response.getBody();
-        if (responseBody == null || responseBody.length == 0 || responseBody[0].length == 0) {
+        JsonNode responseBody = response.getBody();
+        JsonNode vectorNode = extractVectorNode(responseBody);
+        if (vectorNode == null || vectorNode.isEmpty()) {
             throw new RuntimeException("Empty response from HuggingFace API");
         }
-        double[] doubles = responseBody[0];
-        float[] result = new float[doubles.length];
-        for (int i = 0; i < doubles.length; i++) {
-            result[i] = (float) doubles[i];
+
+        float[] result = new float[vectorNode.size()];
+        for (int i = 0; i < vectorNode.size(); i++) {
+            result[i] = (float) vectorNode.get(i).asDouble();
         }
         return result;
+    }
+
+    private JsonNode extractVectorNode(JsonNode responseBody) {
+        if (responseBody == null || !responseBody.isArray() || responseBody.isEmpty()) {
+            return null;
+        }
+
+        JsonNode first = responseBody.get(0);
+        if (first != null && first.isNumber()) {
+            return responseBody;
+        }
+        if (first != null && first.isArray()) {
+            return first;
+        }
+        return null;
     }
 
     private String toVectorString(float[] vector) {

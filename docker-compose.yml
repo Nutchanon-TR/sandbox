@@ -11,10 +11,11 @@ services:
     ports:
       - "80:80"
     environment:
-      - FRONTEND_PORT=3000
-      - BACKEND_PORT=8080
-      - BPOST_PORT=8082
-      - OAUTH2_PROXY_PORT=4180
+      - FRONTEND_PORT=80
+      - CHAT_PORT=80
+      - BACKEND_PORT=80
+      - BPOST_PORT=80
+      - OAUTH2_PROXY_PORT=80
     depends_on:
       - frontend
       - chat-service
@@ -30,17 +31,18 @@ services:
   # ----------------------------------------
   oauth2-proxy:
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    user: "0"
     command:
-      - "--http-address=0.0.0.0:4180"
+      - "--http-address=0.0.0.0:80"
       - "--provider=oidc"
-      - "--oidc-issuer-url=https://${SUPABASE_PROJECT_ID:-YOUR_SUPABASE_ID}.supabase.co"
+      - "--oidc-issuer-url=https://${SUPABASE_PROJECT_ID:-YOUR_SUPABASE_ID}.supabase.co/auth/v1"
       - "--skip-provider-button=true"
       - "--email-domain=*"
-      - "--cookie-secret=OAUTH2_PROXY_COOKIE_SECRET_32_BYTES"
+      - "--cookie-secret=${OAUTH2_PROXY_COOKIE_SECRET:-0123456789abcdef0123456789abcdef}"
       - "--cookie-secure=false" # Set true in production
       - "--upstream=http://dummy" # Nginx is actually reversing to OAuth, we don't use this routing directly.
       - "--skip-jwt-bearer-tokens=true" # VERY IMPORTANT: to parse Authorization: Bearer <jwt> headers
-      - "--extra-jwt-issuers=https://${SUPABASE_PROJECT_ID:-YOUR_SUPABASE_ID}.supabase.co=https://${SUPABASE_PROJECT_ID:-YOUR_SUPABASE_ID}.supabase.co"
+      - "--extra-jwt-issuers=https://${SUPABASE_PROJECT_ID:-YOUR_SUPABASE_ID}.supabase.co/auth/v1=authenticated"
     environment:
       - OAUTH2_PROXY_CLIENT_ID=${OAUTH2_PROXY_CLIENT_ID:-DUMMY}
       - OAUTH2_PROXY_CLIENT_SECRET=${OAUTH2_PROXY_CLIENT_SECRET:-DUMMY}
@@ -55,6 +57,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost}
+        EXPOSE_PORT: 80
+    environment:
+      - PORT=80
+      - HOSTNAME=0.0.0.0
     # No exposed ports because Gateway handles it
     networks:
       - sandbox_net
@@ -77,7 +87,11 @@ services:
     build:
       context: ./backend
       dockerfile: chatapp/Dockerfile
+      args:
+        EXPOSE_PORT: 80
     env_file: .env
+    environment:
+      - SERVER_PORT=80
     networks:
       - sandbox_net
     restart: unless-stopped
@@ -88,18 +102,26 @@ services:
     build:
       context: ./backend
       dockerfile: bpost/Dockerfile
+      args:
+        EXPOSE_PORT: 80
     env_file: .env
     environment:
-      - SERVER_PORT=8082
+      - SERVER_PORT=80
     networks:
       - sandbox_net
     restart: unless-stopped
 
   user-service:
+    # Context = ./backend so the build stage can COPY common-auth/.
+    # See backend/user/Dockerfile.
     build:
-      context: ./backend/user
-      dockerfile: Dockerfile
+      context: ./backend
+      dockerfile: user/Dockerfile
+      args:
+        EXPOSE_PORT: 80
     env_file: .env
+    environment:
+      - SERVER_PORT=80
     networks:
       - sandbox_net
     restart: unless-stopped

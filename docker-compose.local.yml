@@ -1,0 +1,16 @@
+services:
+  gateway:
+    ports: !override
+      - "8088:80"
+
+  user-service:
+    environment:
+      - CORS_ALLOWED_ORIGINS=http://localhost:8088
+
+  chat-service:
+    environment:
+      - CORS_ALLOWED_ORIGINS=http://localhost:8088
+
+  bpost-service:
+    environment:
+      - CORS_ALLOWED_ORIGINS=http://localhost:8088

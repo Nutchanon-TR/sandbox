@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - prometheus:9090
+        labels:
+          service: prometheus
+
+  - job_name: spring-backends
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - user-service:80
+        labels:
+          service: user-service
+      - targets:
+          - chat-service:80
+        labels:
+          service: chat-service
+      - targets:
+          - bpost-service:80
+        labels:
+          service: bpost-service

@@ -16,7 +16,7 @@ upstream frontend {
 }
 
 upstream chat-service {
-    server chat-service:${BACKEND_PORT};
+    server chat-service:${CHAT_PORT};
 }
 
 upstream bpost-service {
