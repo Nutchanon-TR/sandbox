@@ -25,17 +25,23 @@ export function CharacterListPanel({
     onStartChat,
 }: CharacterListPanelProps) {
     return (
-        <aside className="flex max-h-[320px] w-full shrink-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950 xl:max-h-none xl:w-[320px] xl:min-w-[280px]">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-                <Typography.Title level={5} className="!m-0">
+        <aside className="flex max-h-[360px] w-full shrink-0 flex-col overflow-hidden rounded-2xl border border-border-main bg-surface shadow-sm xl:max-h-none xl:w-[340px] xl:min-w-[300px]">
+            <div className="flex items-center justify-between px-5 py-4">
+                <Typography.Title level={5} className="!m-0 !text-foreground">
                     Characters
                 </Typography.Title>
                 <Tooltip title="New character">
-                    <Button aria-label="New character" icon={<PlusOutlined />} onClick={onNew} />
+                    <Button
+                        aria-label="New character"
+                        icon={<PlusOutlined />}
+                        shape="circle"
+                        type="primary"
+                        onClick={onNew}
+                    />
                 </Tooltip>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
                 {isLoading ? (
                     <div className="flex h-full items-center justify-center">
                         <Spin />
@@ -51,7 +57,7 @@ export function CharacterListPanel({
                             const isSelected = selectedId === character.id;
                             return (
                                 <List.Item
-                                    className={`cursor-pointer px-4 py-3 transition ${isSelected ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-slate-50 dark:hover:bg-slate-900/60'}`}
+                                    className={`mb-2 cursor-pointer rounded-xl px-3 py-3 transition last:mb-0 ${isSelected ? 'bg-blue-50 shadow-sm dark:bg-blue-500/10' : 'hover:bg-muted'}`}
                                     onClick={() => onSelect(character.id)}
                                     actions={[
                                         <Tooltip title="Start chat" key="start-chat">
@@ -71,9 +77,9 @@ export function CharacterListPanel({
                                     ]}
                                 >
                                     <List.Item.Meta
-                                        avatar={<Avatar src={character.avatarUrl || undefined} icon={<RobotOutlined />} />}
-                                        title={<span className="block truncate pr-2">{character.aiName}</span>}
-                                        description={<Tag className="!m-0">{formatStatus(character.fineTuneStatus)}</Tag>}
+                                        avatar={<Avatar size={40} src={character.avatarUrl || undefined} icon={<RobotOutlined />} />}
+                                        title={<span className="block truncate pr-2 text-sm font-medium text-foreground">{character.aiName}</span>}
+                                        description={<Tag className="!m-0 rounded-full">{formatStatus(character.fineTuneStatus)}</Tag>}
                                     />
                                 </List.Item>
                             );

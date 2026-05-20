@@ -20,6 +20,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CharacterStudioService {
 
+    public static final String DEFAULT_AVATAR_URL = "/ai_avatar.png";
+
     public static final String DEFAULT_TRIGGER_RULES = """
             {
               "photoKeywords": ["ถ่ายรูป", "ส่งรูป", "ขอดูรูป", "ถ่ายมาให้ดู"],
@@ -49,7 +51,7 @@ public class CharacterStudioService {
         AiContext aiContext = new AiContext();
         aiContext.setCreatedByUser(owner);
         aiContext.setAiName(request.getAiName().trim());
-        aiContext.setAvatarUrl(blankToNull(request.getAvatarUrl()));
+        aiContext.setAvatarUrl(defaultAvatarIfBlank(request.getAvatarUrl()));
         aiContext.setRole(blankToNull(request.getRole()));
         aiContext.setCharacter(blankToNull(request.getCharacter()));
         aiContext.setBiography(blankToNull(request.getBiography()));
@@ -72,7 +74,7 @@ public class CharacterStudioService {
         if (request.getAiName() != null && !request.getAiName().isBlank()) {
             aiContext.setAiName(request.getAiName().trim());
         }
-        if (request.getAvatarUrl() != null) aiContext.setAvatarUrl(blankToNull(request.getAvatarUrl()));
+        if (request.getAvatarUrl() != null) aiContext.setAvatarUrl(defaultAvatarIfBlank(request.getAvatarUrl()));
         if (request.getRole() != null) aiContext.setRole(blankToNull(request.getRole()));
         if (request.getCharacter() != null) aiContext.setCharacter(blankToNull(request.getCharacter()));
         if (request.getBiography() != null) aiContext.setBiography(blankToNull(request.getBiography()));
@@ -159,5 +161,10 @@ public class CharacterStudioService {
     private static String blankToNull(String value) {
         if (value == null || value.isBlank()) return null;
         return value.trim();
+    }
+
+    private static String defaultAvatarIfBlank(String value) {
+        String normalized = blankToNull(value);
+        return normalized == null ? DEFAULT_AVATAR_URL : normalized;
     }
 }

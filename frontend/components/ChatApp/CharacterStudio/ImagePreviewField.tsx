@@ -22,16 +22,16 @@ export function ImagePreviewField({
     const hasUrl = Boolean(url?.trim());
 
     return (
-        <div className="grid gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800 md:grid-cols-[132px_minmax(0,1fr)]">
+        <div className="grid gap-4 rounded-xl bg-surface-hover/70 p-4 md:grid-cols-[144px_minmax(0,1fr)]">
             <div
-                className={`flex ${aspectClassName} min-h-[112px] items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900`}
+                className={`flex ${aspectClassName} min-h-[128px] items-center justify-center overflow-hidden rounded-xl bg-muted`}
                 style={hasUrl ? {
                     backgroundImage: `url("${url}")`,
                     backgroundPosition: 'center',
                     backgroundSize: 'cover',
                 } : undefined}
             >
-                {!hasUrl && <PictureOutlined className="text-2xl text-slate-400 dark:text-slate-600" />}
+                {!hasUrl && <PictureOutlined className="text-2xl text-text-secondary" />}
             </div>
             <Form.Item name={name} label={label} className="!mb-0 min-w-0">
                 <Input allowClear placeholder={placeholder} />

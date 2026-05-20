@@ -18,4 +18,5 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
         ORDER BY r.created_at DESC
         """, nativeQuery = true)
     List<Room> findAllByUserId(@Param("userId") Long userId);
+
 }

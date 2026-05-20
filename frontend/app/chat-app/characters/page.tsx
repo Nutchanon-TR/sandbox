@@ -14,7 +14,7 @@ import {
     getErrorMessage,
     type CharacterFormValues,
 } from '@/components/ChatApp/CharacterStudio';
-import type { Character, RoomCreateResponse } from '@/interface/ChatApp';
+import type { Character, RoomCreateResponse, RoomSummary } from '@/interface/ChatApp';
 import { useNotification } from '@/providers/NotificationProvider';
 import { useSessionStore } from '@/stores/sessionStore';
 import { fetchApi } from '@/utils/api';
@@ -75,16 +75,23 @@ export default function CharacterStudioPage() {
 
     const handleNew = () => {
         setSelectedId(null);
+        form.resetFields();
         form.setFieldsValue(DEFAULT_FORM_VALUES);
     };
 
-    const createRoomForCharacter = useCallback((character: Character) => (
-        fetchApi<RoomCreateResponse>(API_SANDBOX.CHAT_APP_ROOM_CREATE, {
+    const createRoomForCharacter = useCallback(async (character: Character) => {
+        const rooms = await fetchApi<RoomSummary[]>(API_SANDBOX.CHAT_APP_ROOM_LIST);
+        const existingRoom = rooms.find((room) => room.aiContextId === character.id);
+        if (existingRoom) {
+            return existingRoom;
+        }
+
+        return fetchApi<RoomCreateResponse>(API_SANDBOX.CHAT_APP_ROOM_CREATE, {
             aiContextId: character.id,
             name: character.aiName,
             isGroup: false,
-        })
-    ), []);
+        });
+    }, []);
 
     const handleSave = async () => {
         try {
@@ -182,7 +189,7 @@ export default function CharacterStudioPage() {
     }
 
     return (
-        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden xl:flex-row">
+        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-hidden p-3 md:p-5 xl:flex-row">
             <CharacterListPanel
                 characters={characters}
                 selectedId={selectedId}

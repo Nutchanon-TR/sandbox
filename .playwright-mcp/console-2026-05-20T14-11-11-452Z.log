@@ -1,0 +1,3 @@
+[   14579ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://encrypted-tbn2.gstatic.com/faviconV2?url=https://artprojectsforkids.org&client=IMAGE_SEARCH&size=24&type=FAVICON&fallback_opts=TYPE,SIZE,URL:0
+[   15455ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://www.youtube.com') does not match the recipient window's origin ('https://www.google.com'). @ https://www.youtube.com/s/player/e1bd44b2/www-widgetapi.vflset/www-widgetapi.js:209
+[   58325ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://encrypted-tbn2.gstatic.com/faviconV2?url=https://artprojectsforkids.org&client=IMAGE_SEARCH&size=16&type=FAVICON&fallback_opts=TYPE,SIZE,URL:0

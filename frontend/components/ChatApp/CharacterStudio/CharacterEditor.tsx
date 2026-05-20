@@ -24,8 +24,8 @@ function Section({
     children: ReactNode;
 }) {
     return (
-        <section className="grid gap-4 border-b border-slate-200 pb-6 last:border-b-0 last:pb-0 dark:border-slate-800">
-            <Typography.Title level={5} className="!m-0">
+        <section className="grid gap-5 pb-8 last:pb-0">
+            <Typography.Title level={5} className="!m-0 !text-foreground">
                 {title}
             </Typography.Title>
             {children}
@@ -44,10 +44,10 @@ export function CharacterEditor({
     const posterUrl = Form.useWatch('posterUrl', form);
 
     return (
-        <main className="min-w-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-5 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+        <main className="min-w-0 flex-1 overflow-y-auto rounded-2xl border border-border-main bg-surface shadow-sm">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 bg-surface/95 px-5 py-4 backdrop-blur md:px-6">
                 <div className="min-w-0">
-                    <Typography.Title level={4} className="!m-0 truncate">
+                    <Typography.Title level={4} className="!m-0 truncate !text-foreground">
                         {selectedCharacter ? selectedCharacter.aiName : 'New Character'}
                     </Typography.Title>
                 </div>
@@ -64,10 +64,10 @@ export function CharacterEditor({
             <Form
                 form={form}
                 layout="vertical"
-                className="character-studio-form grid gap-8 p-5"
+                className="character-studio-form grid gap-9 p-5 md:p-6"
             >
                 <Section title="Basic Information">
-                    <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_220px]">
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
                         <Form.Item
                             name="aiName"
                             label="Name"
@@ -89,7 +89,7 @@ export function CharacterEditor({
                 </Section>
 
                 <Section title="Images">
-                    <div className="grid gap-4 xl:grid-cols-2">
+                    <div className="grid gap-5 xl:grid-cols-2">
                         <ImagePreviewField
                             name="avatarUrl"
                             label="Avatar URL"
@@ -107,7 +107,7 @@ export function CharacterEditor({
                 </Section>
 
                 <Section title="AI Configuration">
-                    <div className="grid gap-4">
+                    <div className="grid gap-5">
                         <Form.Item name="role" label="Role" className="!mb-0">
                             <Input.TextArea rows={3} placeholder="Assistant role" />
                         </Form.Item>
@@ -127,11 +127,11 @@ export function CharacterEditor({
                 </Section>
 
                 <Section title="Image Trigger">
-                    <div className="grid gap-4">
+                    <div className="grid gap-5">
                         <Form.Item name="imageEnabled" label="Image Enabled" valuePropName="checked" className="!mb-0">
                             <Switch />
                         </Form.Item>
-                        <div className="grid gap-4 lg:grid-cols-2">
+                        <div className="grid gap-5 lg:grid-cols-2">
                             <Form.Item name="photoKeywords" label="Photo Keywords" className="!mb-0">
                                 <Input.TextArea rows={3} />
                             </Form.Item>
@@ -146,7 +146,7 @@ export function CharacterEditor({
                 </Section>
 
                 <Section title="Danger Zone">
-                    <div className="flex items-center justify-between gap-4 rounded-lg border border-red-200 bg-red-50/70 p-4 dark:border-red-900/70 dark:bg-red-950/20">
+                    <div className="flex flex-col gap-4 rounded-xl bg-red-50/70 p-4 dark:bg-red-950/20 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                             <Typography.Text strong>Delete character</Typography.Text>
                             <Typography.Paragraph className="!mb-0 !mt-1 text-sm" type="secondary">

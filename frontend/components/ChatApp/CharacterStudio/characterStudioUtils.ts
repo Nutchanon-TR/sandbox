@@ -3,9 +3,12 @@ import type { CharacterFormValues, CharacterPayload } from './types';
 
 export const DEFAULT_PHOTO_KEYWORDS = 'ถ่ายรูป, ส่งรูป, ขอดูรูป, ถ่ายมาให้ดู';
 export const DEFAULT_ACTIVITY_KEYWORDS = 'ทำอะไรอยู่, ตอนนี้ทำไร, อยู่ไหน, ทำอะไรตอนนี้';
+export const DEFAULT_AVATAR_URL = '/ai_avatar.png';
 
 export const DEFAULT_FORM_VALUES: CharacterFormValues = {
     aiName: '',
+    avatarUrl: '',
+    posterUrl: '',
     visibility: 'private',
     role: '',
     character: '',
@@ -87,7 +90,7 @@ export function characterToFormValues(character: Character): CharacterFormValues
 export function buildPayload(values: CharacterFormValues): CharacterPayload {
     return {
         aiName: values.aiName.trim(),
-        avatarUrl: values.avatarUrl?.trim() || null,
+        avatarUrl: values.avatarUrl?.trim() || DEFAULT_AVATAR_URL,
         posterUrl: values.posterUrl?.trim() || null,
         visibility: values.visibility,
         role: values.role?.trim() || null,

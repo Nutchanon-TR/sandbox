@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #ffffff;
@@ -21,11 +22,9 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #171717;
-    --foreground: #ededed;
-  }
+html.dark {
+  --background: #09111f;
+  --foreground: #f3f7ff;
 }
 
 html,
@@ -72,8 +71,6 @@ body {
   line-height: 1 !important;
 }
 
-@media (prefers-color-scheme: dark) {
-  .character-studio-form .ant-input::placeholder {
-    color: #64748b !important;
-  }
+html.dark .character-studio-form .ant-input::placeholder {
+  color: #64748b !important;
 }

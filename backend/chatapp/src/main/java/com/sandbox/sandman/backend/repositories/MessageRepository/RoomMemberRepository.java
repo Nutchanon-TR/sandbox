@@ -26,4 +26,20 @@ public class RoomMemberRepository {
             return null;
         }
     }
+
+    public Long findLatestRoomIdByUserIdAndAiId(Long userId, Long aiId) {
+        try {
+            return jdbcTemplate.queryForObject("""
+                    SELECT r.id
+                    FROM chat_app.rooms r
+                    JOIN chat_app.room_members rm ON rm.room_id = r.id
+                    WHERE r.user_id = ?
+                      AND rm.ai_id = ?
+                    ORDER BY r.created_at DESC
+                    LIMIT 1
+                    """, Long.class, userId, aiId);
+        } catch (EmptyResultDataAccessException e) {
+            return null;
+        }
+    }
 }

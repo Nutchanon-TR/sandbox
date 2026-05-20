@@ -41,6 +41,7 @@ export interface RoomSummary {
     id: number;
     name: string;
     isGroup: boolean;
+    aiContextId?: number | null;
     aiModel?: string | null;
     aiAvatarUrl?: string | null;
     createdAt?: string;
@@ -69,6 +70,7 @@ export interface RoomCreateResponse {
     id: number;
     name: string;
     isGroup: boolean;
+    aiContextId?: number | null;
     aiAvatarUrl?: string | null;
     createdAt?: string;
 }

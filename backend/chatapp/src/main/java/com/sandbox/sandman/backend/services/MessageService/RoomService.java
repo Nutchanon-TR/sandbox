@@ -39,6 +39,20 @@ public class RoomService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         AiContext roomAi = resolveRoomAi(user, request);
+        if (request.getAiContextId() != null) {
+            Long existingRoomId = roomMemberRepository.findLatestRoomIdByUserIdAndAiId(user.getId(), roomAi.getId());
+            if (existingRoomId == null) {
+                return createRoomForAi(user, request, roomAi);
+            }
+            return roomRepository.findById(existingRoomId)
+                    .map(this::toDto)
+                    .orElseGet(() -> createRoomForAi(user, request, roomAi));
+        }
+
+        return createRoomForAi(user, request, roomAi);
+    }
+
+    private RoomDto createRoomForAi(User user, RoomCreateRequestDto request, AiContext roomAi) {
         String roomName = request.getName() != null && !request.getName().isBlank()
                 ? request.getName().trim()
                 : roomAi.getAiName();
@@ -88,6 +102,7 @@ public class RoomService {
                 room.getId(),
                 displayName,
                 room.getIsGroup(),
+                aiId,
                 aiAvatarUrl,
                 room.getCreatedAt()
         );

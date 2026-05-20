@@ -11,6 +11,7 @@ public class RoomDto {
     private Long id;
     private String name;
     private Boolean isGroup;
+    private Long aiContextId;
     private String aiAvatarUrl;
     private ZonedDateTime createdAt;
 }

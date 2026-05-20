@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Empty, Spin } from 'antd';
+import { Avatar, Empty, Spin } from 'antd';
 import { RobotOutlined, TeamOutlined } from "@ant-design/icons";
 import { TITLE } from "@/constants/Title";
 import { API_SANDBOX } from '@/constants/api/ApiSandbox';
@@ -169,7 +169,16 @@ export default function MessagePage() {
         key: room.id,
         label: room.name,
         description: room.isGroup ? 'Group room' : room.aiModel || undefined,
-        icon: room.isGroup ? <TeamOutlined /> : <RobotOutlined />,
+        icon: room.isGroup ? (
+            <TeamOutlined />
+        ) : (
+            <Avatar
+                src={room.aiAvatarUrl || '/ai_avatar.png'}
+                icon={<RobotOutlined />}
+                size={28}
+                className={`border bg-muted ${CHAT_BORDER.secondary}`}
+            />
+        ),
     })), [rooms]);
 
     const handleSelectRoom = useCallback((key: string | number) => {
