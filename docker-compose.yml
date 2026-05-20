@@ -92,6 +92,12 @@ services:
     env_file: .env
     environment:
       - SERVER_PORT=80
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?prepareThreshold=0
+      - SPRING_DATASOURCE_USERNAME=postgres.${SUPABASE_PROJECT_ID}
+      - IMAGE_GENERATION_ENABLED=${IMAGE_GENERATION_ENABLED:-false}
+      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID:-}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-}
+      - CLOUDFLARE_IMAGE_MODEL=${CLOUDFLARE_IMAGE_MODEL:-@cf/black-forest-labs/flux-1-schnell}
     networks:
       - sandbox_net
     restart: unless-stopped
@@ -107,6 +113,8 @@ services:
     env_file: .env
     environment:
       - SERVER_PORT=80
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?prepareThreshold=0
+      - SPRING_DATASOURCE_USERNAME=postgres.${SUPABASE_PROJECT_ID}
     networks:
       - sandbox_net
     restart: unless-stopped
@@ -122,6 +130,8 @@ services:
     env_file: .env
     environment:
       - SERVER_PORT=80
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?prepareThreshold=0
+      - SPRING_DATASOURCE_USERNAME=postgres.${SUPABASE_PROJECT_ID}
     networks:
       - sandbox_net
     restart: unless-stopped

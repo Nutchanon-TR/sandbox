@@ -253,6 +253,12 @@ ACA ก็แนวคิดคล้ายกัน: แต่ละ Container 
 
 ## Notes
 
+- Chatapp generated images are controlled by chat-service env:
+  - `IMAGE_GENERATION_ENABLED=false` disables Cloudflare calls and keeps text fallback behavior.
+  - `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are required when image generation is enabled.
+  - `CLOUDFLARE_IMAGE_MODEL` defaults to `@cf/black-forest-labs/flux-1-schnell`.
+  - Generated image files are uploaded to Supabase Storage bucket `images`.
+
 - docker-on-local ต้องรันพร้อม `docker-compose.local.yml` ถ้าไม่อยากให้ gateway bind host port `80`
 - `docker-compose.yml` ยังมี `80:80` เป็น base config แต่ local dev ปกติใช้ override เป็น `8088:80`
 - local dev ไม่ผ่าน Docker ยังใช้ port `3000`, `8080`, `8081`, `8082` เหมือนเดิม

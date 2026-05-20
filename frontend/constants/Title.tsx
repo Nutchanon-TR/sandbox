@@ -48,6 +48,11 @@ export const TITLE: Record<string, TitleDetail> = {
                 isSubSideBar: true,
             },
             {
+                key: "CHARACTER_STUDIO",
+                title: "Character Studio",
+                urlPath: "/chat-app/characters",
+            },
+            {
                 key: "SOCIAL",
                 title: "Social",
                 urlPath: "/chat-app/social",

@@ -2,6 +2,8 @@ package com.sandbox.sandman.backend.model.dto.MessageDto;
 
 import lombok.Data;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 public class ChatDto {
@@ -12,4 +14,5 @@ public class ChatDto {
     private Boolean isAi;
     private String content;
     private ZonedDateTime createdAt;
+    private List<ChatAttachmentDto> attachments = new ArrayList<>();
 }

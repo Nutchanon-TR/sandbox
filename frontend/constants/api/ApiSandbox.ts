@@ -22,6 +22,30 @@ export const API_SANDBOX: Record<string, ApiDetail> = {
         path: `${contextPath}/v1/api/chat-app/room/list`,
         method: 'GET',
     },
+    CHAT_APP_ROOM_CREATE: {
+        path: `${contextPath}/v1/api/chat-app/room/create`,
+        method: 'POST',
+    },
+    CHAT_APP_CHARACTER_LIST: {
+        path: `${contextPath}/v1/api/chat-app/characters`,
+        method: 'GET',
+    },
+    CHAT_APP_CHARACTER_CREATE: {
+        path: `${contextPath}/v1/api/chat-app/characters`,
+        method: 'POST',
+    },
+    CHAT_APP_CHARACTER_DETAIL: {
+        path: `${contextPath}/v1/api/chat-app/characters/{characterId}`,
+        method: 'GET',
+    },
+    CHAT_APP_CHARACTER_UPDATE: {
+        path: `${contextPath}/v1/api/chat-app/characters/{characterId}`,
+        method: 'PATCH',
+    },
+    CHAT_APP_CHARACTER_DELETE: {
+        path: `${contextPath}/v1/api/chat-app/characters/{characterId}`,
+        method: 'DELETE',
+    },
     USER_SYNC: {
         path: `${userServiceBase}/v1/api/user/sync`,
         method: 'POST',

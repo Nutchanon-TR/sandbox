@@ -7,4 +7,5 @@ public class RoomCreateRequestDto {
     private String name;
     private Boolean isGroup = false;
     private String systemPrompt;
+    private Long aiContextId;
 }

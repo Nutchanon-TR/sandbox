@@ -255,6 +255,7 @@ export default function MessagePage() {
             role: 'USER',
             senderId: currentUserId,
             roomId: activeRoomId,
+            attachments: [],
         };
 
         setMessages((prev) => [...prev, outgoingMessage]);
@@ -268,7 +269,13 @@ export default function MessagePage() {
                 // senderId removed: backend resolves caller from JWT (Authorization header)
             });
 
-            const aiMessage: ChatMessage = { content: response.reply, role: 'AI' };
+            const aiMessage: ChatMessage = {
+                content: response.reply,
+                role: 'AI',
+                isAi: true,
+                roomId: activeRoomId,
+                attachments: response.attachments ?? [],
+            };
             setMessages((prev) => [...prev, aiMessage]);
         } catch (error: unknown) {
             console.error('[ChatApp] Failed to send message:', error);

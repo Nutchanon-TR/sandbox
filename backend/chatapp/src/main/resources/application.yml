@@ -78,3 +78,8 @@ app:
       bucket-name: images
   huggingface:
     api-key: ${HUGGINGFACE_API_KEY:}
+  cloudflare:
+    account-id: ${CLOUDFLARE_ACCOUNT_ID:}
+    api-token: ${CLOUDFLARE_API_TOKEN:}
+    image-model: ${CLOUDFLARE_IMAGE_MODEL:@cf/black-forest-labs/flux-1-schnell}
+    image-generation-enabled: ${IMAGE_GENERATION_ENABLED:false}

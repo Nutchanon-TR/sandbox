@@ -132,6 +132,23 @@ jobs:
               grok-api-key=${{ secrets.GROK_API_KEY }} \
               huggingface-api-key=${{ secrets.HUGGINGFACE_API_KEY }}
 
+      - name: Set Cloudflare image secrets on chat-service
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "${CLOUDFLARE_ACCOUNT_ID}" ] || [ -z "${CLOUDFLARE_API_TOKEN}" ]; then
+            echo "Skipping Cloudflare image secrets because they are not configured."
+            exit 0
+          fi
+
+          az containerapp secret set \
+            --name chat-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --secrets \
+              cloudflare-account-id="${CLOUDFLARE_ACCOUNT_ID}" \
+              cloudflare-api-token="${CLOUDFLARE_API_TOKEN}"
+
       - name: Bind env vars to secrets on chat-service
         run: |
           az containerapp update \
@@ -146,7 +163,26 @@ jobs:
               GROK_API_KEY=secretref:grok-api-key \
               HUGGINGFACE_API_KEY=secretref:huggingface-api-key \
               CORS_ALLOWED_ORIGINS="${{ vars.CORS_ALLOWED_ORIGINS || secrets.NEXT_PUBLIC_SITE_URL }}" \
+              CLOUDFLARE_IMAGE_MODEL="${{ vars.CLOUDFLARE_IMAGE_MODEL || '@cf/black-forest-labs/flux-1-schnell' }}" \
+              IMAGE_GENERATION_ENABLED="${{ vars.IMAGE_GENERATION_ENABLED || 'false' }}" \
               SERVER_PORT=8081
+
+      - name: Bind Cloudflare image secrets on chat-service
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "${CLOUDFLARE_ACCOUNT_ID}" ] || [ -z "${CLOUDFLARE_API_TOKEN}" ]; then
+            echo "Skipping Cloudflare image env binding because secrets are not configured."
+            exit 0
+          fi
+
+          az containerapp update \
+            --name chat-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --set-env-vars \
+              CLOUDFLARE_ACCOUNT_ID=secretref:cloudflare-account-id \
+              CLOUDFLARE_API_TOKEN=secretref:cloudflare-api-token
 
       - name: Enforce min/max replicas on chat-service
         run: |

@@ -23,14 +23,13 @@ public class ChatController {
             @PathVariable Long roomId,
             @RequestParam(required = false) Long beforeId,
             @RequestParam(defaultValue = "20") int limit) {
-        ChatHistoryResponse history = chatService.getChatHistoryByRoom(roomId, beforeId, limit);
+        ChatHistoryResponse history = chatService.getChatHistoryByRoom(currentUser.requireUserId(), roomId, beforeId, limit);
         return ResponseEntity.ok(history);
     }
 
     @PostMapping("/chat")
     public ResponseEntity<ChatResponseDto> chatWithAi(@RequestBody ChatRequestDto request) {
-        String reply = chatService.getAiResponse(currentUser.requireUserId(), request);
-        return ResponseEntity.ok(new ChatResponseDto(reply));
+        return ResponseEntity.ok(chatService.getAiResponse(currentUser.requireUserId(), request));
     }
 
 }

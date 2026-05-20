@@ -10,8 +10,10 @@ import com.sandbox.sandman.backend.repositories.MessageRepository.RoomMemberRepo
 import com.sandbox.sandman.backend.repositories.MessageRepository.RoomRepository;
 import com.sandbox.sandman.backend.repositories.MessageRepository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -34,13 +36,29 @@ public class RoomService {
     @Transactional
     public RoomDto createRoom(Long userId, RoomCreateRequestDto request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        AiContext roomAi = resolveRoomAi(user, request);
+        String roomName = request.getName() != null && !request.getName().isBlank()
+                ? request.getName().trim()
+                : roomAi.getAiName();
 
         Room room = new Room();
         room.setUser(user);
-        room.setIsGroup(request.getIsGroup());
-        room.setName(request.getName());
+        room.setIsGroup(Boolean.TRUE.equals(request.getIsGroup()));
+        room.setName(roomName);
         Room savedRoom = roomRepository.save(room);
+
+        roomMemberRepository.addRoomAi(savedRoom.getId(), roomAi.getId());
+
+        return toDto(savedRoom);
+    }
+
+    private AiContext resolveRoomAi(User user, RoomCreateRequestDto request) {
+        if (request.getAiContextId() != null) {
+            return aiContextRepository.findActiveByIdAndOwner(request.getAiContextId(), user.getId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Character not found"));
+        }
 
         String aiName = request.getName() != null ? request.getName() : "AI Assistant";
         String systemPrompt = request.getSystemPrompt() != null
@@ -48,13 +66,10 @@ public class RoomService {
                 : "You are a helpful AI assistant. Respond concisely and helpfully.";
 
         AiContext aiContext = new AiContext();
+        aiContext.setCreatedByUser(user);
         aiContext.setAiName(aiName);
         aiContext.setRole(systemPrompt);
-        AiContext savedAi = aiContextRepository.save(aiContext);
-
-        roomMemberRepository.addRoomAi(savedRoom.getId(), savedAi.getId());
-
-        return toDto(savedRoom);
+        return aiContextRepository.save(aiContext);
     }
 
     private RoomDto toDto(Room room) {
