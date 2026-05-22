@@ -182,13 +182,20 @@ public class ChatService {
             String userQuery,
             ImageTriggerService.ImageTriggerDecision imageDecision) {
         String prompt = buildImagePrompt(aiContext, userQuery, imageDecision.type());
-        String successReply = imageDecision.type() == ImageTriggerService.ImageTriggerType.FIRST_PERSON_SNAPSHOT
+        String fallbackSuccessReply = imageDecision.type() == ImageTriggerService.ImageTriggerType.FIRST_PERSON_SNAPSHOT
                 ? "ถ่ายมาให้ดูแล้วนะ"
                 : "สร้างรูปให้แล้วนะ";
 
         try {
             CloudflareImageService.GeneratedImage image = cloudflareImageService.generate(prompt);
             SupabaseStorageService.UploadResult upload = supabaseStorageService.uploadGeneratedImage(image.bytes(), image.mimeType());
+            String successReply = generateImageAwareReply(
+                    aiContext,
+                    userQuery,
+                    prompt,
+                    imageDecision.type(),
+                    fallbackSuccessReply
+            );
             Chat aiChat = saveAiChat(room, successReply);
             embeddingService.embedAndSave(aiChat);
 
@@ -211,6 +218,42 @@ public class ChatService {
             Chat aiChat = saveAiChat(room, fallbackReply);
             embeddingService.embedAndSave(aiChat);
             return new ChatResponseDto(fallbackReply, List.of());
+        }
+    }
+
+    private String generateImageAwareReply(
+            AiContext aiContext,
+            String userQuery,
+            String imagePrompt,
+            ImageTriggerService.ImageTriggerType triggerType,
+            String fallbackReply) {
+        try {
+            List<org.springframework.ai.chat.messages.Message> replyPrompt = new ArrayList<>();
+            replyPrompt.add(new SystemMessage(aiContext.buildSystemPrompt()));
+            replyPrompt.add(new SystemMessage("""
+                    You are sending the user a generated image attachment with this reply.
+                    Write the chat reply in character and answer the user's request naturally.
+                    Use the generated image description as the source of truth for what the image shows.
+                    Keep the reply consistent with the image, the user's question, and the character.
+                    Do not mention hidden prompts, providers, model names, or that you cannot inspect the attachment.
+                    Keep the reply concise unless the user's question needs a longer answer.
+                    """));
+            replyPrompt.add(new UserMessage("""
+                    User message:
+                    %s
+
+                    Image trigger:
+                    %s
+
+                    Generated image description:
+                    %s
+                    """.formatted(safe(userQuery), triggerType.name(), safe(imagePrompt))));
+
+            String reply = groqAiClient.chat(new Prompt(replyPrompt));
+            return reply == null || reply.isBlank() ? fallbackReply : reply.trim();
+        } catch (Exception e) {
+            log.warn("Image reply text generation failed for trigger {}", triggerType, e);
+            return fallbackReply;
         }
     }
 
