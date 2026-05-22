@@ -18,4 +18,10 @@ public class CharacterUpdateRequestDto {
     private String imagePromptTemplate;
     private String fineTuneStatus;
     private String fineTunedModelId;
+    private Boolean personaFeedEnabled;
+    private Integer personaFeedMinIntervalHours;
+    private Integer personaFeedMaxIntervalHours;
+    private String personaFeedWindowStart;
+    private String personaFeedWindowEnd;
+    private String personaFeedTimezone;
 }

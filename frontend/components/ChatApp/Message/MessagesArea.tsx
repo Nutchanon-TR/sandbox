@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { Avatar, Spin } from 'antd';
-import Image from 'next/image';
 import type { ChatMessage } from '@/interface/ChatApp';
 import { CHAT_BORDER } from './styles';
 import { MessageBubble } from './MessageBubble';
@@ -22,12 +21,10 @@ interface MessagesAreaProps {
 function EmptyConversation({ avatarSrc }: { avatarSrc: string }) {
     return (
         <div className="flex max-w-md flex-col items-center text-center text-text-secondary">
-            <Image
+            <Avatar
                 src={avatarSrc}
-                alt="AI Avatar"
-                width={80}
-                height={80}
-                className="mb-4 opacity-45 dark:opacity-60"
+                size={80}
+                className={`mb-4 bg-muted opacity-45 dark:opacity-60 ${CHAT_BORDER.secondary}`}
             />
             <p className="m-0">Say hello to start the conversation!</p>
         </div>
@@ -104,4 +101,3 @@ export function MessagesArea({
         </div>
     );
 }
-

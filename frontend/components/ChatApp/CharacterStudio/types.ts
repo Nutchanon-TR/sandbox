@@ -12,6 +12,12 @@ export type CharacterFormValues = {
     photoKeywords?: string;
     activityKeywords?: string;
     imagePromptTemplate?: string;
+    personaFeedEnabled: boolean;
+    personaFeedMinIntervalHours: number;
+    personaFeedMaxIntervalHours: number;
+    personaFeedWindowStart?: string;
+    personaFeedWindowEnd?: string;
+    personaFeedTimezone: string;
 };
 
 export type CharacterPayload = {
@@ -27,4 +33,10 @@ export type CharacterPayload = {
     imageEnabled: boolean;
     imageTriggerRules: string;
     imagePromptTemplate: string | null;
+    personaFeedEnabled: boolean;
+    personaFeedMinIntervalHours: number;
+    personaFeedMaxIntervalHours: number;
+    personaFeedWindowStart: string | null;
+    personaFeedWindowEnd: string | null;
+    personaFeedTimezone: string;
 };

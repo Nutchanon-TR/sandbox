@@ -139,10 +139,10 @@
       ]
     },
     {
-      "name": "SyncHub Legacy",
+      "name": "PersonaFeed",
       "item": [
         {
-          "name": "Blog List",
+          "name": "Feed Posts",
           "request": {
             "method": "GET",
             "header": [
@@ -155,11 +155,11 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{chatAppBaseUrl}}/blog/list"
+            "url": "{{chatAppBaseUrl}}/persona-feed/posts?limit=20"
           }
         },
         {
-          "name": "Blog Detail",
+          "name": "Persona Profile",
           "request": {
             "method": "GET",
             "header": [
@@ -172,79 +172,11 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{chatAppBaseUrl}}/blog/detail/{{aiId}}"
+            "url": "{{chatAppBaseUrl}}/persona-feed/personas/{{aiId}}"
           }
         },
         {
-          "name": "Like AI",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "sourceSystem",
-                "value": "{{sourceSystem}}"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/like"
-          }
-        },
-        {
-          "name": "Unlike AI",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "sourceSystem",
-                "value": "{{sourceSystem}}"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/like"
-          }
-        },
-        {
-          "name": "Add AI Friend",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "sourceSystem",
-                "value": "{{sourceSystem}}"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/friend"
-          }
-        },
-        {
-          "name": "Remove AI Friend",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "sourceSystem",
-                "value": "{{sourceSystem}}"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/friend"
-          }
-        },
-        {
-          "name": "List AI Friends",
+          "name": "Persona Posts",
           "request": {
             "method": "GET",
             "header": [
@@ -257,67 +189,11 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{chatAppBaseUrl}}/user/friends"
+            "url": "{{chatAppBaseUrl}}/persona-feed/personas/{{aiId}}/posts?limit=20"
           }
         },
         {
-          "name": "List AI Comments",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "sourceSystem",
-                "value": "{{sourceSystem}}"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/comments"
-          }
-        },
-        {
-          "name": "Add AI Comment",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "sourceSystem",
-                "value": "{{sourceSystem}}"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"content\": \"Mock comment from Postman\",\n  \"star\": 5\n}"
-            },
-            "url": "{{chatAppBaseUrl}}/ai/{{aiId}}/comments"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
-                  "  const json = pm.response.json();",
-                  "  if (json.id) pm.environment.set('chatCommentId', json.id);",
-                  "}"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Like AI Comment",
+          "name": "Follow Persona",
           "request": {
             "method": "POST",
             "header": [
@@ -330,41 +206,7 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{chatAppBaseUrl}}/comments/{{chatCommentId}}/like"
-          }
-        },
-        {
-          "name": "Unlike AI Comment",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "sourceSystem",
-                "value": "{{sourceSystem}}"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{chatAppBaseUrl}}/comments/{{chatCommentId}}/like"
-          }
-        },
-        {
-          "name": "Delete AI Comment",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "sourceSystem",
-                "value": "{{sourceSystem}}"
-              },
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{chatAppBaseUrl}}/comments/{{chatCommentId}}"
+            "url": "{{chatAppBaseUrl}}/persona-feed/personas/{{aiId}}/follow"
           }
         }
       ]

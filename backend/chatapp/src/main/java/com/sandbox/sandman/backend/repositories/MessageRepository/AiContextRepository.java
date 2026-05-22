@@ -27,4 +27,12 @@ public interface AiContextRepository extends JpaRepository<AiContext, Long> {
               AND ai.visibility <> 'archived'
             """)
     Optional<AiContext> findActiveByIdAndOwner(@Param("id") Long id, @Param("userId") Long userId);
+
+    @Query("""
+            SELECT ai FROM AiContext ai
+            WHERE ai.id = :id
+              AND ai.visibility = 'public'
+              AND ai.personaFeedEnabled = true
+            """)
+    Optional<AiContext> findPersonaFeedVisibleById(@Param("id") Long id);
 }

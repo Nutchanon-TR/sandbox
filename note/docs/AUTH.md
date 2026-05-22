@@ -406,9 +406,8 @@ cd ../bpost && mvn spring-boot:run
 | `POST /chat-app/chat` body มี `senderId` | body ไม่มี `senderId` แล้ว |
 | `DELETE /chat-app/comments/{id}?userId=...` | `DELETE /chat-app/comments/{id}` |
 | `POST /chat-app/comments/{id}/like/{userId}` | `POST /chat-app/comments/{id}/like` |
-| `POST /chat-app/ai/{aiId}/like/{userId}` | `POST /chat-app/ai/{aiId}/like` |
-| `POST /chat-app/ai/{aiId}/friend/{userId}` | `POST /chat-app/ai/{aiId}/friend` |
-| `GET /chat-app/user/{userId}/friends` | `GET /chat-app/user/friends` |
+| legacy SyncHub AI like/friend routes | retired by PersonaFeed MVP |
+| `POST /chat-app/ai/{aiId}/friend/{userId}` | `POST /chat-app/persona-feed/personas/{personaId}/follow` |
 
 ---
 

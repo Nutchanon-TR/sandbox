@@ -6,6 +6,7 @@ import type { UploadProps } from 'antd';
 import { PictureOutlined, UploadOutlined } from '@ant-design/icons';
 import { createSupabaseBrowser } from '@/lib/supabase/client';
 import type { CharacterFormValues } from './types';
+import { STUDIO_BORDER } from './styles';
 
 interface ImagePreviewFieldProps {
     name: keyof CharacterFormValues;
@@ -179,23 +180,25 @@ export function ImagePreviewField({
     };
 
     return (
-        <div className="grid gap-4 rounded-xl bg-surface-hover/70 p-4 md:grid-cols-[144px_minmax(0,1fr)]">
+        <div
+            className={`grid gap-4 rounded-xl border bg-surface-hover/40 p-4 sm:grid-cols-[minmax(7rem,9rem)_minmax(0,1fr)] sm:items-start ${STUDIO_BORDER.main}`}
+        >
             <div
-                className={`flex ${aspectClassName} min-h-[128px] items-center justify-center overflow-hidden rounded-xl bg-muted`}
+                className={`relative flex ${aspectClassName} min-h-[7.5rem] w-full max-w-[9rem] items-center justify-center overflow-hidden rounded-xl border bg-muted shadow-sm transition-shadow sm:max-w-none sm:justify-self-start ${hasUrl ? STUDIO_BORDER.main : 'border-dashed'}`}
                 style={hasUrl ? {
                     backgroundImage: `url("${url}")`,
                     backgroundPosition: 'center',
                     backgroundSize: 'cover',
                 } : undefined}
             >
-                {!hasUrl && <PictureOutlined className="text-2xl text-text-secondary" />}
+                {!hasUrl && <PictureOutlined className="text-2xl text-text-secondary" aria-hidden />}
             </div>
-            <div className="grid min-w-0 gap-3">
+            <div className="grid min-w-0 gap-3 sm:col-span-1">
                 <Form.Item name={name} label={label} className="!mb-0 min-w-0">
                     <Input allowClear placeholder={placeholder} />
                 </Form.Item>
                 {enableAvatarUpload && (
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="grid gap-2">
                         <Upload
                             accept="image/*"
                             beforeUpload={handleBeforeUpload}
@@ -204,22 +207,22 @@ export function ImagePreviewField({
                         >
                             <Button icon={<UploadOutlined />}>Upload & crop</Button>
                         </Upload>
-                        <Typography.Text type="secondary" className="text-xs">
-                            Saves to Supabase Storage as a random file name.
+                        <Typography.Text type="secondary" className="text-xs leading-relaxed">
+                            JPEG up to 8 MB - stored in Supabase with a random file name.
                         </Typography.Text>
                     </div>
                 )}
                 {uploadError && (
-                    <Typography.Text type="danger" className="text-xs">
+                    <Typography.Text type="danger" className="text-xs" role="alert">
                         {uploadError}
                     </Typography.Text>
                 )}
+                {hasUrl && (
+                    <Typography.Text type="secondary" className="text-xs" ellipsis={{ tooltip: url }}>
+                        {url}
+                    </Typography.Text>
+                )}
             </div>
-            {hasUrl && (
-                <Typography.Text className="md:col-start-2" type="secondary" ellipsis>
-                    {url}
-                </Typography.Text>
-            )}
             {enableAvatarUpload && (
                 <Modal
                     title="Crop avatar"

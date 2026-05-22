@@ -1,0 +1,88 @@
+{
+  "info": {
+    "_postman_id": "a5940542-1ae6-4ee0-8b98-91e3a9cb113a",
+    "name": "Sandbox - chatapp_service - PersonaFeedController",
+    "description": "PersonaFeed feed, profile, and follow APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Feed Posts",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/persona-feed/posts?limit=20"
+      }
+    },
+    {
+      "name": "Persona Profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/persona-feed/personas/{{aiId}}"
+      }
+    },
+    {
+      "name": "Persona Posts",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/persona-feed/personas/{{aiId}}/posts?limit=20"
+      }
+    },
+    {
+      "name": "Follow Persona",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "sourceSystem",
+            "value": "{{sourceSystem}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{chatAppBaseUrl}}/persona-feed/personas/{{aiId}}/follow"
+      }
+    }
+  ]
+}

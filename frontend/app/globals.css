@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
@@ -63,6 +62,10 @@ body {
 .character-studio-form .ant-input::placeholder {
   color: #94a3b8 !important;
   opacity: 1;
+}
+
+.character-studio-form .ant-form-item-label > label {
+  font-weight: 500;
 }
 
 .character-studio-form .ant-form-item-required::before {

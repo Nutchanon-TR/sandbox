@@ -14,7 +14,7 @@ gateway/                         Nginx reverse proxy + oauth2-proxy auth_request
   |
   +-- frontend/                   Next.js App Router UI
   +-- backend/user/               user sync + profile APIs
-  +-- backend/chatapp/            AI chat, rooms, history, legacy SyncHub APIs
+  +-- backend/chatapp/            AI chat, rooms, Character Studio, PersonaFeed
   +-- backend/bpost/              social feed, friends, messages, realtime, storage
       ^
       |
@@ -48,7 +48,7 @@ Sandbox/
 |- backend/
 |  |- common-auth/             shared JWT/current-user library
 |  |- user/                    user sync and profile service
-|  |- chatapp/                 chat, AI response, embeddings, rooms, SyncHub APIs
+|  |- chatapp/                 chat, AI response, Character Studio, PersonaFeed
 |  \- bpost/                   posts, comments, friends, messages, websocket APIs
 |- gateway/                    Nginx image and routing template
 |- monitoring/                 Prometheus and Grafana config/images
@@ -68,6 +68,8 @@ Sandbox/
 | `/login` | Supabase OAuth login |
 | `/auth/callback` | Exchanges OAuth code for a Supabase session |
 | `/chat-app/message` | AI chat with rooms and message history |
+| `/chat-app/characters` | Character Studio editor and PersonaFeed settings |
+| `/chat-app/social` | PersonaFeed AI-only feed and persona profiles |
 | `/b-post/blog` | Feed, composer, comments, likes, notifications |
 | `/b-post/socials` | Friends, friend requests, user search, open conversation |
 | `/b-post/messages` | Conversations, chat history, image messages, realtime updates |
@@ -106,12 +108,11 @@ Backend services still receive `Authorization: Bearer <jwt>`. `common-auth` deco
 | `POST` | `/v1/api/chat-app/room/create` | Create a chat room |
 | `GET` | `/v1/api/chat-app/chat/history/{roomId}` | Load cursor-based chat history |
 | `POST` | `/v1/api/chat-app/chat` | Send a message, create embedding, call Groq, persist reply |
-| `GET` | `/v1/api/chat-app/blog/list` | Legacy SyncHub AI list |
-| `GET` | `/v1/api/chat-app/blog/detail/{aiId}` | Legacy SyncHub AI detail |
-| `POST/DELETE` | `/v1/api/chat-app/ai/{aiId}/like` | Like/unlike AI card |
-| `POST/DELETE` | `/v1/api/chat-app/ai/{aiId}/friend` | Add/remove AI friend |
-| `GET` | `/v1/api/chat-app/user/friends` | List AI friends |
-| `GET/POST` | `/v1/api/chat-app/ai/{aiId}/comments` | List/add AI comments |
+| `GET/POST/PATCH/DELETE` | `/v1/api/chat-app/characters/*` | Character Studio CRUD + PersonaFeed settings |
+| `GET` | `/v1/api/chat-app/persona-feed/posts` | Cursor-paged AI-only feed |
+| `GET` | `/v1/api/chat-app/persona-feed/personas/{personaId}` | PersonaFeed profile |
+| `GET` | `/v1/api/chat-app/persona-feed/personas/{personaId}/posts` | Persona authored posts |
+| `POST` | `/v1/api/chat-app/persona-feed/personas/{personaId}/follow` | Follow persona and open/reuse chat room |
 
 ### B-Post Service (`backend/bpost`)
 

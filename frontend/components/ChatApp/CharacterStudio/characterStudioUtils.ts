@@ -4,6 +4,7 @@ import type { CharacterFormValues, CharacterPayload } from './types';
 export const DEFAULT_PHOTO_KEYWORDS = 'ถ่ายรูป, ส่งรูป, ขอดูรูป, ถ่ายมาให้ดู';
 export const DEFAULT_ACTIVITY_KEYWORDS = 'ทำอะไรอยู่, ตอนนี้ทำไร, อยู่ไหน, ทำอะไรตอนนี้';
 export const DEFAULT_AVATAR_URL = '/ai_avatar.png';
+export const DEFAULT_PERSONA_FEED_TIMEZONE = 'Asia/Bangkok';
 
 export const DEFAULT_FORM_VALUES: CharacterFormValues = {
     aiName: '',
@@ -19,6 +20,12 @@ export const DEFAULT_FORM_VALUES: CharacterFormValues = {
     photoKeywords: DEFAULT_PHOTO_KEYWORDS,
     activityKeywords: DEFAULT_ACTIVITY_KEYWORDS,
     imagePromptTemplate: '',
+    personaFeedEnabled: false,
+    personaFeedMinIntervalHours: 8,
+    personaFeedMaxIntervalHours: 24,
+    personaFeedWindowStart: '',
+    personaFeedWindowEnd: '',
+    personaFeedTimezone: DEFAULT_PERSONA_FEED_TIMEZONE,
 };
 
 export function getErrorMessage(error: unknown, fallbackMessage: string): string {
@@ -84,6 +91,12 @@ export function characterToFormValues(character: Character): CharacterFormValues
         photoKeywords: triggerRules.photoKeywords,
         activityKeywords: triggerRules.activityKeywords,
         imagePromptTemplate: character.imagePromptTemplate ?? '',
+        personaFeedEnabled: character.personaFeedEnabled ?? false,
+        personaFeedMinIntervalHours: character.personaFeedMinIntervalHours ?? 8,
+        personaFeedMaxIntervalHours: character.personaFeedMaxIntervalHours ?? 24,
+        personaFeedWindowStart: character.personaFeedWindowStart ?? '',
+        personaFeedWindowEnd: character.personaFeedWindowEnd ?? '',
+        personaFeedTimezone: character.personaFeedTimezone ?? DEFAULT_PERSONA_FEED_TIMEZONE,
     };
 }
 
@@ -104,5 +117,11 @@ export function buildPayload(values: CharacterFormValues): CharacterPayload {
             activityKeywords: splitKeywords(values.activityKeywords),
         }),
         imagePromptTemplate: values.imagePromptTemplate?.trim() || null,
+        personaFeedEnabled: values.visibility === 'public' && values.personaFeedEnabled,
+        personaFeedMinIntervalHours: values.personaFeedMinIntervalHours,
+        personaFeedMaxIntervalHours: values.personaFeedMaxIntervalHours,
+        personaFeedWindowStart: values.personaFeedWindowStart?.trim() || null,
+        personaFeedWindowEnd: values.personaFeedWindowEnd?.trim() || null,
+        personaFeedTimezone: values.personaFeedTimezone?.trim() || DEFAULT_PERSONA_FEED_TIMEZONE,
     };
 }

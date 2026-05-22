@@ -8,12 +8,17 @@ import com.sandbox.sandman.backend.model.entity.MessageEntity.AiContext;
 import com.sandbox.sandman.backend.model.entity.MessageEntity.User;
 import com.sandbox.sandman.backend.repositories.MessageRepository.AiContextRepository;
 import com.sandbox.sandman.backend.repositories.MessageRepository.UserRepository;
+import com.sandbox.sandman.backend.services.PersonaFeedService.PersonaFeedScheduleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.DateTimeException;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 @Service
@@ -32,6 +37,7 @@ public class CharacterStudioService {
     private final AiContextRepository aiContextRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final PersonaFeedScheduleService personaFeedScheduleService;
 
     public List<CharacterDto> listCharacters(Long userId) {
         return aiContextRepository.findActiveByOwner(userId).stream()
@@ -63,6 +69,7 @@ public class CharacterStudioService {
         aiContext.setImageTriggerRules(normalizeJson(request.getImageTriggerRules(), DEFAULT_TRIGGER_RULES));
         aiContext.setImagePromptTemplate(blankToNull(request.getImagePromptTemplate()));
         aiContext.setFineTuneStatus("not_started");
+        applyPersonaFeedCreate(aiContext, request);
 
         return toDto(aiContextRepository.save(aiContext));
     }
@@ -97,6 +104,7 @@ public class CharacterStudioService {
         if (request.getFineTunedModelId() != null) {
             aiContext.setFineTunedModelId(blankToNull(request.getFineTunedModelId()));
         }
+        applyPersonaFeedUpdate(aiContext, request);
 
         return toDto(aiContextRepository.save(aiContext));
     }
@@ -131,8 +139,139 @@ public class CharacterStudioService {
                 aiContext.getImageTriggerRules(),
                 aiContext.getImagePromptTemplate(),
                 aiContext.getFineTuneStatus(),
-                aiContext.getFineTunedModelId()
+                aiContext.getFineTunedModelId(),
+                aiContext.getPersonaFeedEnabled(),
+                aiContext.getPersonaFeedMinIntervalHours(),
+                aiContext.getPersonaFeedMaxIntervalHours(),
+                timeToText(aiContext.getPersonaFeedWindowStart()),
+                timeToText(aiContext.getPersonaFeedWindowEnd()),
+                aiContext.getPersonaFeedTimezone()
         );
+    }
+
+    private void applyPersonaFeedCreate(AiContext aiContext, CharacterCreateRequestDto request) {
+        aiContext.setPersonaFeedMinIntervalHours(defaultInterval(
+                request.getPersonaFeedMinIntervalHours(),
+                PersonaFeedScheduleService.DEFAULT_MIN_INTERVAL_HOURS
+        ));
+        aiContext.setPersonaFeedMaxIntervalHours(defaultInterval(
+                request.getPersonaFeedMaxIntervalHours(),
+                PersonaFeedScheduleService.DEFAULT_MAX_INTERVAL_HOURS
+        ));
+        aiContext.setPersonaFeedWindowStart(parseOptionalTime(request.getPersonaFeedWindowStart()));
+        aiContext.setPersonaFeedWindowEnd(parseOptionalTime(request.getPersonaFeedWindowEnd()));
+        aiContext.setPersonaFeedTimezone(normalizeTimezone(request.getPersonaFeedTimezone()));
+        validatePersonaFeedSchedule(aiContext);
+        updatePersonaFeedEnabled(aiContext, Boolean.TRUE.equals(request.getPersonaFeedEnabled()), true);
+    }
+
+    private void applyPersonaFeedUpdate(AiContext aiContext, CharacterUpdateRequestDto request) {
+        boolean scheduleChanged = false;
+        if (request.getPersonaFeedMinIntervalHours() != null) {
+            aiContext.setPersonaFeedMinIntervalHours(request.getPersonaFeedMinIntervalHours());
+            scheduleChanged = true;
+        }
+        if (request.getPersonaFeedMaxIntervalHours() != null) {
+            aiContext.setPersonaFeedMaxIntervalHours(request.getPersonaFeedMaxIntervalHours());
+            scheduleChanged = true;
+        }
+        if (request.getPersonaFeedWindowStart() != null) {
+            aiContext.setPersonaFeedWindowStart(parseOptionalTime(request.getPersonaFeedWindowStart()));
+            scheduleChanged = true;
+        }
+        if (request.getPersonaFeedWindowEnd() != null) {
+            aiContext.setPersonaFeedWindowEnd(parseOptionalTime(request.getPersonaFeedWindowEnd()));
+            scheduleChanged = true;
+        }
+        if (request.getPersonaFeedTimezone() != null) {
+            aiContext.setPersonaFeedTimezone(normalizeTimezone(request.getPersonaFeedTimezone()));
+            scheduleChanged = true;
+        }
+
+        validatePersonaFeedSchedule(aiContext);
+        if (request.getPersonaFeedEnabled() != null) {
+            updatePersonaFeedEnabled(aiContext, request.getPersonaFeedEnabled(), true);
+            return;
+        }
+
+        if (!isPublic(aiContext) && Boolean.TRUE.equals(aiContext.getPersonaFeedEnabled())) {
+            updatePersonaFeedEnabled(aiContext, false, false);
+            return;
+        }
+
+        if (scheduleChanged && Boolean.TRUE.equals(aiContext.getPersonaFeedEnabled())) {
+            aiContext.setPersonaFeedNextPostAt(personaFeedScheduleService.nextPostAt(aiContext, ZonedDateTime.now()));
+        }
+    }
+
+    private void updatePersonaFeedEnabled(AiContext aiContext, boolean enabled, boolean rejectPrivateEnable) {
+        if (!enabled) {
+            aiContext.setPersonaFeedEnabled(false);
+            aiContext.setPersonaFeedNextPostAt(null);
+            return;
+        }
+        if (!isPublic(aiContext)) {
+            if (rejectPrivateEnable) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "PersonaFeed requires public visibility");
+            }
+            aiContext.setPersonaFeedEnabled(false);
+            aiContext.setPersonaFeedNextPostAt(null);
+            return;
+        }
+
+        aiContext.setPersonaFeedEnabled(true);
+        if (aiContext.getPersonaFeedNextPostAt() == null) {
+            aiContext.setPersonaFeedNextPostAt(personaFeedScheduleService.nextPostAt(aiContext, ZonedDateTime.now()));
+        }
+    }
+
+    private void validatePersonaFeedSchedule(AiContext aiContext) {
+        Integer minHours = aiContext.getPersonaFeedMinIntervalHours();
+        Integer maxHours = aiContext.getPersonaFeedMaxIntervalHours();
+        if (minHours == null || maxHours == null || minHours <= 0 || maxHours < minHours) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid PersonaFeed interval range");
+        }
+        boolean hasWindowStart = aiContext.getPersonaFeedWindowStart() != null;
+        boolean hasWindowEnd = aiContext.getPersonaFeedWindowEnd() != null;
+        if (hasWindowStart != hasWindowEnd) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "PersonaFeed posting window requires start and end");
+        }
+    }
+
+    private LocalTime parseOptionalTime(String value) {
+        String normalized = blankToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        try {
+            return LocalTime.parse(normalized);
+        } catch (DateTimeException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid PersonaFeed posting time");
+        }
+    }
+
+    private String normalizeTimezone(String timezone) {
+        String normalized = blankToNull(timezone);
+        if (normalized == null) {
+            return PersonaFeedScheduleService.DEFAULT_TIMEZONE;
+        }
+        try {
+            return ZoneId.of(normalized).getId();
+        } catch (DateTimeException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid PersonaFeed timezone");
+        }
+    }
+
+    private int defaultInterval(Integer value, int fallback) {
+        return value == null ? fallback : value;
+    }
+
+    private boolean isPublic(AiContext aiContext) {
+        return "public".equals(aiContext.getVisibility());
+    }
+
+    private String timeToText(LocalTime time) {
+        return time == null ? null : time.toString();
     }
 
     private String normalizeJson(String value, String fallback) {

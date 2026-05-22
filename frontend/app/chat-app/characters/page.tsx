@@ -189,7 +189,7 @@ export default function CharacterStudioPage() {
     }
 
     return (
-        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-hidden p-3 md:p-5 xl:flex-row">
+        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden p-3 md:gap-5 md:p-4 xl:flex-row xl:gap-6">
             <CharacterListPanel
                 characters={characters}
                 selectedId={selectedId}

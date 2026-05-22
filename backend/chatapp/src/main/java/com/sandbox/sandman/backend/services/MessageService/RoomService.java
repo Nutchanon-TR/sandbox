@@ -34,6 +34,25 @@ public class RoomService {
     }
 
     @Transactional
+    public RoomDto openRoomForPersona(Long userId, AiContext persona) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        Long existingRoomId = roomMemberRepository.findLatestRoomIdByUserIdAndAiId(user.getId(), persona.getId());
+        if (existingRoomId != null) {
+            return roomRepository.findById(existingRoomId)
+                    .map(this::toDto)
+                    .orElseGet(() -> createRoomForAi(user, new RoomCreateRequestDto(), persona));
+        }
+
+        RoomCreateRequestDto request = new RoomCreateRequestDto();
+        request.setName(persona.getAiName());
+        request.setIsGroup(false);
+        request.setAiContextId(persona.getId());
+        return createRoomForAi(user, request, persona);
+    }
+
+    @Transactional
     public RoomDto createRoom(Long userId, RoomCreateRequestDto request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));

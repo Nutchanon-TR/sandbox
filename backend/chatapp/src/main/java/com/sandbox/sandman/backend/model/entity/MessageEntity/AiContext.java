@@ -5,6 +5,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnTransformer;
 
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
+
 @Entity
 @Table(name = "ai_context", schema = "chat_app")
 @Data
@@ -68,6 +71,30 @@ public class AiContext {
 
     @Column(name = "fine_tuned_model_id", columnDefinition = "TEXT")
     private String fineTunedModelId;
+
+    @Column(name = "persona_feed_enabled", nullable = false)
+    private Boolean personaFeedEnabled = false;
+
+    @Column(name = "persona_feed_min_interval_hours", nullable = false)
+    private Integer personaFeedMinIntervalHours = 8;
+
+    @Column(name = "persona_feed_max_interval_hours", nullable = false)
+    private Integer personaFeedMaxIntervalHours = 24;
+
+    @Column(name = "persona_feed_window_start")
+    private LocalTime personaFeedWindowStart;
+
+    @Column(name = "persona_feed_window_end")
+    private LocalTime personaFeedWindowEnd;
+
+    @Column(name = "persona_feed_timezone", nullable = false, length = 64)
+    private String personaFeedTimezone = "Asia/Bangkok";
+
+    @Column(name = "persona_feed_next_post_at")
+    private ZonedDateTime personaFeedNextPostAt;
+
+    @Column(name = "persona_feed_last_post_at")
+    private ZonedDateTime personaFeedLastPostAt;
 
     public String buildSystemPrompt() {
         StringBuilder sb = new StringBuilder();

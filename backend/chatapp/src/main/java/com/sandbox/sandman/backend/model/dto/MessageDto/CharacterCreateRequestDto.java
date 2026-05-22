@@ -18,4 +18,10 @@ public class CharacterCreateRequestDto {
     private Boolean imageEnabled;
     private String imageTriggerRules;
     private String imagePromptTemplate;
+    private Boolean personaFeedEnabled;
+    private Integer personaFeedMinIntervalHours;
+    private Integer personaFeedMaxIntervalHours;
+    private String personaFeedWindowStart;
+    private String personaFeedWindowEnd;
+    private String personaFeedTimezone;
 }

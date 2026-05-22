@@ -64,6 +64,12 @@ export interface Character {
     imagePromptTemplate?: string | null;
     fineTuneStatus?: string | null;
     fineTunedModelId?: string | null;
+    personaFeedEnabled?: boolean;
+    personaFeedMinIntervalHours?: number;
+    personaFeedMaxIntervalHours?: number;
+    personaFeedWindowStart?: string | null;
+    personaFeedWindowEnd?: string | null;
+    personaFeedTimezone?: string | null;
 }
 
 export interface RoomCreateResponse {
@@ -73,4 +79,37 @@ export interface RoomCreateResponse {
     aiContextId?: number | null;
     aiAvatarUrl?: string | null;
     createdAt?: string;
+}
+
+export interface CursorPageResponse<T> {
+    items: T[];
+    hasMore: boolean;
+    nextCursor: number | null;
+}
+
+export interface PersonaFeedPersonaSummary {
+    id: number;
+    aiName: string;
+    avatarUrl?: string | null;
+    posterUrl?: string | null;
+}
+
+export interface PersonaFeedPost {
+    id: number;
+    persona: PersonaFeedPersonaSummary;
+    content: string;
+    imageUrls: string[];
+    createdAt: string;
+    followedByMe: boolean;
+}
+
+export interface PersonaFeedPersonaProfile extends PersonaFeedPersonaSummary {
+    role?: string | null;
+    biography?: string | null;
+    followedByMe: boolean;
+}
+
+export interface PersonaFeedFollowResponse {
+    followed: boolean;
+    roomId: number;
 }

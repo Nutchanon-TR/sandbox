@@ -46,6 +46,22 @@ export const API_SANDBOX: Record<string, ApiDetail> = {
         path: `${contextPath}/v1/api/chat-app/characters/{characterId}`,
         method: 'DELETE',
     },
+    PERSONA_FEED_POSTS: {
+        path: `${contextPath}/v1/api/chat-app/persona-feed/posts`,
+        method: 'GET',
+    },
+    PERSONA_FEED_PROFILE: {
+        path: `${contextPath}/v1/api/chat-app/persona-feed/personas/{personaId}`,
+        method: 'GET',
+    },
+    PERSONA_FEED_PROFILE_POSTS: {
+        path: `${contextPath}/v1/api/chat-app/persona-feed/personas/{personaId}/posts`,
+        method: 'GET',
+    },
+    PERSONA_FEED_FOLLOW: {
+        path: `${contextPath}/v1/api/chat-app/persona-feed/personas/{personaId}/follow`,
+        method: 'POST',
+    },
     USER_SYNC: {
         path: `${userServiceBase}/v1/api/user/sync`,
         method: 'POST',

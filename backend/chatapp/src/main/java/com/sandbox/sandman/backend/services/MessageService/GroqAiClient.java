@@ -26,6 +26,16 @@ public class GroqAiClient {
         return chatClient.prompt(prompt).call().content();
     }
 
+    @CircuitBreaker(name = "groqAi", fallbackMethod = "feedFallback")
+    @Retry(name = "groqAi")
+    public String chatForFeed(Prompt prompt) {
+        return chatClient.prompt(prompt).call().content();
+    }
+
+    public String feedFallback(Prompt prompt, Throwable throwable) {
+        return null;
+    }
+
     public String fallback(Prompt prompt, Throwable throwable) {
         return "ขออภัย ระบบ AI ไม่สามารถตอบได้ชั่วคราว กรุณาลองใหม่อีกครั้ง";
     }

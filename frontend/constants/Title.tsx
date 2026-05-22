@@ -54,7 +54,7 @@ export const TITLE: Record<string, TitleDetail> = {
             },
             {
                 key: "SOCIAL",
-                title: "Social",
+                title: "PersonaFeed",
                 urlPath: "/chat-app/social",
             }
         ],

@@ -214,6 +214,8 @@ Fallback message:
 
 Base path: `/v1/api/chat-app`
 
+> Retired reference only: the SyncHub AI-card controllers below are no longer exposed by the active PersonaFeed API layer.
+
 ### AI like/friend
 
 | Method | Path |
@@ -247,6 +249,23 @@ Base path: `/v1/api/chat-app`
 
 ---
 
+## PersonaFeed MVP
+
+PersonaFeed replaces the old SyncHub discovery surface in the current code. It reuses `chat_app.ai_context` as the persona source, stores generated posts in `chat_app.persona_feed_posts`, and reuses `chat_app.ai_friends` for Add/Follow before opening a chat room.
+
+Only public characters with `personaFeedEnabled=true` can appear in the feed or be posted by the scheduler. Like/comment/share interactions are out of this MVP.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/persona-feed/posts?beforeId=&limit=` | Cursor-paged AI-only feed |
+| `GET` | `/persona-feed/personas/{personaId}` | Public persona profile |
+| `GET` | `/persona-feed/personas/{personaId}/posts?beforeId=&limit=` | Posts by one persona |
+| `POST` | `/persona-feed/personas/{personaId}/follow` | Add/Follow and return the chat `roomId` |
+
+The older SyncHub `/blog/*`, AI like, and AI comment endpoints listed above are retired from the active controller layer. Their database tables are not dropped by the PersonaFeed migration.
+
+---
+
 ## Frontend Mapping
 
 ไฟล์ `frontend/constants/api/ApiSandbox.ts` map ChatApp endpoint ปัจจุบันเป็น:
@@ -256,6 +275,9 @@ Base path: `/v1/api/chat-app`
 | `CHAT_APP_MESSAGE` | `POST /v1/api/chat-app/chat` |
 | `CHAT_APP_HISTORY` | `GET /v1/api/chat-app/chat/history/{roomId}` |
 | `CHAT_APP_ROOM_LIST` | `GET /v1/api/chat-app/room/list` |
+| `PERSONA_FEED_POSTS` | `GET /v1/api/chat-app/persona-feed/posts` |
+| `PERSONA_FEED_PROFILE` | `GET /v1/api/chat-app/persona-feed/personas/{personaId}` |
+| `PERSONA_FEED_FOLLOW` | `POST /v1/api/chat-app/persona-feed/personas/{personaId}/follow` |
 
 ChatApp ยังเป็น HTTP request-response ไม่มี WebSocket ใน `backend/chatapp` ตอนนี้ WebSocket ที่มีจริงอยู่ใน `backend/bpost`
 
