@@ -82,4 +82,6 @@ app:
     account-id: ${CLOUDFLARE_ACCOUNT_ID:}
     api-token: ${CLOUDFLARE_API_TOKEN:}
     image-model: ${CLOUDFLARE_IMAGE_MODEL:@cf/black-forest-labs/flux-1-schnell}
+    reference-image-model: ${CLOUDFLARE_REFERENCE_IMAGE_MODEL:@cf/runwayml/stable-diffusion-v1-5-img2img}
+    reference-image-strength: ${CLOUDFLARE_REFERENCE_IMAGE_STRENGTH:0.65}
     image-generation-enabled: ${IMAGE_GENERATION_ENABLED:false}

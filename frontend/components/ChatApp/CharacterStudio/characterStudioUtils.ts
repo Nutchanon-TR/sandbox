@@ -9,6 +9,8 @@ export const DEFAULT_PERSONA_FEED_TIMEZONE = 'Asia/Bangkok';
 export const DEFAULT_FORM_VALUES: CharacterFormValues = {
     aiName: '',
     avatarUrl: '',
+    appearanceReferenceUrl: '',
+    appearanceReferenceObjectPath: '',
     posterUrl: '',
     visibility: 'private',
     role: '',
@@ -80,6 +82,8 @@ export function characterToFormValues(character: Character): CharacterFormValues
     return {
         aiName: character.aiName,
         avatarUrl: character.avatarUrl ?? '',
+        appearanceReferenceUrl: character.appearanceReferenceUrl ?? '',
+        appearanceReferenceObjectPath: character.appearanceReferenceObjectPath ?? '',
         posterUrl: character.posterUrl ?? '',
         visibility: character.visibility ?? 'private',
         role: character.role ?? '',
@@ -104,6 +108,10 @@ export function buildPayload(values: CharacterFormValues): CharacterPayload {
     return {
         aiName: values.aiName.trim(),
         avatarUrl: values.avatarUrl?.trim() || DEFAULT_AVATAR_URL,
+        appearanceReferenceUrl: values.appearanceReferenceUrl?.trim() || '',
+        appearanceReferenceObjectPath: values.appearanceReferenceUrl?.trim()
+            ? values.appearanceReferenceObjectPath?.trim() || ''
+            : '',
         posterUrl: values.posterUrl?.trim() || null,
         visibility: values.visibility,
         role: values.role?.trim() || null,

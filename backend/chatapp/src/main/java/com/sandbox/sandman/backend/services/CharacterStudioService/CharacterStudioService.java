@@ -58,6 +58,8 @@ public class CharacterStudioService {
         aiContext.setCreatedByUser(owner);
         aiContext.setAiName(request.getAiName().trim());
         aiContext.setAvatarUrl(defaultAvatarIfBlank(request.getAvatarUrl()));
+        aiContext.setAppearanceReferenceUrl(blankToNull(request.getAppearanceReferenceUrl()));
+        aiContext.setAppearanceReferenceObjectPath(blankToNull(request.getAppearanceReferenceObjectPath()));
         aiContext.setRole(blankToNull(request.getRole()));
         aiContext.setCharacter(blankToNull(request.getCharacter()));
         aiContext.setBiography(blankToNull(request.getBiography()));
@@ -82,6 +84,12 @@ public class CharacterStudioService {
             aiContext.setAiName(request.getAiName().trim());
         }
         if (request.getAvatarUrl() != null) aiContext.setAvatarUrl(defaultAvatarIfBlank(request.getAvatarUrl()));
+        if (request.getAppearanceReferenceUrl() != null) {
+            aiContext.setAppearanceReferenceUrl(blankToNull(request.getAppearanceReferenceUrl()));
+        }
+        if (request.getAppearanceReferenceObjectPath() != null) {
+            aiContext.setAppearanceReferenceObjectPath(blankToNull(request.getAppearanceReferenceObjectPath()));
+        }
         if (request.getRole() != null) aiContext.setRole(blankToNull(request.getRole()));
         if (request.getCharacter() != null) aiContext.setCharacter(blankToNull(request.getCharacter()));
         if (request.getBiography() != null) aiContext.setBiography(blankToNull(request.getBiography()));
@@ -128,6 +136,8 @@ public class CharacterStudioService {
                 ownerId,
                 aiContext.getAiName(),
                 aiContext.getAvatarUrl(),
+                aiContext.getAppearanceReferenceUrl(),
+                aiContext.getAppearanceReferenceObjectPath(),
                 aiContext.getRole(),
                 aiContext.getCharacter(),
                 aiContext.getBiography(),

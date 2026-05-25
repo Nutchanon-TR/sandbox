@@ -52,6 +52,8 @@ export interface Character {
     createdByUserId?: number | null;
     aiName: string;
     avatarUrl?: string | null;
+    appearanceReferenceUrl?: string | null;
+    appearanceReferenceObjectPath?: string | null;
     role?: string | null;
     character?: string | null;
     biography?: string | null;

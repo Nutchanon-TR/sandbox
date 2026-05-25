@@ -12,6 +12,8 @@ public class CharacterDto {
     private Long createdByUserId;
     private String aiName;
     private String avatarUrl;
+    private String appearanceReferenceUrl;
+    private String appearanceReferenceObjectPath;
     private String role;
     private String character;
     private String biography;

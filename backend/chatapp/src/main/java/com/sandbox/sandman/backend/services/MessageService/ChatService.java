@@ -187,12 +187,22 @@ public class ChatService {
                 : "สร้างรูปให้แล้วนะ";
 
         try {
-            CloudflareImageService.GeneratedImage image = cloudflareImageService.generate(prompt);
+            String generatedPrompt = prompt;
+            CloudflareImageService.GeneratedImage image;
+            try {
+                image = generateCharacterImage(aiContext, generatedPrompt);
+            } catch (CloudflareImageService.PromptSafetyRejectedException e) {
+                generatedPrompt = buildSafeFallbackImagePrompt(imageDecision.type());
+                log.warn("Cloudflare rejected the original image prompt for room {} and trigger {}; retrying safely",
+                        room.getId(), imageDecision.type());
+                image = generateCharacterImage(aiContext, generatedPrompt);
+            }
+
             SupabaseStorageService.UploadResult upload = supabaseStorageService.uploadGeneratedImage(image.bytes(), image.mimeType());
             String successReply = generateImageAwareReply(
                     aiContext,
                     userQuery,
-                    prompt,
+                    generatedPrompt,
                     imageDecision.type(),
                     fallbackSuccessReply
             );
@@ -204,7 +214,7 @@ public class ChatService {
             attachment.setType("image");
             attachment.setUrl(upload.publicUrl());
             attachment.setMimeType(image.mimeType());
-            attachment.setPrompt(prompt);
+            attachment.setPrompt(generatedPrompt);
             attachment.setProvider("cloudflare-workers-ai");
             attachment.setMetadata("""
                     {"triggerType":"%s","objectPath":"%s","model":"%s"}
@@ -213,12 +223,55 @@ public class ChatService {
 
             return new ChatResponseDto(successReply, List.of(convertAttachmentToDto(savedAttachment)));
         } catch (Exception e) {
-            log.warn("Image generation failed for room {} and trigger {}", room.getId(), imageDecision.type(), e);
-            String fallbackReply = "ตอนนี้ยังสร้างรูปไม่ได้ แต่คุยต่อได้ปกตินะ";
+            String fallbackReply;
+            if (e instanceof CloudflareImageService.PromptSafetyRejectedException) {
+                log.warn("Cloudflare rejected both image prompts for room {} and trigger {}",
+                        room.getId(), imageDecision.type());
+                fallbackReply = generateImageRefusalReply(
+                        aiContext,
+                        userQuery,
+                        imageDecision.type(),
+                        "ไม่ถ่ายให้หรอกนะ"
+                );
+            } else {
+                log.warn("Image generation failed for room {} and trigger {}", room.getId(), imageDecision.type(), e);
+                fallbackReply = "ตอนนี้ยังสร้างรูปไม่ได้ แต่คุยต่อได้ปกตินะ";
+            }
             Chat aiChat = saveAiChat(room, fallbackReply);
             embeddingService.embedAndSave(aiChat);
             return new ChatResponseDto(fallbackReply, List.of());
         }
+    }
+
+    private CloudflareImageService.GeneratedImage generateCharacterImage(AiContext aiContext, String prompt) {
+        String referencePath = aiContext.getAppearanceReferenceObjectPath();
+        String referenceUrl = aiContext.getAppearanceReferenceUrl();
+        if ((referencePath == null || referencePath.isBlank()) && (referenceUrl == null || referenceUrl.isBlank())) {
+            return cloudflareImageService.generate(prompt);
+        }
+
+        try {
+            byte[] referenceImage = supabaseStorageService.downloadCharacterReferenceImage(referencePath, referenceUrl);
+            return cloudflareImageService.generateFromReference(
+                    buildAppearanceReferencePrompt(aiContext, prompt),
+                    referenceImage
+            );
+        } catch (CloudflareImageService.PromptSafetyRejectedException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("Appearance reference generation failed for character {}, falling back to text-to-image",
+                    aiContext.getId(), e);
+            return cloudflareImageService.generate(prompt);
+        }
+    }
+
+    private String buildAppearanceReferencePrompt(AiContext aiContext, String imagePrompt) {
+        return """
+                Use the person in the reference image as the visual identity of %s.
+                Preserve the same face, facial features, hairstyle, and overall appearance when the character appears.
+                Keep the output aligned with this image request:
+                %s
+                """.formatted(safe(aiContext.getAiName()), safe(imagePrompt)).trim();
     }
 
     private String generateImageAwareReply(
@@ -253,6 +306,38 @@ public class ChatService {
             return reply == null || reply.isBlank() ? fallbackReply : reply.trim();
         } catch (Exception e) {
             log.warn("Image reply text generation failed for trigger {}", triggerType, e);
+            return fallbackReply;
+        }
+    }
+
+    private String generateImageRefusalReply(
+            AiContext aiContext,
+            String userQuery,
+            ImageTriggerService.ImageTriggerType triggerType,
+            String fallbackReply) {
+        try {
+            List<org.springframework.ai.chat.messages.Message> replyPrompt = new ArrayList<>();
+            replyPrompt.add(new SystemMessage(aiContext.buildSystemPrompt()));
+            replyPrompt.add(new SystemMessage("""
+                    The user asked you to send an image, but you will not send an image for this request.
+                    Reply directly to the user in character with a natural refusal.
+                    Keep the refusal aligned with the user's request and your personality.
+                    Do not mention safety filters, policies, hidden prompts, providers, tools, or technical failures.
+                    Do not claim that an image was attached.
+                    Keep it concise unless the character would naturally add a short remark.
+                    """));
+            replyPrompt.add(new UserMessage("""
+                    User message:
+                    %s
+
+                    Image trigger:
+                    %s
+                    """.formatted(safe(userQuery), triggerType.name())));
+
+            String reply = groqAiClient.chat(new Prompt(replyPrompt));
+            return reply == null || reply.isBlank() ? fallbackReply : reply.trim();
+        } catch (Exception e) {
+            log.warn("Image refusal reply generation failed for trigger {}", triggerType, e);
             return fallbackReply;
         }
     }
@@ -299,6 +384,24 @@ public class ChatService {
                 .replace("{character_biography}", characterDescription)
                 .replace("{user_message}", safe(userQuery))
                 .trim();
+    }
+
+    private String buildSafeFallbackImagePrompt(ImageTriggerService.ImageTriggerType triggerType) {
+        if (triggerType == ImageTriggerService.ImageTriggerType.FIRST_PERSON_SNAPSHOT) {
+            return """
+                    Create a safe casual first-person smartphone photo for a friendly AI chat.
+                    Show an ordinary everyday activity in a realistic candid scene.
+                    If a person appears, keep them fully clothed and non-explicit.
+                    No violence, no text, no watermark.
+                    """.trim();
+        }
+
+        return """
+                Create a safe casual realistic image for a friendly AI chat.
+                Show a harmless everyday scene that can be shared in chat.
+                If a person appears, keep them fully clothed and non-explicit.
+                No violence, no text, no watermark.
+                """.trim();
     }
 
     private String buildCharacterDescription(AiContext aiContext) {

@@ -15,6 +15,11 @@ interface ImagePreviewFieldProps {
     url?: string;
     aspectClassName?: string;
     enableAvatarUpload?: boolean;
+    objectPathName?: keyof CharacterFormValues;
+    uploadFolder?: string;
+    uploadButtonLabel?: string;
+    cropTitle?: string;
+    uploadOkText?: string;
 }
 
 type CropState = {
@@ -30,12 +35,12 @@ const AVATAR_PREVIEW_SIZE = 280;
 const MAX_AVATAR_SIZE_BYTES = 8 * 1024 * 1024;
 const INITIAL_CROP: CropState = { zoom: 1, x: 0, y: 0 };
 
-function getRandomAvatarPath() {
+function getRandomImagePath(folder: string) {
     const randomId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-    return `${AVATAR_FOLDER}/${randomId}.jpg`;
+    return `${folder}/${randomId}.jpg`;
 }
 
 function getCropRect(image: HTMLImageElement, crop: CropState) {
@@ -82,6 +87,11 @@ export function ImagePreviewField({
     url,
     aspectClassName = 'aspect-square',
     enableAvatarUpload = false,
+    objectPathName,
+    uploadFolder = AVATAR_FOLDER,
+    uploadButtonLabel = 'Upload & crop',
+    cropTitle = 'Crop avatar',
+    uploadOkText = 'Upload avatar',
 }: ImagePreviewFieldProps) {
     const form = Form.useFormInstance();
     const hasUrl = Boolean(url?.trim());
@@ -131,7 +141,7 @@ export function ImagePreviewField({
         }
 
         if (file.size > MAX_AVATAR_SIZE_BYTES) {
-            setUploadError('Avatar image must be 8 MB or smaller.');
+            setUploadError('Image must be 8 MB or smaller.');
             return Upload.LIST_IGNORE;
         }
 
@@ -157,7 +167,7 @@ export function ImagePreviewField({
             const canvas = document.createElement('canvas');
             drawCrop(imageRef.current, crop, canvas, AVATAR_OUTPUT_SIZE);
             const blob = await canvasToBlob(canvas);
-            const filePath = getRandomAvatarPath();
+            const filePath = getRandomImagePath(uploadFolder);
             const supabase = createSupabaseBrowser();
             const { error } = await supabase.storage
                 .from(AVATAR_BUCKET)
@@ -171,9 +181,12 @@ export function ImagePreviewField({
 
             const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(filePath);
             form.setFieldValue(name, data.publicUrl);
+            if (objectPathName) {
+                form.setFieldValue(objectPathName, filePath);
+            }
             closeCropModal();
         } catch (error) {
-            setUploadError(error instanceof Error ? error.message : 'Failed to upload avatar image.');
+            setUploadError(error instanceof Error ? error.message : 'Failed to upload image.');
         } finally {
             setIsUploading(false);
         }
@@ -195,8 +208,19 @@ export function ImagePreviewField({
             </div>
             <div className="grid min-w-0 gap-3 sm:col-span-1">
                 <Form.Item name={name} label={label} className="!mb-0 min-w-0">
-                    <Input allowClear placeholder={placeholder} />
+                    <Input
+                        allowClear
+                        placeholder={placeholder}
+                        onChange={() => {
+                            if (objectPathName) form.setFieldValue(objectPathName, '');
+                        }}
+                    />
                 </Form.Item>
+                {objectPathName && (
+                    <Form.Item name={objectPathName} hidden>
+                        <Input />
+                    </Form.Item>
+                )}
                 {enableAvatarUpload && (
                     <div className="grid gap-2">
                         <Upload
@@ -205,7 +229,7 @@ export function ImagePreviewField({
                             maxCount={1}
                             showUploadList={false}
                         >
-                            <Button icon={<UploadOutlined />}>Upload & crop</Button>
+                            <Button icon={<UploadOutlined />}>{uploadButtonLabel}</Button>
                         </Upload>
                         <Typography.Text type="secondary" className="text-xs leading-relaxed">
                             JPEG up to 8 MB - stored in Supabase with a random file name.
@@ -225,9 +249,9 @@ export function ImagePreviewField({
             </div>
             {enableAvatarUpload && (
                 <Modal
-                    title="Crop avatar"
+                    title={cropTitle}
                     open={isCropOpen}
-                    okText="Upload avatar"
+                    okText={uploadOkText}
                     confirmLoading={isUploading}
                     onCancel={closeCropModal}
                     onOk={handleUploadCroppedAvatar}

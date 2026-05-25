@@ -1,6 +1,8 @@
 export type CharacterFormValues = {
     aiName: string;
     avatarUrl?: string;
+    appearanceReferenceUrl?: string;
+    appearanceReferenceObjectPath?: string;
     posterUrl?: string;
     visibility: string;
     role?: string;
@@ -23,6 +25,8 @@ export type CharacterFormValues = {
 export type CharacterPayload = {
     aiName: string;
     avatarUrl: string | null;
+    appearanceReferenceUrl: string | null;
+    appearanceReferenceObjectPath: string | null;
     posterUrl: string | null;
     visibility: string;
     role: string | null;

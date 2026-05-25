@@ -57,6 +57,7 @@ export function CharacterEditor({
     onDelete,
 }: CharacterEditorProps) {
     const avatarUrl = Form.useWatch('avatarUrl', form);
+    const appearanceReferenceUrl = Form.useWatch('appearanceReferenceUrl', form);
     const posterUrl = Form.useWatch('posterUrl', form);
     const visibility = Form.useWatch('visibility', form);
 
@@ -115,7 +116,7 @@ export function CharacterEditor({
                     </div>
                 </Section>
 
-                <Section title="Images" description="Avatar appears in chat; poster is optional cover art.">
+                <Section title="Images" description="Avatar appears in chat; appearance reference guides generated photos.">
                     <div className="grid gap-4 xl:grid-cols-2 xl:gap-6">
                         <ImagePreviewField
                             name="avatarUrl"
@@ -123,6 +124,18 @@ export function CharacterEditor({
                             placeholder="https://example.com/avatar.png"
                             url={avatarUrl}
                             enableAvatarUpload
+                        />
+                        <ImagePreviewField
+                            name="appearanceReferenceUrl"
+                            objectPathName="appearanceReferenceObjectPath"
+                            label="Appearance Reference"
+                            placeholder="Upload a clear face reference"
+                            url={appearanceReferenceUrl}
+                            enableAvatarUpload
+                            uploadFolder="ai-appearance-references"
+                            uploadButtonLabel="Upload reference"
+                            cropTitle="Crop appearance reference"
+                            uploadOkText="Upload reference"
                         />
                         <ImagePreviewField
                             name="posterUrl"

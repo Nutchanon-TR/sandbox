@@ -24,6 +24,12 @@ public class AiContext {
     @Column(name = "avatar_url", columnDefinition = "TEXT")
     private String avatarUrl;
 
+    @Column(name = "appearance_reference_url", columnDefinition = "TEXT")
+    private String appearanceReferenceUrl;
+
+    @Column(name = "appearance_reference_object_path", columnDefinition = "TEXT")
+    private String appearanceReferenceObjectPath;
+
     @Column(name = "role", columnDefinition = "TEXT")
     private String role;
 
