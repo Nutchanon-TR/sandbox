@@ -7,9 +7,15 @@ services:
     environment:
       - CORS_ALLOWED_ORIGINS=http://localhost:8088
 
+  frontend:
+    build:
+      args:
+        NEXT_PUBLIC_PERSONA_FEED_DEV_ACTIONS_ENABLED: "true"
+
   chat-service:
     environment:
       - CORS_ALLOWED_ORIGINS=http://localhost:8088
+      - PERSONA_FEED_DEV_ACTIONS_ENABLED=true
 
   bpost-service:
     environment:

@@ -62,6 +62,10 @@ export const API_SANDBOX: Record<string, ApiDetail> = {
         path: `${contextPath}/v1/api/chat-app/persona-feed/personas/{personaId}/follow`,
         method: 'POST',
     },
+    PERSONA_FEED_DEV_PUBLISH_NOW: {
+        path: `${contextPath}/v1/api/chat-app/persona-feed/dev/personas/{personaId}/publish-now`,
+        method: 'POST',
+    },
     USER_SYNC: {
         path: `${userServiceBase}/v1/api/user/sync`,
         method: 'POST',

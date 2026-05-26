@@ -47,4 +47,11 @@ public class PersonaFeedController {
     public ResponseEntity<PersonaFeedFollowResponseDto> follow(@PathVariable Long personaId) {
         return ResponseEntity.ok(personaFeedService.follow(currentUser.requireUserId(), personaId));
     }
+
+    @PostMapping("/dev/personas/{personaId}/publish-now")
+    public ResponseEntity<Void> publishNowForDev(@PathVariable Long personaId) {
+        currentUser.requireUserId();
+        personaFeedService.publishNowForDev(personaId);
+        return ResponseEntity.noContent().build();
+    }
 }

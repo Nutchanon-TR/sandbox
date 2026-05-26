@@ -16,6 +16,7 @@ interface CharacterEditorProps {
     isSaving: boolean;
     onSave: () => void;
     onDelete: () => void;
+    onValuesChange?: () => void;
 }
 
 function Section({
@@ -55,6 +56,7 @@ export function CharacterEditor({
     isSaving,
     onSave,
     onDelete,
+    onValuesChange,
 }: CharacterEditorProps) {
     const avatarUrl = Form.useWatch('avatarUrl', form);
     const appearanceReferenceUrl = Form.useWatch('appearanceReferenceUrl', form);
@@ -92,6 +94,7 @@ export function CharacterEditor({
             <Form
                 form={form}
                 layout="vertical"
+                onValuesChange={onValuesChange}
                 className={`character-studio-form grid divide-y p-4 md:p-6 ${STUDIO_BORDER.main}`}
             >
                 <Section title="Basic information" description="Name and who can discover this character.">
@@ -217,7 +220,7 @@ export function CharacterEditor({
                     </div>
                 </Section>
 
-                <Section title="Image trigger" description="Keywords and templates when the character sends images.">
+                <Section title="Image behavior" description="The model decides when an image is useful; the backend handles the hidden trigger marker.">
                     <div className="grid gap-4">
                         <div className={`flex items-center justify-between gap-4 rounded-xl border bg-surface-hover/50 px-4 py-3 ${STUDIO_BORDER.main}`}>
                             <div className="min-w-0">
@@ -225,23 +228,18 @@ export function CharacterEditor({
                                     Image enabled
                                 </Typography.Text>
                                 <Typography.Paragraph className="!mb-0 !mt-0.5 text-xs" type="secondary">
-                                    Allow automatic image responses in chat.
+                                    Allow the character to attach generated images when the conversation naturally calls for one.
                                 </Typography.Paragraph>
                             </div>
                             <Form.Item name="imageEnabled" valuePropName="checked" className="!mb-0">
                                 <Switch />
                             </Form.Item>
                         </div>
-                        <div className="grid gap-4 lg:grid-cols-2">
-                            <Form.Item name="photoKeywords" label="Photo Keywords" className="!mb-0">
-                                <Input.TextArea rows={3} />
-                            </Form.Item>
-                            <Form.Item name="activityKeywords" label="Activity Keywords" className="!mb-0">
-                                <Input.TextArea rows={3} />
-                            </Form.Item>
-                        </div>
                         <Form.Item name="imagePromptTemplate" label="Image Prompt Template" className="!mb-0">
-                            <Input.TextArea rows={4} placeholder="Optional template" />
+                            <Input.TextArea
+                                rows={4}
+                                placeholder="Optional: guide the image style. Supports {user_message}, {assistant_reply}, {ai_name}, {character_biography}, and {random_activity}."
+                            />
                         </Form.Item>
                     </div>
                 </Section>

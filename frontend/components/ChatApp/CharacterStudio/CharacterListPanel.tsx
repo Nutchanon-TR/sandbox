@@ -1,7 +1,7 @@
 'use client';
 
 import { Avatar, Button, Empty, Skeleton, Tag, Tooltip, Typography } from 'antd';
-import { MessageOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
+import { ExperimentOutlined, MessageOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
 import type { Character } from '@/interface/ChatApp';
 import { formatStatus } from './characterStudioUtils';
 import { STUDIO_BORDER } from './styles';
@@ -11,9 +11,11 @@ interface CharacterListPanelProps {
     selectedId: number | null;
     isLoading: boolean;
     isStartingChat: boolean;
+    devPublishingCharacterId?: number | null;
     onNew: () => void;
     onSelect: (characterId: number) => void;
     onStartChat: (character: Character) => void;
+    onDevPublishNow?: (character: Character) => void;
 }
 
 export function CharacterListPanel({
@@ -21,10 +23,13 @@ export function CharacterListPanel({
     selectedId,
     isLoading,
     isStartingChat,
+    devPublishingCharacterId = null,
     onNew,
     onSelect,
     onStartChat,
+    onDevPublishNow,
 }: CharacterListPanelProps) {
+    const showDevPublish = process.env.NEXT_PUBLIC_PERSONA_FEED_DEV_ACTIONS_ENABLED === 'true' && onDevPublishNow;
     const countLabel = isLoading
         ? 'Loading...'
         : `${characters.length} character${characters.length === 1 ? '' : 's'}`;
@@ -78,6 +83,7 @@ export function CharacterListPanel({
                     <div className="space-y-2">
                         {characters.map((character) => {
                             const isSelected = selectedId === character.id;
+                            const canDevPublish = character.visibility === 'public' && Boolean(character.personaFeedEnabled);
                             return (
                                 <div
                                     key={character.id}
@@ -107,16 +113,31 @@ export function CharacterListPanel({
                                             </Tag>
                                         </div>
                                     </button>
-                                    <Tooltip title="Start chat">
-                                        <Button
-                                            aria-label={`Start chat with ${character.aiName}`}
-                                            type={isSelected ? 'primary' : 'text'}
-                                            shape="circle"
-                                            icon={<MessageOutlined />}
-                                            loading={isSelected && isStartingChat}
-                                            onClick={() => onStartChat(character)}
-                                        />
-                                    </Tooltip>
+                                    <div className="flex shrink-0 items-center gap-1">
+                                        {showDevPublish && (
+                                            <Tooltip title={canDevPublish ? 'Dev post now' : 'Set Public visibility and enable PersonaFeed first'}>
+                                                <Button
+                                                    aria-label={`Dev post for ${character.aiName}`}
+                                                    type="text"
+                                                    shape="circle"
+                                                    icon={<ExperimentOutlined />}
+                                                    disabled={!canDevPublish}
+                                                    loading={devPublishingCharacterId === character.id}
+                                                    onClick={() => onDevPublishNow(character)}
+                                                />
+                                            </Tooltip>
+                                        )}
+                                        <Tooltip title="Start chat">
+                                            <Button
+                                                aria-label={`Start chat with ${character.aiName}`}
+                                                type={isSelected ? 'primary' : 'text'}
+                                                shape="circle"
+                                                icon={<MessageOutlined />}
+                                                loading={isSelected && isStartingChat}
+                                                onClick={() => onStartChat(character)}
+                                            />
+                                        </Tooltip>
+                                    </div>
                                 </div>
                             );
                         })}

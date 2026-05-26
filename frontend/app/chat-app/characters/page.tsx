@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Form, Spin } from 'antd';
 import { useRouter } from 'next/navigation';
 import { TITLE } from '@/constants/Title';
@@ -33,6 +33,10 @@ export default function CharacterStudioPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isStartingChat, setIsStartingChat] = useState(false);
+    const [devPublishingCharacterId, setDevPublishingCharacterId] = useState<number | null>(null);
+    const [, setIsDirty] = useState(false);
+    const [isDraftActive, setIsDraftActive] = useState(false);
+    const isDirtyRef = useRef(false);
 
     const selectedCharacter = useMemo(
         () => characters.find((character) => character.id === selectedId) ?? null,
@@ -41,6 +45,20 @@ export default function CharacterStudioPage() {
 
     useChangeTitle(TITLE.CHAT_APP, 'CHARACTER_STUDIO');
     useChangeSubSideBar(null);
+
+    const setDirtyState = useCallback((nextValue: boolean) => {
+        isDirtyRef.current = nextValue;
+        setIsDirty(nextValue);
+    }, []);
+
+    const confirmDiscardChanges = useCallback(() => {
+        if (!isDirtyRef.current) return true;
+        const shouldLeave = window.confirm('You have unsaved changes. Leave this page?');
+        if (shouldLeave) {
+            setDirtyState(false);
+        }
+        return shouldLeave;
+    }, [setDirtyState]);
 
     const loadCharacters = useCallback(async () => {
         if (currentUserId === null) return;
@@ -51,9 +69,13 @@ export default function CharacterStudioPage() {
             setCharacters(response);
             if (response.length > 0) {
                 setSelectedId((current) => current ?? response[0].id);
+                setIsDraftActive(false);
+                setDirtyState(false);
             } else {
                 setSelectedId(null);
                 form.setFieldsValue(DEFAULT_FORM_VALUES);
+                setIsDraftActive(false);
+                setDirtyState(false);
             }
         } catch (error) {
             notification.error({
@@ -63,20 +85,75 @@ export default function CharacterStudioPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [currentUserId, form, notification]);
+    }, [currentUserId, form, notification, setDirtyState]);
 
     useEffect(() => {
         void loadCharacters();
     }, [loadCharacters]);
 
     useEffect(() => {
-        form.setFieldsValue(selectedCharacter ? characterToFormValues(selectedCharacter) : DEFAULT_FORM_VALUES);
-    }, [form, selectedCharacter]);
+        if (selectedCharacter) {
+            form.setFieldsValue(characterToFormValues(selectedCharacter));
+            setIsDraftActive(false);
+            setDirtyState(false);
+            return;
+        }
+
+        if (!isDraftActive) {
+            form.setFieldsValue(DEFAULT_FORM_VALUES);
+            setDirtyState(false);
+        }
+    }, [form, isDraftActive, selectedCharacter, setDirtyState]);
+
+    useEffect(() => {
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (!isDirtyRef.current) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
+
+        const handleDocumentClick = (event: MouseEvent) => {
+            if (!isDirtyRef.current || event.defaultPrevented || event.button !== 0) return;
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+            const target = event.target as Element | null;
+            const anchor = target?.closest('a[href]') as HTMLAnchorElement | null;
+            if (!anchor) return;
+            if (anchor.target && anchor.target !== '_self') return;
+            if (anchor.hasAttribute('download')) return;
+
+            const nextUrl = new URL(anchor.href, window.location.href);
+            const currentUrl = new URL(window.location.href);
+            if (nextUrl.href === currentUrl.href) return;
+
+            if (!confirmDiscardChanges()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        document.addEventListener('click', handleDocumentClick, true);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            document.removeEventListener('click', handleDocumentClick, true);
+        };
+    }, [confirmDiscardChanges]);
 
     const handleNew = () => {
+        if (!confirmDiscardChanges()) return;
         setSelectedId(null);
         form.resetFields();
         form.setFieldsValue(DEFAULT_FORM_VALUES);
+        setIsDraftActive(true);
+        setDirtyState(true);
+    };
+
+    const handleSelectCharacter = (characterId: number) => {
+        if (characterId === selectedId) return;
+        if (!confirmDiscardChanges()) return;
+        setSelectedId(characterId);
     };
 
     const createRoomForCharacter = useCallback(async (character: Character) => {
@@ -106,11 +183,14 @@ export default function CharacterStudioPage() {
                     { characterId: selectedCharacter.id },
                 );
                 setCharacters((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+                setDirtyState(false);
                 notification.success({ message: 'Saved' });
             } else {
                 const created = await fetchApi<Character>(API_SANDBOX.CHAT_APP_CHARACTER_CREATE, payload);
                 setCharacters((prev) => [created, ...prev]);
                 setSelectedId(created.id);
+                setIsDraftActive(false);
+                setDirtyState(false);
                 try {
                     await createRoomForCharacter(created);
                     notification.success({
@@ -147,6 +227,8 @@ export default function CharacterStudioPage() {
             setCharacters((prev) => prev.filter((item) => item.id !== selectedCharacter.id));
             setSelectedId(null);
             form.setFieldsValue(DEFAULT_FORM_VALUES);
+            setIsDraftActive(false);
+            setDirtyState(false);
             notification.success({ message: 'Deleted' });
         } catch (error) {
             notification.error({
@@ -157,6 +239,7 @@ export default function CharacterStudioPage() {
     };
 
     const handleStartChat = async (character: Character) => {
+        if (!confirmDiscardChanges()) return;
         setSelectedId(character.id);
         setIsStartingChat(true);
         try {
@@ -169,6 +252,28 @@ export default function CharacterStudioPage() {
             });
         } finally {
             setIsStartingChat(false);
+        }
+    };
+
+    const handleDevPublishNow = async (character: Character) => {
+        if (!confirmDiscardChanges()) return;
+        setSelectedId(character.id);
+        setDevPublishingCharacterId(character.id);
+        try {
+            await fetchApi<void>(
+                API_SANDBOX.PERSONA_FEED_DEV_PUBLISH_NOW,
+                {},
+                { personaId: character.id },
+            );
+            notification.success({ message: 'Dev post triggered' });
+            router.push(`/chat-app/persona/${character.id}`);
+        } catch (error) {
+            notification.error({
+                message: 'Error',
+                description: getErrorMessage(error, 'Failed to trigger dev post'),
+            });
+        } finally {
+            setDevPublishingCharacterId(null);
         }
     };
 
@@ -195,9 +300,11 @@ export default function CharacterStudioPage() {
                 selectedId={selectedId}
                 isLoading={isLoading}
                 isStartingChat={isStartingChat}
+                devPublishingCharacterId={devPublishingCharacterId}
                 onNew={handleNew}
-                onSelect={setSelectedId}
+                onSelect={handleSelectCharacter}
                 onStartChat={handleStartChat}
+                onDevPublishNow={handleDevPublishNow}
             />
             <CharacterEditor
                 form={form}
@@ -205,6 +312,10 @@ export default function CharacterStudioPage() {
                 isSaving={isSaving}
                 onSave={handleSave}
                 onDelete={handleDelete}
+                onValuesChange={() => {
+                    if (selectedId === null) setIsDraftActive(true);
+                    setDirtyState(true);
+                }}
             />
         </div>
     );

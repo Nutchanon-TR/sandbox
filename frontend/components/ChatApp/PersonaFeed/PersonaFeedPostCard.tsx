@@ -1,6 +1,6 @@
 'use client';
 
-import { MessageOutlined, UserAddOutlined } from '@ant-design/icons';
+import { ExperimentOutlined, MessageOutlined, UserAddOutlined } from '@ant-design/icons';
 import { Avatar, Button, Image, Typography } from 'antd';
 import Link from 'next/link';
 import type { PersonaFeedPost } from '@/interface/ChatApp';
@@ -11,6 +11,8 @@ interface PersonaFeedPostCardProps {
     following: boolean;
     followingBusy: boolean;
     onFollow: (personaId: number) => void;
+    onDevPublishNow?: (personaId: number) => void;
+    devPublishing?: boolean;
 }
 
 export function PersonaFeedPostCard({
@@ -18,12 +20,16 @@ export function PersonaFeedPostCard({
     following,
     followingBusy,
     onFollow,
+    onDevPublishNow,
+    devPublishing = false,
 }: PersonaFeedPostCardProps) {
+    const showDevPublish = process.env.NEXT_PUBLIC_PERSONA_FEED_DEV_ACTIONS_ENABLED === 'true' && onDevPublishNow;
+
     return (
         <article className="overflow-hidden rounded-lg border border-slate-200 bg-surface shadow-sm dark:border-border-main">
             <div className="flex items-start justify-between gap-4 p-4 md:p-5">
                 <Link
-                    href={`/chat-app/social/${post.persona.id}`}
+                    href={`/chat-app/persona/${post.persona.id}`}
                     className="flex min-w-0 items-center gap-3 text-inherit"
                 >
                     <Avatar src={post.persona.avatarUrl ?? undefined} size={44}>
@@ -43,14 +49,26 @@ export function PersonaFeedPostCard({
                     </div>
                 </Link>
 
-                <Button
-                    type={following ? 'default' : 'primary'}
-                    icon={following ? <MessageOutlined /> : <UserAddOutlined />}
-                    loading={followingBusy}
-                    onClick={() => onFollow(post.persona.id)}
-                >
-                    {following ? 'Open chat' : 'Add'}
-                </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                    {showDevPublish && (
+                        <Button
+                            type="dashed"
+                            icon={<ExperimentOutlined />}
+                            loading={devPublishing}
+                            onClick={() => onDevPublishNow(post.persona.id)}
+                        >
+                            Dev post
+                        </Button>
+                    )}
+                    <Button
+                        type={following ? 'default' : 'primary'}
+                        icon={following ? <MessageOutlined /> : <UserAddOutlined />}
+                        loading={followingBusy}
+                        onClick={() => onFollow(post.persona.id)}
+                    >
+                        {following ? 'Open chat' : 'Add'}
+                    </Button>
+                </div>
             </div>
 
             <div className="px-4 pb-4 md:px-5 md:pb-5">

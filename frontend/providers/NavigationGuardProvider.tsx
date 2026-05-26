@@ -27,7 +27,7 @@ export function NavigationGuardProvider({ children }: { children: React.ReactNod
     if (status === 'loading') return;
 
     const validPaths = getValidPaths();
-    const isPathValid = validPaths.includes(pathname);
+    const isPathValid = validPaths.includes(pathname) || isDynamicPathValid(pathname);
     const isAuthenticated = status === 'authenticated';
 
     if (pathname === '/login') {
@@ -83,4 +83,14 @@ const getValidPaths = (): string[] => {
 
   extractPaths(TITLE);
   return paths;
+};
+
+const isDynamicPathValid = (pathname: string): boolean => {
+  const dynamicPathPrefixes = [
+    '/b-post/profile/',
+    '/chat-app/persona/',
+    '/chat-app/social/',
+  ];
+
+  return dynamicPathPrefixes.some((prefix) => pathname.startsWith(prefix));
 };

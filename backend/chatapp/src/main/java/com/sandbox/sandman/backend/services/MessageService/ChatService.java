@@ -1,10 +1,10 @@
 package com.sandbox.sandman.backend.services.MessageService;
 
+import com.sandbox.sandman.backend.model.dto.MessageDto.ChatAttachmentDto;
 import com.sandbox.sandman.backend.model.dto.MessageDto.ChatDto;
 import com.sandbox.sandman.backend.model.dto.MessageDto.ChatHistoryResponse;
 import com.sandbox.sandman.backend.model.dto.MessageDto.ChatRequestDto;
 import com.sandbox.sandman.backend.model.dto.MessageDto.ChatResponseDto;
-import com.sandbox.sandman.backend.model.dto.MessageDto.ChatAttachmentDto;
 import com.sandbox.sandman.backend.model.entity.MessageEntity.AiContext;
 import com.sandbox.sandman.backend.model.entity.MessageEntity.Chat;
 import com.sandbox.sandman.backend.model.entity.MessageEntity.ChatAttachment;
@@ -22,6 +22,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,12 +35,21 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
-import org.springframework.data.domain.PageRequest;
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ChatService {
+
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int VECTOR_SEARCH_LIMIT = 5;
+    private static final String GLOBAL_CONVERSATION_STYLE_INSTRUCTION = """
+            Conversation style rules for every character:
+            1. Language Match: Always respond in the exact same language the user uses.
+            2. Length Constraint 1: For standard requests, reply in 1-2 short sentences maximum.
+            3. Length Constraint 2: If the user's input is short, reply with exactly 2-5 words.
+            Keep the character's personality, but never ignore these length and language rules.
+            These rules apply to visible reply text; backend control markers do not count as visible words.
+            """;
 
     private static final List<String> SNAPSHOT_ACTIVITIES = List.of(
             "reading a book",
@@ -63,9 +73,6 @@ public class ChatService {
     private final ImageTriggerService imageTriggerService;
     private final CloudflareImageService cloudflareImageService;
     private final SupabaseStorageService supabaseStorageService;
-
-    private static final int DEFAULT_PAGE_SIZE = 20;
-    private static final int VECTOR_SEARCH_LIMIT = 5;
 
     @Transactional(readOnly = true)
     public ChatHistoryResponse getChatHistoryByRoom(Long callerId, Long roomId, Long beforeId, int limit) {
@@ -104,11 +111,11 @@ public class ChatService {
         if (reqRoomId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Room ID is required");
         }
+
         Room room = roomRepository.findById(reqRoomId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found"));
         verifyRoomOwner(room, callerId);
 
-        // callerId is server-derived from JWT (CurrentUser); never trust request body for identity.
         User user = userRepository.findById(callerId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sender not found"));
 
@@ -118,20 +125,15 @@ public class ChatService {
         userChat.setIsAi(false);
         userChat.setContent(request.getMessage());
         chatRepository.save(userChat);
-
         embeddingService.embedAndSave(userChat);
 
         Long aiId = roomMemberRepository.findAiIdByRoomId(room.getId());
         if (aiId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "AI context not configured for this room");
         }
+
         AiContext aiContext = aiContextRepository.findById(aiId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "AI context not configured for this room"));
-
-        ImageTriggerService.ImageTriggerDecision imageDecision = imageTriggerService.detect(request.getMessage(), aiContext);
-        if (imageDecision.shouldGenerateImage()) {
-            return generateImageReply(room, aiContext, request.getMessage(), imageDecision);
-        }
 
         return callAiAndSaveReply(room, aiContext, request.getMessage());
     }
@@ -140,6 +142,8 @@ public class ChatService {
         List<org.springframework.ai.chat.messages.Message> aiPromptMessages = new ArrayList<>();
 
         aiPromptMessages.add(new SystemMessage(aiContext.buildSystemPrompt()));
+        aiPromptMessages.add(new SystemMessage(GLOBAL_CONVERSATION_STYLE_INSTRUCTION));
+        aiPromptMessages.add(new SystemMessage(buildImageTriggerSystemInstruction(aiContext)));
 
         List<Long> similarIds = embeddingService.searchSimilarMessages(userQuery, room.getId(), VECTOR_SEARCH_LIMIT);
         if (!similarIds.isEmpty()) {
@@ -149,15 +153,17 @@ public class ChatService {
                 String senderLabel = Boolean.TRUE.equals(msg.getIsAi())
                         ? aiContext.getAiName()
                         : (msg.getSender() != null ? msg.getSender().getDisplayName() : "Unknown");
-                contextBuilder.append("- ").append(senderLabel)
-                        .append(": ").append(msg.getContent()).append("\n");
+                contextBuilder.append("- ")
+                        .append(senderLabel)
+                        .append(": ")
+                        .append(msg.getContent())
+                        .append("\n");
             }
             aiPromptMessages.add(new SystemMessage(contextBuilder.toString()));
         }
 
         List<Chat> history = chatRepository.findTopNByRoomId(room.getId(), PageRequest.of(0, DEFAULT_PAGE_SIZE));
         Collections.reverse(history);
-
         for (Chat msg : history) {
             if (Boolean.TRUE.equals(msg.getIsAi())) {
                 aiPromptMessages.add(new AssistantMessage(msg.getContent()));
@@ -166,28 +172,48 @@ public class ChatService {
             }
         }
 
-        Prompt prompt = new Prompt(aiPromptMessages);
-        String aiReply = groqAiClient.chat(prompt);
+        String aiReply = groqAiClient.chat(new Prompt(aiPromptMessages));
+        ImageTriggerService.ImageTriggerResult imageResult = imageTriggerService.parseModelReply(aiReply, aiContext);
+        String visibleReply = imageResult.reply().isBlank()
+                ? "I am here, but I could not form a proper reply just now."
+                : imageResult.reply();
 
-        Chat aiChatEntity = saveAiChat(room, aiReply);
+        if (imageResult.decision().shouldGenerateImage()) {
+            return generateImageReply(room, aiContext, userQuery, visibleReply, imageResult.decision());
+        }
 
+        Chat aiChatEntity = saveAiChat(room, visibleReply);
         embeddingService.embedAndSave(aiChatEntity);
 
-        return new ChatResponseDto(aiReply, List.of());
+        return new ChatResponseDto(visibleReply, List.of());
+    }
+
+    private String buildImageTriggerSystemInstruction(AiContext aiContext) {
+        if (aiContext == null || !Boolean.TRUE.equals(aiContext.getImageEnabled())) {
+            return """
+                    Image attachments are disabled for this character.
+                    Do not append image control markers to your reply.
+                    """;
+        }
+
+        return """
+                You can request one generated image attachment when it is genuinely appropriate for the user's message.
+                Use an image only when the user explicitly asks for a photo, image, picture, view, snapshot, visual, or something similar.
+                If an image should be attached, write the normal visible chat reply first, then append the exact marker </image> at the very end.
+                The marker is a backend control token. Do not explain it, quote it, translate it, or place anything after it.
+                If the reply should be text-only, do not include the marker.
+                """;
     }
 
     private ChatResponseDto generateImageReply(
             Room room,
             AiContext aiContext,
             String userQuery,
+            String visibleReply,
             ImageTriggerService.ImageTriggerDecision imageDecision) {
-        String prompt = buildImagePrompt(aiContext, userQuery, imageDecision.type());
-        String fallbackSuccessReply = imageDecision.type() == ImageTriggerService.ImageTriggerType.FIRST_PERSON_SNAPSHOT
-                ? "ถ่ายมาให้ดูแล้วนะ"
-                : "สร้างรูปให้แล้วนะ";
+        String generatedPrompt = buildImagePrompt(aiContext, userQuery, visibleReply);
 
         try {
-            String generatedPrompt = prompt;
             CloudflareImageService.GeneratedImage image;
             try {
                 image = generateCharacterImage(aiContext, generatedPrompt);
@@ -198,15 +224,9 @@ public class ChatService {
                 image = generateCharacterImage(aiContext, generatedPrompt);
             }
 
-            SupabaseStorageService.UploadResult upload = supabaseStorageService.uploadGeneratedImage(image.bytes(), image.mimeType());
-            String successReply = generateImageAwareReply(
-                    aiContext,
-                    userQuery,
-                    generatedPrompt,
-                    imageDecision.type(),
-                    fallbackSuccessReply
-            );
-            Chat aiChat = saveAiChat(room, successReply);
+            SupabaseStorageService.UploadResult upload =
+                    supabaseStorageService.uploadGeneratedImage(image.bytes(), image.mimeType());
+            Chat aiChat = saveAiChat(room, visibleReply);
             embeddingService.embedAndSave(aiChat);
 
             ChatAttachment attachment = new ChatAttachment();
@@ -221,22 +241,22 @@ public class ChatService {
                     """.formatted(imageDecision.type().name(), upload.objectPath(), image.model()).trim());
             ChatAttachment savedAttachment = chatAttachmentRepository.save(attachment);
 
-            return new ChatResponseDto(successReply, List.of(convertAttachmentToDto(savedAttachment)));
+            return new ChatResponseDto(visibleReply, List.of(convertAttachmentToDto(savedAttachment)));
         } catch (Exception e) {
-            String fallbackReply;
+            String fallbackReply = generateImageRefusalReply(
+                    aiContext,
+                    userQuery,
+                    imageDecision.type(),
+                    "I will skip the photo this time."
+            );
+
             if (e instanceof CloudflareImageService.PromptSafetyRejectedException) {
                 log.warn("Cloudflare rejected both image prompts for room {} and trigger {}",
                         room.getId(), imageDecision.type());
-                fallbackReply = generateImageRefusalReply(
-                        aiContext,
-                        userQuery,
-                        imageDecision.type(),
-                        "ไม่ถ่ายให้หรอกนะ"
-                );
             } else {
                 log.warn("Image generation failed for room {} and trigger {}", room.getId(), imageDecision.type(), e);
-                fallbackReply = "ตอนนี้ยังสร้างรูปไม่ได้ แต่คุยต่อได้ปกตินะ";
             }
+
             Chat aiChat = saveAiChat(room, fallbackReply);
             embeddingService.embedAndSave(aiChat);
             return new ChatResponseDto(fallbackReply, List.of());
@@ -274,42 +294,6 @@ public class ChatService {
                 """.formatted(safe(aiContext.getAiName()), safe(imagePrompt)).trim();
     }
 
-    private String generateImageAwareReply(
-            AiContext aiContext,
-            String userQuery,
-            String imagePrompt,
-            ImageTriggerService.ImageTriggerType triggerType,
-            String fallbackReply) {
-        try {
-            List<org.springframework.ai.chat.messages.Message> replyPrompt = new ArrayList<>();
-            replyPrompt.add(new SystemMessage(aiContext.buildSystemPrompt()));
-            replyPrompt.add(new SystemMessage("""
-                    You are sending the user a generated image attachment with this reply.
-                    Write the chat reply in character and answer the user's request naturally.
-                    Use the generated image description as the source of truth for what the image shows.
-                    Keep the reply consistent with the image, the user's question, and the character.
-                    Do not mention hidden prompts, providers, model names, or that you cannot inspect the attachment.
-                    Keep the reply concise unless the user's question needs a longer answer.
-                    """));
-            replyPrompt.add(new UserMessage("""
-                    User message:
-                    %s
-
-                    Image trigger:
-                    %s
-
-                    Generated image description:
-                    %s
-                    """.formatted(safe(userQuery), triggerType.name(), safe(imagePrompt))));
-
-            String reply = groqAiClient.chat(new Prompt(replyPrompt));
-            return reply == null || reply.isBlank() ? fallbackReply : reply.trim();
-        } catch (Exception e) {
-            log.warn("Image reply text generation failed for trigger {}", triggerType, e);
-            return fallbackReply;
-        }
-    }
-
     private String generateImageRefusalReply(
             AiContext aiContext,
             String userQuery,
@@ -318,6 +302,7 @@ public class ChatService {
         try {
             List<org.springframework.ai.chat.messages.Message> replyPrompt = new ArrayList<>();
             replyPrompt.add(new SystemMessage(aiContext.buildSystemPrompt()));
+            replyPrompt.add(new SystemMessage(GLOBAL_CONVERSATION_STYLE_INSTRUCTION));
             replyPrompt.add(new SystemMessage("""
                     The user asked you to send an image, but you will not send an image for this request.
                     Reply directly to the user in character with a natural refusal.
@@ -351,29 +336,24 @@ public class ChatService {
         return chatRepository.save(aiChatEntity);
     }
 
-    private String buildImagePrompt(
-            AiContext aiContext,
-            String userQuery,
-            ImageTriggerService.ImageTriggerType triggerType) {
+    private String buildImagePrompt(AiContext aiContext, String userQuery, String assistantReply) {
         String activity = SNAPSHOT_ACTIVITIES.get(ThreadLocalRandom.current().nextInt(SNAPSHOT_ACTIVITIES.size()));
         String characterDescription = buildCharacterDescription(aiContext);
 
         String template = aiContext.getImagePromptTemplate();
         if (template == null || template.isBlank()) {
-            if (triggerType == ImageTriggerService.ImageTriggerType.FIRST_PERSON_SNAPSHOT) {
-                template = """
-                        First-person smartphone photo from the perspective of {ai_name}.
-                        They are currently {random_activity}.
-                        Style and personality: {character_biography}.
-                        Natural candid photo, realistic, casual, no text, no watermark.
-                        """;
-            } else {
-                template = """
-                        Create a realistic image requested by the user: {user_message}.
-                        The image should fit the style and personality of {ai_name}: {character_biography}.
-                        Natural, polished, no text, no watermark.
-                        """;
-            }
+            template = """
+                    Create one safe, realistic image attachment for this chat.
+                    User request: {user_message}
+                    Assistant reply that will be shown with the image: {assistant_reply}
+                    Character: {ai_name}
+                    Style and personality: {character_biography}
+                    If the user asks for the character's current activity, surroundings, point of view, or casual photo,
+                    make it a first-person smartphone-style candid photo from {ai_name}'s perspective.
+                    Suggested current activity if needed: {random_activity}.
+                    If the user asks for another visual subject, show that subject clearly instead.
+                    Natural, polished, non-explicit, no text, no watermark.
+                    """;
         }
 
         return template
@@ -383,19 +363,11 @@ public class ChatService {
                 .replace("{biography}", safe(aiContext.getBiography()))
                 .replace("{character_biography}", characterDescription)
                 .replace("{user_message}", safe(userQuery))
+                .replace("{assistant_reply}", safe(assistantReply))
                 .trim();
     }
 
     private String buildSafeFallbackImagePrompt(ImageTriggerService.ImageTriggerType triggerType) {
-        if (triggerType == ImageTriggerService.ImageTriggerType.FIRST_PERSON_SNAPSHOT) {
-            return """
-                    Create a safe casual first-person smartphone photo for a friendly AI chat.
-                    Show an ordinary everyday activity in a realistic candid scene.
-                    If a person appears, keep them fully clothed and non-explicit.
-                    No violence, no text, no watermark.
-                    """.trim();
-        }
-
         return """
                 Create a safe casual realistic image for a friendly AI chat.
                 Show a harmless everyday scene that can be shared in chat.

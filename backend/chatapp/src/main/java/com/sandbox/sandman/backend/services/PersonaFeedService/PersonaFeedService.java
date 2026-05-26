@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,9 @@ public class PersonaFeedService {
     private final RoomService roomService;
     private final GroqAiClient groqAiClient;
     private final PersonaFeedScheduleService scheduleService;
+
+    @Value("${app.persona-feed.dev-actions-enabled:false}")
+    private boolean devActionsEnabled;
 
     public CursorPageDto<PersonaFeedPostDto> feed(Long userId, Long beforeId, int limit) {
         int safeLimit = safeLimit(limit);
@@ -102,6 +106,15 @@ public class PersonaFeedService {
 
         persona.setPersonaFeedNextPostAt(scheduleService.nextPostAt(persona, now));
         aiContextRepository.save(persona);
+    }
+
+    @Transactional
+    public void publishNowForDev(Long personaId) {
+        if (!devActionsEnabled) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "PersonaFeed dev actions are disabled");
+        }
+        requireVisiblePersona(personaId);
+        publishClaimedPersona(personaId);
     }
 
     public ZonedDateTime scheduleNextPost(AiContext persona, ZonedDateTime anchor) {
