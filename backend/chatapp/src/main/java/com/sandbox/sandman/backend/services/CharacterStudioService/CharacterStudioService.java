@@ -62,7 +62,13 @@ public class CharacterStudioService {
         aiContext.setAppearanceReferenceObjectPath(blankToNull(request.getAppearanceReferenceObjectPath()));
         aiContext.setRole(blankToNull(request.getRole()));
         aiContext.setCharacter(blankToNull(request.getCharacter()));
+        aiContext.setPersonalityTraits(normalizeJson(request.getPersonalityTraits(), "[]"));
         aiContext.setBiography(blankToNull(request.getBiography()));
+        aiContext.setSpeechStyle(blankToNull(request.getSpeechStyle()));
+        aiContext.setRelationshipContext(blankToNull(request.getRelationshipContext()));
+        aiContext.setMemoryNotes(blankToNull(request.getMemoryNotes()));
+        aiContext.setResponseBoundaries(blankToNull(request.getResponseBoundaries()));
+        aiContext.setSystemContext(blankToNull(request.getSystemContext()));
         aiContext.setRule(blankToNull(request.getRule()));
         aiContext.setPosterUrl(blankToNull(request.getPosterUrl()));
         aiContext.setVisibility(normalizeVisibility(request.getVisibility()));
@@ -92,7 +98,19 @@ public class CharacterStudioService {
         }
         if (request.getRole() != null) aiContext.setRole(blankToNull(request.getRole()));
         if (request.getCharacter() != null) aiContext.setCharacter(blankToNull(request.getCharacter()));
+        if (request.getPersonalityTraits() != null) {
+            aiContext.setPersonalityTraits(normalizeJson(request.getPersonalityTraits(), "[]"));
+        }
         if (request.getBiography() != null) aiContext.setBiography(blankToNull(request.getBiography()));
+        if (request.getSpeechStyle() != null) aiContext.setSpeechStyle(blankToNull(request.getSpeechStyle()));
+        if (request.getRelationshipContext() != null) {
+            aiContext.setRelationshipContext(blankToNull(request.getRelationshipContext()));
+        }
+        if (request.getMemoryNotes() != null) aiContext.setMemoryNotes(blankToNull(request.getMemoryNotes()));
+        if (request.getResponseBoundaries() != null) {
+            aiContext.setResponseBoundaries(blankToNull(request.getResponseBoundaries()));
+        }
+        if (request.getSystemContext() != null) aiContext.setSystemContext(blankToNull(request.getSystemContext()));
         if (request.getRule() != null) aiContext.setRule(blankToNull(request.getRule()));
         if (request.getPosterUrl() != null) aiContext.setPosterUrl(blankToNull(request.getPosterUrl()));
         if (request.getVisibility() != null) aiContext.setVisibility(normalizeVisibility(request.getVisibility()));
@@ -103,14 +121,6 @@ public class CharacterStudioService {
         }
         if (request.getImagePromptTemplate() != null) {
             aiContext.setImagePromptTemplate(blankToNull(request.getImagePromptTemplate()));
-        }
-        if (request.getFineTuneStatus() != null) {
-            aiContext.setFineTuneStatus(blankToNull(request.getFineTuneStatus()) == null
-                    ? "not_started"
-                    : request.getFineTuneStatus().trim());
-        }
-        if (request.getFineTunedModelId() != null) {
-            aiContext.setFineTunedModelId(blankToNull(request.getFineTunedModelId()));
         }
         applyPersonaFeedUpdate(aiContext, request);
 
@@ -140,7 +150,13 @@ public class CharacterStudioService {
                 aiContext.getAppearanceReferenceObjectPath(),
                 aiContext.getRole(),
                 aiContext.getCharacter(),
+                aiContext.getPersonalityTraits(),
                 aiContext.getBiography(),
+                aiContext.getSpeechStyle(),
+                aiContext.getRelationshipContext(),
+                aiContext.getMemoryNotes(),
+                aiContext.getResponseBoundaries(),
+                aiContext.getSystemContext(),
                 aiContext.getRule(),
                 aiContext.getPosterUrl(),
                 aiContext.getVisibility(),

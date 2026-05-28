@@ -3,7 +3,7 @@
 import { Avatar, Button, Empty, Skeleton, Tag, Tooltip, Typography } from 'antd';
 import { ExperimentOutlined, MessageOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
 import type { Character } from '@/interface/ChatApp';
-import { formatStatus } from './characterStudioUtils';
+import { formatVisibilityLabel } from './characterStudioUtils';
 import { STUDIO_BORDER } from './styles';
 
 interface CharacterListPanelProps {
@@ -109,7 +109,7 @@ export function CharacterListPanel({
                                                 {character.aiName}
                                             </span>
                                             <Tag className="!mt-1.5 !mr-0 rounded-full text-xs">
-                                                {formatStatus(character.fineTuneStatus)}
+                                                {formatVisibilityLabel(character.visibility)}
                                             </Tag>
                                         </div>
                                     </button>

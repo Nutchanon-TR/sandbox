@@ -56,7 +56,13 @@ export interface Character {
     appearanceReferenceObjectPath?: string | null;
     role?: string | null;
     character?: string | null;
+    personalityTraits?: string | null;
     biography?: string | null;
+    speechStyle?: string | null;
+    relationshipContext?: string | null;
+    memoryNotes?: string | null;
+    responseBoundaries?: string | null;
+    systemContext?: string | null;
     rule?: string | null;
     posterUrl?: string | null;
     visibility?: string | null;

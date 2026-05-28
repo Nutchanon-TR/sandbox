@@ -16,7 +16,13 @@ public class CharacterDto {
     private String appearanceReferenceObjectPath;
     private String role;
     private String character;
+    private String personalityTraits;
     private String biography;
+    private String speechStyle;
+    private String relationshipContext;
+    private String memoryNotes;
+    private String responseBoundaries;
+    private String systemContext;
     private String rule;
     private String posterUrl;
     private String visibility;

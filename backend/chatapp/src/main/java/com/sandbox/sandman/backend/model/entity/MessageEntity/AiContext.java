@@ -37,8 +37,27 @@ public class AiContext {
     @Column(name = "`character`", columnDefinition = "TEXT")
     private String character;
 
+    @ColumnTransformer(write = "?::jsonb")
+    @Column(name = "personality_traits", columnDefinition = "jsonb", nullable = false)
+    private String personalityTraits = "[]";
+
     @Column(name = "biography", columnDefinition = "TEXT")
     private String biography;
+
+    @Column(name = "speech_style", columnDefinition = "TEXT")
+    private String speechStyle;
+
+    @Column(name = "relationship_context", columnDefinition = "TEXT")
+    private String relationshipContext;
+
+    @Column(name = "memory_notes", columnDefinition = "TEXT")
+    private String memoryNotes;
+
+    @Column(name = "response_boundaries", columnDefinition = "TEXT")
+    private String responseBoundaries;
+
+    @Column(name = "system_context", columnDefinition = "TEXT")
+    private String systemContext;
 
     @Column(name = "rule", columnDefinition = "TEXT")
     private String rule;
@@ -104,12 +123,23 @@ public class AiContext {
 
     public String buildSystemPrompt() {
         StringBuilder sb = new StringBuilder();
+        appendSection(sb, "IDENTITY", buildIdentityPrompt());
         appendSection(sb, "ROLE", role);
-        appendSection(sb, "CHARACTER", character);
+        appendSection(sb, "CHARACTER AND PERSONALITY", character);
+        appendSection(sb, "PERSONALITY TRAITS", normalizeJsonText(personalityTraits));
         appendSection(sb, "BIOGRAPHY", biography);
-        appendSection(sb, "RULE", rule);
+        appendSection(sb, "RELATIONSHIP CONTEXT", relationshipContext);
+        appendSection(sb, "MEMORY NOTES", memoryNotes);
+        appendSection(sb, "SPEECH STYLE", speechStyle);
+        appendSection(sb, "RESPONSE BOUNDARIES AND RULES", combineSections(responseBoundaries, rule));
         appendSection(sb, "STYLE EXAMPLES", normalizeJsonText(styleExamples));
+        appendSection(sb, "ADVANCED SYSTEM CONTEXT", systemContext);
         return sb.toString().trim();
+    }
+
+    private String buildIdentityPrompt() {
+        String name = aiName == null || aiName.isBlank() ? "AI Assistant" : aiName.trim();
+        return "You are %s. Stay in character as %s throughout the conversation.".formatted(name, name);
     }
 
     private static void appendSection(StringBuilder sb, String label, String value) {
@@ -119,7 +149,22 @@ public class AiContext {
     }
 
     private static String normalizeJsonText(String value) {
-        if (value == null || value.isBlank() || "[]".equals(value.trim())) return null;
-        return value;
+        if (value == null || value.isBlank()) return null;
+        String trimmed = value.trim();
+        if ("[]".equals(trimmed.replaceAll("\\s+", ""))) return null;
+        return trimmed;
+    }
+
+    private static String combineSections(String first, String second) {
+        StringBuilder sb = new StringBuilder();
+        appendInline(sb, first);
+        appendInline(sb, second);
+        return sb.length() == 0 ? null : sb.toString();
+    }
+
+    private static void appendInline(StringBuilder sb, String value) {
+        if (value == null || value.isBlank()) return;
+        if (sb.length() > 0) sb.append("\n\n");
+        sb.append(value.trim());
     }
 }

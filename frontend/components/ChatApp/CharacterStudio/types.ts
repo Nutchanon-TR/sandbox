@@ -7,7 +7,13 @@ export type CharacterFormValues = {
     visibility: string;
     role?: string;
     character?: string;
+    personalityTraits?: string;
     biography?: string;
+    speechStyle?: string;
+    relationshipContext?: string;
+    memoryNotes?: string;
+    responseBoundaries?: string;
+    systemContext?: string;
     rule?: string;
     styleExamples?: string;
     imageEnabled: boolean;
@@ -31,7 +37,13 @@ export type CharacterPayload = {
     visibility: string;
     role: string | null;
     character: string | null;
+    personalityTraits: string;
     biography: string | null;
+    speechStyle: string | null;
+    relationshipContext: string | null;
+    memoryNotes: string | null;
+    responseBoundaries: string | null;
+    systemContext: string | null;
     rule: string | null;
     styleExamples: string;
     imageEnabled: boolean;

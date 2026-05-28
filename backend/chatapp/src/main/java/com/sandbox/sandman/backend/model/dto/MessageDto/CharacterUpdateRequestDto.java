@@ -10,7 +10,13 @@ public class CharacterUpdateRequestDto {
     private String appearanceReferenceObjectPath;
     private String role;
     private String character;
+    private String personalityTraits;
     private String biography;
+    private String speechStyle;
+    private String relationshipContext;
+    private String memoryNotes;
+    private String responseBoundaries;
+    private String systemContext;
     private String rule;
     private String posterUrl;
     private String visibility;
@@ -18,8 +24,6 @@ public class CharacterUpdateRequestDto {
     private Boolean imageEnabled;
     private String imageTriggerRules;
     private String imagePromptTemplate;
-    private String fineTuneStatus;
-    private String fineTunedModelId;
     private Boolean personaFeedEnabled;
     private Integer personaFeedMinIntervalHours;
     private Integer personaFeedMaxIntervalHours;

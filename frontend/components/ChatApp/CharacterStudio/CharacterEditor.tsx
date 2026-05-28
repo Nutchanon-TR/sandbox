@@ -6,7 +6,7 @@ import type { FormInstance } from 'antd';
 import type { ReactNode } from 'react';
 import type { Character } from '@/interface/ChatApp';
 import type { CharacterFormValues } from './types';
-import { formatStatus } from './characterStudioUtils';
+import { buildCompiledPromptPreview, formatVisibilityLabel } from './characterStudioUtils';
 import { ImagePreviewField } from './ImagePreviewField';
 import { STUDIO_BORDER } from './styles';
 
@@ -45,10 +45,17 @@ function Section({
     );
 }
 
-function formatVisibilityLabel(visibility: CharacterFormValues['visibility'] | undefined) {
-    if (!visibility) return 'Private';
-    return visibility.charAt(0).toUpperCase() + visibility.slice(1);
-}
+const JSON_FIELD_RULE = {
+    validator: (_: unknown, value?: string) => {
+        if (!value?.trim()) return Promise.resolve();
+        try {
+            JSON.parse(value);
+            return Promise.resolve();
+        } catch {
+            return Promise.reject(new Error('Must be valid JSON'));
+        }
+    },
+};
 
 export function CharacterEditor({
     form,
@@ -62,9 +69,36 @@ export function CharacterEditor({
     const appearanceReferenceUrl = Form.useWatch('appearanceReferenceUrl', form);
     const posterUrl = Form.useWatch('posterUrl', form);
     const visibility = Form.useWatch('visibility', form);
+    const aiName = Form.useWatch('aiName', form);
+    const role = Form.useWatch('role', form);
+    const character = Form.useWatch('character', form);
+    const personalityTraits = Form.useWatch('personalityTraits', form);
+    const biography = Form.useWatch('biography', form);
+    const speechStyle = Form.useWatch('speechStyle', form);
+    const relationshipContext = Form.useWatch('relationshipContext', form);
+    const memoryNotes = Form.useWatch('memoryNotes', form);
+    const responseBoundaries = Form.useWatch('responseBoundaries', form);
+    const systemContext = Form.useWatch('systemContext', form);
+    const rule = Form.useWatch('rule', form);
+    const styleExamples = Form.useWatch('styleExamples', form);
+
+    const compiledPromptPreview = buildCompiledPromptPreview({
+        aiName,
+        role,
+        character,
+        personalityTraits,
+        biography,
+        speechStyle,
+        relationshipContext,
+        memoryNotes,
+        responseBoundaries,
+        systemContext,
+        rule,
+        styleExamples,
+    });
 
     const editorSubtitle = selectedCharacter
-        ? `${formatVisibilityLabel(visibility ?? selectedCharacter.visibility)} - ${formatStatus(selectedCharacter.fineTuneStatus)}`
+        ? formatVisibilityLabel(visibility ?? selectedCharacter.visibility)
         : 'Unsaved draft';
 
     return (
@@ -164,9 +198,46 @@ export function CharacterEditor({
                         <Form.Item name="rule" label="Rules" className="!mb-0">
                             <Input.TextArea rows={5} placeholder="Behavior rules" />
                         </Form.Item>
-                        <Form.Item name="styleExamples" label="Style Examples" className="!mb-0">
+                        <Form.Item name="styleExamples" label="Style Examples" rules={[JSON_FIELD_RULE]} className="!mb-0">
                             <Input.TextArea rows={4} placeholder="[]" />
                         </Form.Item>
+                    </div>
+                </Section>
+
+                <Section title="System Context" description="Detailed prompt context injected for this character before chat history.">
+                    <div className="grid gap-4">
+                        <Form.Item name="personalityTraits" label="Personality Traits" rules={[JSON_FIELD_RULE]} className="!mb-0">
+                            <Input.TextArea
+                                rows={4}
+                                placeholder={'["calm", "playful", "direct"]'}
+                            />
+                        </Form.Item>
+                        <Form.Item name="speechStyle" label="Speech Style" className="!mb-0">
+                            <Input.TextArea rows={4} placeholder="Tone, wording, catchphrases, reply length, and language habits." />
+                        </Form.Item>
+                        <Form.Item name="relationshipContext" label="Relationship Context" className="!mb-0">
+                            <Input.TextArea rows={4} placeholder="How this character knows or relates to the user." />
+                        </Form.Item>
+                        <Form.Item name="memoryNotes" label="Memory Notes" className="!mb-0">
+                            <Input.TextArea rows={5} placeholder="Important stable facts this character should remember." />
+                        </Form.Item>
+                        <Form.Item name="responseBoundaries" label="Response Boundaries" className="!mb-0">
+                            <Input.TextArea rows={4} placeholder="Topics, tone, or behaviors this character should avoid." />
+                        </Form.Item>
+                        <Form.Item name="systemContext" label="Advanced System Context" className="!mb-0">
+                            <Input.TextArea rows={6} placeholder="Optional advanced instructions. This is added after structured fields." />
+                        </Form.Item>
+                        <div className={`rounded-xl border bg-surface-hover/40 p-4 ${STUDIO_BORDER.main}`}>
+                            <Typography.Text strong className="text-sm">
+                                Compiled Prompt Preview
+                            </Typography.Text>
+                            <Input.TextArea
+                                className="!mt-3 font-mono text-xs"
+                                value={compiledPromptPreview}
+                                autoSize={{ minRows: 10, maxRows: 18 }}
+                                readOnly
+                            />
+                        </div>
                     </div>
                 </Section>
 
