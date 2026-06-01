@@ -120,4 +120,21 @@ export const API_SANDBOX: Record<string, ApiDetail> = {
 
     // ── B-Post: Presence ──
     B_POST_PRESENCE_ONLINE: { path: `${contextPath}/v1/api/b-post/presence/online`, method: 'GET' },
+
+    // JOBJAB
+    JOBJAB_PROFILE: { path: `${contextPath}/v1/api/jobjab/profile`, method: 'GET' },
+    JOBJAB_PROFILE_SAVE: { path: `${contextPath}/v1/api/jobjab/profile`, method: 'PUT' },
+    JOBJAB_SOURCE_LIST: { path: `${contextPath}/v1/api/jobjab/sources`, method: 'GET' },
+    JOBJAB_SEARCH_RUN_CREATE: { path: `${contextPath}/v1/api/jobjab/search-runs`, method: 'POST' },
+    JOBJAB_SEARCH_RUN_LIST: { path: `${contextPath}/v1/api/jobjab/search-runs`, method: 'GET' },
+    JOBJAB_SEARCH_RUN_GET: { path: `${contextPath}/v1/api/jobjab/search-runs/{runId}`, method: 'GET' },
+    JOBJAB_SEARCH_RUN_EVENTS: { path: `${contextPath}/v1/api/jobjab/search-runs/{runId}/events`, method: 'GET' },
+    JOBJAB_JOB_LIST: { path: `${contextPath}/v1/api/jobjab/jobs`, method: 'GET' },
+    JOBJAB_JOB_DETAIL: { path: `${contextPath}/v1/api/jobjab/jobs/{jobId}`, method: 'GET' },
+    JOBJAB_JOB_MATCH: { path: `${contextPath}/v1/api/jobjab/jobs/{jobId}/match`, method: 'POST' },
+    JOBJAB_TRACKING_LIST: { path: `${contextPath}/v1/api/jobjab/tracking`, method: 'GET' },
+    JOBJAB_TRACKING_UPDATE: { path: `${contextPath}/v1/api/jobjab/jobs/{jobId}/tracking`, method: 'PUT' },
+    JOBJAB_ROUTE_COMPUTE: { path: `${contextPath}/v1/api/jobjab/jobs/{jobId}/route`, method: 'POST' },
+    JOBJAB_DIGEST_LIST: { path: `${contextPath}/v1/api/jobjab/digests`, method: 'GET' },
+    JOBJAB_DIGEST_GENERATE_WEEKLY: { path: `${contextPath}/v1/api/jobjab/digests/weekly`, method: 'POST' },
 };

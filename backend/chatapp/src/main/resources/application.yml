@@ -6,6 +6,17 @@ spring:
     url: jdbc:postgresql://db.xabewjiiewyhhjfekazv.supabase.co:5432/postgres
     username: ${SUPABASE_DB_USERNAME:postgres}
     password: ${SUPABASE_DB_PASSWORD:}
+  flyway:
+    enabled: true
+    url: ${SPRING_FLYWAY_URL:${spring.datasource.url}}
+    user: ${SPRING_FLYWAY_USER:${spring.datasource.username}}
+    password: ${SPRING_FLYWAY_PASSWORD:${spring.datasource.password}}
+    locations: classpath:db/migration
+    schemas: chat_app
+    default-schema: chat_app
+    baseline-on-migrate: true
+    baseline-version: 1
+    clean-disabled: true
   jpa:
     hibernate:
       ddl-auto: none

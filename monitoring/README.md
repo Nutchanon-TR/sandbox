@@ -23,6 +23,7 @@ Prometheus scrapes Spring Boot Actuator metrics from the app containers:
 - `user-service:80/actuator/prometheus`
 - `chat-service:80/actuator/prometheus`
 - `bpost-service:80/actuator/prometheus`
+- `jobjab-service:80/actuator/prometheus`
 
 The Grafana datasource and the starter dashboard are provisioned from files in this folder. Runtime Grafana state is stored in the `grafana_data` Docker volume.
 
@@ -49,6 +50,7 @@ Prometheus scrapes the backend apps through ACA internal ingress:
 - `user-service:80/actuator/prometheus`
 - `chat-service:80/actuator/prometheus`
 - `bpost-service:80/actuator/prometheus`
+- `jobjab-service:80/actuator/prometheus`
 
 Required GitHub secret:
 

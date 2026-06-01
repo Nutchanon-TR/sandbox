@@ -26,3 +26,7 @@ scrape_configs:
           - bpost-service:80
         labels:
           service: bpost-service
+      - targets:
+          - jobjab-service:80
+        labels:
+          service: jobjab-service

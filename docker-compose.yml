@@ -15,11 +15,13 @@ services:
       - CHAT_PORT=80
       - BACKEND_PORT=80
       - BPOST_PORT=80
+      - JOBJAB_PORT=80
       - OAUTH2_PROXY_PORT=80
     depends_on:
       - frontend
       - chat-service
       - bpost-service
+      - jobjab-service
       - user-service
       - oauth2-proxy
     networks:
@@ -116,6 +118,29 @@ services:
       - SERVER_PORT=80
       - SPRING_DATASOURCE_URL=jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?prepareThreshold=0
       - SPRING_DATASOURCE_USERNAME=postgres.${SUPABASE_PROJECT_ID}
+    networks:
+      - sandbox_net
+    restart: unless-stopped
+
+  jobjab-service:
+    # Context = ./backend so the build stage can COPY common-auth/.
+    # See backend/jobjab/Dockerfile.
+    build:
+      context: ./backend
+      dockerfile: jobjab/Dockerfile
+      args:
+        EXPOSE_PORT: 80
+    env_file: .env
+    environment:
+      - SERVER_PORT=80
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?prepareThreshold=0
+      - SPRING_DATASOURCE_USERNAME=postgres.${SUPABASE_PROJECT_ID}
+      - GROK_API_KEY=${GROK_API_KEY:-placeholder}
+      - JOBJAB_AI_MATCHING_ENABLED=${JOBJAB_AI_MATCHING_ENABLED:-true}
+      - JOBJAB_AI_AUTO_ANALYZE_LIMIT=${JOBJAB_AI_AUTO_ANALYZE_LIMIT:-10}
+      - JOBJAB_WEEKLY_DIGEST_ENABLED=${JOBJAB_WEEKLY_DIGEST_ENABLED:-true}
+      - JOBJAB_WEEKLY_DIGEST_CRON=${JOBJAB_WEEKLY_DIGEST_CRON:-0 0 8 ? * MON}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
     networks:
       - sandbox_net
     restart: unless-stopped

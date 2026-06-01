@@ -3,6 +3,7 @@ import {
     HomeOutlined,
     ReadOutlined,
     RobotOutlined,
+    SearchOutlined,
 } from "@ant-design/icons";
 import { TitleDetail } from "@/interface/common/TitleDetail";
 
@@ -57,6 +58,38 @@ export const TITLE: Record<string, TitleDetail> = {
                 title: "PersonaFeed",
                 urlPath: "/chat-app/persona",
             }
+        ],
+    },
+    JOBJAB: {
+        key: "JOBJAB",
+        title: "JOBJAB",
+        icon: <SearchOutlined />,
+        subTitles: [
+            {
+                key: "SEARCH",
+                title: "Search",
+                urlPath: "/jobjab/search",
+            },
+            {
+                key: "JOBS",
+                title: "Jobs",
+                urlPath: "/jobjab/jobs",
+            },
+            {
+                key: "TRACKING",
+                title: "Tracking",
+                urlPath: "/jobjab/tracking",
+            },
+            {
+                key: "DIGEST",
+                title: "Digest",
+                urlPath: "/jobjab/digest",
+            },
+            {
+                key: "PROFILE",
+                title: "Profile",
+                urlPath: "/jobjab/profile",
+            },
         ],
     },
 };

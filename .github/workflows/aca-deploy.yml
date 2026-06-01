@@ -344,12 +344,122 @@ jobs:
             --min-replicas 0 \
             --max-replicas 1
 
+  build_and_deploy_jobjab_service:
+    name: Build and Deploy JOBJAB Service
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set lowercase owner
+        run: echo "LOWER_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push jobjab-service image
+        run: |
+          docker build --file ./backend/jobjab/Dockerfile --tag ghcr.io/${LOWER_OWNER}/jobjab-service:${{ github.sha }} ./backend
+          docker push ghcr.io/${LOWER_OWNER}/jobjab-service:${{ github.sha }}
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy jobjab-service to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          registryUrl: ghcr.io
+          registryUsername: ${{ github.actor }}
+          registryPassword: ${{ secrets.GITHUB_TOKEN }}
+          containerAppName: jobjab-service
+          containerAppEnvironment: ${{ env.CONTAINER_APP_ENVIRONMENT }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/jobjab-service:${{ github.sha }}
+          ingress: internal
+          targetPort: 8083
+          minReplicas: 0
+          maxReplicas: 1
+
+      - name: Set secrets on jobjab-service
+        run: |
+          az containerapp secret set \
+            --name jobjab-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --secrets \
+              supabase-db-password=${{ secrets.SUPABASE_DB_PASSWORD }} \
+              grok-api-key=${{ secrets.GROK_API_KEY }}
+
+      - name: Set optional Google Maps secret on jobjab-service
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: |
+          if [ -z "${GOOGLE_MAPS_API_KEY}" ]; then
+            echo "Skipping Google Maps secret because it is not configured."
+            exit 0
+          fi
+
+          az containerapp secret set \
+            --name jobjab-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --secrets \
+              google-maps-api-key="${GOOGLE_MAPS_API_KEY}"
+
+      - name: Bind env vars to secrets on jobjab-service
+        run: |
+          az containerapp update \
+            --name jobjab-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --set-env-vars \
+              SPRING_DATASOURCE_URL='jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?prepareThreshold=0' \
+              SPRING_DATASOURCE_USERNAME=postgres.${{ secrets.SUPABASE_PROJECT_ID }} \
+              SUPABASE_DB_PASSWORD=secretref:supabase-db-password \
+              GROK_API_KEY=secretref:grok-api-key \
+              JOBJAB_AI_MATCHING_ENABLED="${{ vars.JOBJAB_AI_MATCHING_ENABLED || 'true' }}" \
+              JOBJAB_AI_AUTO_ANALYZE_LIMIT="${{ vars.JOBJAB_AI_AUTO_ANALYZE_LIMIT || '10' }}" \
+              JOBJAB_WEEKLY_DIGEST_ENABLED="${{ vars.JOBJAB_WEEKLY_DIGEST_ENABLED || 'true' }}" \
+              JOBJAB_WEEKLY_DIGEST_CRON="${{ vars.JOBJAB_WEEKLY_DIGEST_CRON || '0 0 8 ? * MON' }}" \
+              CORS_ALLOWED_ORIGINS="${{ vars.CORS_ALLOWED_ORIGINS || secrets.NEXT_PUBLIC_SITE_URL }}" \
+              SERVER_PORT=8083
+
+      - name: Bind optional Google Maps secret on jobjab-service
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: |
+          if [ -z "${GOOGLE_MAPS_API_KEY}" ]; then
+            echo "Skipping Google Maps env binding because the secret is not configured."
+            exit 0
+          fi
+
+          az containerapp update \
+            --name jobjab-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --set-env-vars \
+              GOOGLE_MAPS_API_KEY=secretref:google-maps-api-key
+
+      - name: Enforce min/max replicas on jobjab-service
+        run: |
+          az containerapp update \
+            --name jobjab-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --min-replicas 0 \
+            --max-replicas 1
+
   build_and_deploy_gateway_service:
     name: Build and Deploy Gateway Service
     needs:
       - build_and_deploy_frontend
       - build_and_deploy_chat_service
       - build_and_deploy_bpost_service
+      - build_and_deploy_jobjab_service
       - build_and_deploy_user_service
       - deploy_oauth2_proxy
     runs-on: ubuntu-latest
@@ -392,7 +502,7 @@ jobs:
           imageToDeploy: ghcr.io/${{ env.LOWER_OWNER }}/gateway-service:${{ github.sha }}
           ingress: external
           targetPort: 80
-          environmentVariables: FRONTEND_PORT=80 CHAT_PORT=80 BACKEND_PORT=80 BPOST_PORT=80 OAUTH2_PROXY_PORT=80
+          environmentVariables: FRONTEND_PORT=80 CHAT_PORT=80 BACKEND_PORT=80 BPOST_PORT=80 JOBJAB_PORT=80 OAUTH2_PROXY_PORT=80
           minReplicas: 0
           maxReplicas: 1
 
@@ -474,6 +584,7 @@ jobs:
     needs:
       - build_and_deploy_chat_service
       - build_and_deploy_bpost_service
+      - build_and_deploy_jobjab_service
       - build_and_deploy_user_service
     runs-on: ubuntu-latest
     permissions:

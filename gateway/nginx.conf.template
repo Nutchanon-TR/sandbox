@@ -23,6 +23,10 @@ upstream bpost-service {
     server bpost-service:${BPOST_PORT};
 }
 
+upstream jobjab-service {
+    server jobjab-service:${JOBJAB_PORT};
+}
+
 upstream user-service {
     server user-service:${BACKEND_PORT};
 }
@@ -136,6 +140,20 @@ server {
         proxy_set_header Authorization $http_authorization;
 
         proxy_pass http://bpost-service/v1/api/b-post/;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # JOBJAB Service
+    location /v1/api/jobjab/ {
+        auth_request /oauth2/auth;
+        error_page 401 = @unauthorized;
+        auth_request_set $user $upstream_http_x_auth_request_user;
+        proxy_set_header X-User-Id $user;
+        proxy_set_header Authorization $http_authorization;
+
+        proxy_pass http://jobjab-service/v1/api/jobjab/;
         proxy_set_header Host $proxy_host;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Real-IP $remote_addr;
