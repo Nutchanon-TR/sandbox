@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
     const backendUserUrl = process.env.BACKEND_USER_URL || "http://localhost:8080";
     const backendChatUrl = process.env.BACKEND_CHAT_URL || "http://localhost:8081";
     const backendBpostUrl = process.env.BACKEND_BPOST_URL || "http://localhost:8082";
+    const backendJobjabUrl = process.env.BACKEND_JOBJAB_URL || "http://localhost:8083";
 
     return [
       {
@@ -31,6 +32,10 @@ const nextConfig: NextConfig = {
       {
         source: "/v1/api/b-post/:path*",
         destination: `${backendBpostUrl}/v1/api/b-post/:path*`,
+      },
+      {
+        source: "/v1/api/jobjab/:path*",
+        destination: `${backendJobjabUrl}/v1/api/jobjab/:path*`,
       },
     ];
   },

@@ -53,10 +53,10 @@ management:
 app:
   jobjab:
     ai:
-      matching-enabled: ${JOBJAB_AI_MATCHING_ENABLED:true}
-      auto-analyze-limit: ${JOBJAB_AI_AUTO_ANALYZE_LIMIT:10}
+      matching-enabled: ${JOBJAB_AI_MATCHING_ENABLED:false}
+      auto-analyze-limit: ${JOBJAB_AI_AUTO_ANALYZE_LIMIT:0}
     digest:
-      enabled: ${JOBJAB_WEEKLY_DIGEST_ENABLED:true}
+      enabled: ${JOBJAB_WEEKLY_DIGEST_ENABLED:false}
       cron: ${JOBJAB_WEEKLY_DIGEST_CRON:0 0 8 ? * MON}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}

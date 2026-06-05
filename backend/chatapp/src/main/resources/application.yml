@@ -5,7 +5,7 @@ spring:
     driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://db.xabewjiiewyhhjfekazv.supabase.co:5432/postgres
     username: ${SUPABASE_DB_USERNAME:postgres}
-    password: ${SUPABASE_DB_PASSWORD:}
+    password: ${SPRING_DATASOURCE_PASSWORD:${SUPABASE_DB_PASSWORD:}}
   flyway:
     enabled: true
     url: ${SPRING_FLYWAY_URL:${spring.datasource.url}}
@@ -54,6 +54,7 @@ resilience4j:
         waitDuration: 2s
 
 server:
+  port: ${SERVER_PORT:8081}
   error:
     include-stacktrace: on_param
     include-exception: true

@@ -12,6 +12,9 @@
 **/*.iml
 **/.vscode/
 
+# Local Spring profile files can contain machine-local secrets.
+**/src/main/resources/application-local.yml
+
 # OS junk
 **/.DS_Store
 **/Thumbs.db
