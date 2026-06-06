@@ -25,7 +25,7 @@ public class JobjabAiClient {
     private final ObjectMapper objectMapper;
     private ChatClient chatClient;
 
-    @Value("${app.jobjab.ai.matching-enabled:true}")
+    @Value("${app.jobjab.ai.matching-enabled:false}")
     private boolean matchingEnabled;
 
     @Value("${spring.ai.openai.api-key:}")

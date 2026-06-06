@@ -16,7 +16,7 @@ public class RouteController {
     private final RouteService routeService;
 
     @PostMapping
-    public ResponseEntity<RouteDto> compute(@PathVariable Long jobId, @RequestBody RouteRequest req) {
+    public ResponseEntity<RouteDto> compute(@PathVariable Long jobId, @RequestBody(required = false) RouteRequest req) {
         return ResponseEntity.ok(routeService.compute(currentUser.requireUserId(), jobId, req));
     }
 }

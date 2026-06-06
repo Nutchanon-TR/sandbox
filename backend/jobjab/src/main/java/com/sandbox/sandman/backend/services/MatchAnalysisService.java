@@ -32,6 +32,15 @@ public class MatchAnalysisService {
 
     @Transactional
     public JobMatchDto analyze(Long userId, Long jobId) {
+        return mapper.toDto(analyzeInternal(userId, jobId, true));
+    }
+
+    @Transactional
+    public JobMatch analyzeHeuristicOnly(Long userId, Long jobId) {
+        return analyzeInternal(userId, jobId, false);
+    }
+
+    private JobMatch analyzeInternal(Long userId, Long jobId, boolean useAi) {
         Job job = jobService.find(jobId);
         UserJobProfile profile = profileRepository.findByUserId(userId).orElse(null);
 
@@ -51,7 +60,7 @@ public class MatchAnalysisService {
         int score = score(jobSkills.size(), matched.size(), missing.size(), redFlags.size(), job, profile);
         String summary = summary(score, matched, missing, redFlags);
 
-        Optional<AiMatchSuggestion> aiSuggestion = jobjabAiClient.analyze(job, profile);
+        Optional<AiMatchSuggestion> aiSuggestion = useAi ? jobjabAiClient.analyze(job, profile) : Optional.empty();
         if (aiSuggestion.isPresent()) {
             AiMatchSuggestion ai = aiSuggestion.get();
             score = ai.matchScore() == null ? score : ai.matchScore();
@@ -70,7 +79,7 @@ public class MatchAnalysisService {
         match.setMissingSkills(missing);
         match.setRedFlags(redFlags);
         match.setAiSummary(summary);
-        return mapper.toDto(jobMatchRepository.save(match));
+        return jobMatchRepository.save(match);
     }
 
     private int score(int totalSkills, int matched, int missing, int redFlags, Job job, UserJobProfile profile) {

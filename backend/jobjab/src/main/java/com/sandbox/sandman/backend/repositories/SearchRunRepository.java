@@ -16,4 +16,6 @@ public interface SearchRunRepository extends JpaRepository<SearchRun, Long> {
     List<SearchRun> findRecentByUserId(@Param("userId") Long userId, Pageable pageable);
 
     Optional<SearchRun> findByIdAndUserId(Long id, Long userId);
+
+    Optional<SearchRun> findFirstByUserIdAndStatusInOrderByIdDesc(Long userId, List<String> statuses);
 }

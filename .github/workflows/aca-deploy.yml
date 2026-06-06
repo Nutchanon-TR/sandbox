@@ -427,6 +427,7 @@ jobs:
               JOBJAB_AI_AUTO_ANALYZE_LIMIT="${{ vars.JOBJAB_AI_AUTO_ANALYZE_LIMIT || '0' }}" \
               JOBJAB_WEEKLY_DIGEST_ENABLED="${{ vars.JOBJAB_WEEKLY_DIGEST_ENABLED || 'false' }}" \
               JOBJAB_WEEKLY_DIGEST_CRON="${{ vars.JOBJAB_WEEKLY_DIGEST_CRON || '0 0 8 ? * MON' }}" \
+              JOBJAB_SEARCH_ACTIVE_RUN_TTL_MINUTES="${{ vars.JOBJAB_SEARCH_ACTIVE_RUN_TTL_MINUTES || '30' }}" \
               CORS_ALLOWED_ORIGINS="${{ vars.CORS_ALLOWED_ORIGINS || secrets.NEXT_PUBLIC_SITE_URL }}" \
               SERVER_PORT=8083
 
@@ -759,7 +760,7 @@ jobs:
           check_ingress gateway-service true
           check_ingress grafana-service true
 
-          for app_name in frontend chat-service bpost-service user-service oauth2-proxy prometheus-service; do
+          for app_name in frontend chat-service bpost-service jobjab-service user-service oauth2-proxy prometheus-service; do
             check_ingress "$app_name" false
           done
 

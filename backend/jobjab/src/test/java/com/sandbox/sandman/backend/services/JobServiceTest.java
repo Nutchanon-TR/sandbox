@@ -1,5 +1,6 @@
 package com.sandbox.sandman.backend.services;
 
+import com.sandbox.sandman.backend.adapters.NormalizedJobRecord;
 import com.sandbox.sandman.backend.model.dto.JobDto;
 import com.sandbox.sandman.backend.model.dto.PageResponse;
 import com.sandbox.sandman.backend.model.entity.Job;
@@ -8,6 +9,7 @@ import com.sandbox.sandman.backend.model.entity.RouteCache;
 import com.sandbox.sandman.backend.model.entity.UserJobProfile;
 import com.sandbox.sandman.backend.repositories.*;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Pageable;
 
 import java.time.ZonedDateTime;
@@ -17,8 +19,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class JobServiceTest {
     private final JobRepository jobRepository = mock(JobRepository.class);
@@ -54,6 +55,58 @@ class JobServiceTest {
 
         assertThat(page.items()).extracting(JobDto::title).containsExactly("Near role", "Far role");
         assertThat(page.items()).extracting(item -> item.route().durationSeconds()).containsExactly(12 * 60, 45 * 60);
+    }
+
+    @Test
+    void listCanSortNearbyFirstUsingCoordinateEstimatesWhenNoRouteCacheExists() {
+        Job far = job(1L, "Far role");
+        far.setLocationLatitude(13.9000);
+        far.setLocationLongitude(100.7000);
+        Job near = job(2L, "Near role");
+        near.setLocationLatitude(13.7370);
+        near.setLocationLongitude(100.5600);
+        UserJobProfile profile = new UserJobProfile();
+        profile.setUserId(99L);
+        profile.setHomeLatitude(13.7367);
+        profile.setHomeLongitude(100.5231);
+        profile.setHomeLocationLabel("Bangkok");
+        profile.setTravelMode("DRIVE");
+
+        when(jobRepository.findVisible(isNull(), any(Pageable.class))).thenReturn(List.of(far, near));
+        when(profileRepository.findByUserId(99L)).thenReturn(Optional.of(profile));
+        when(routeRepository.findByUserIdAndTravelModeOrderByCreatedAtDesc(99L, "DRIVE")).thenReturn(List.of());
+        when(matchRepository.findByUserIdAndJobId(anyLong(), anyLong())).thenReturn(Optional.empty());
+        when(trackingRepository.findByUserIdAndJobId(anyLong(), anyLong())).thenReturn(Optional.empty());
+
+        PageResponse<JobDto> page = service.list(99L, null, 10, true);
+
+        assertThat(page.items()).extracting(JobDto::title).containsExactly("Near role", "Far role");
+        assertThat(page.items()).extracting(item -> item.route().provider()).containsExactly("ESTIMATE", "ESTIMATE");
+        assertThat(page.items()).extracting(item -> item.route().durationSeconds()).doesNotContainNull();
+        verify(routeRepository).findByUserIdAndTravelModeOrderByCreatedAtDesc(99L, "DRIVE");
+    }
+
+    @Test
+    void nearbyFirstIncludesRoutedJobsOutsideRecentPage() {
+        Job recentFar = job(1L, "Recent far role");
+        Job olderNear = job(99L, "Older near role");
+        UserJobProfile profile = new UserJobProfile();
+        profile.setUserId(99L);
+        profile.setTravelMode("DRIVE");
+
+        when(profileRepository.findByUserId(99L)).thenReturn(Optional.of(profile));
+        when(routeRepository.findByUserIdAndTravelModeOrderByCreatedAtDesc(99L, "DRIVE"))
+                .thenReturn(List.of(route(99L, 8), route(1L, 45)));
+        when(jobRepository.findVisibleByIds(anyList(), isNull())).thenReturn(List.of(olderNear, recentFar));
+        when(jobRepository.findVisible(isNull(), any(Pageable.class))).thenReturn(List.of(recentFar));
+        when(matchRepository.findByUserIdAndJobId(anyLong(), anyLong())).thenReturn(Optional.empty());
+        when(trackingRepository.findByUserIdAndJobId(anyLong(), anyLong())).thenReturn(Optional.empty());
+
+        PageResponse<JobDto> page = service.list(99L, null, 1, true);
+
+        assertThat(page.items()).extracting(JobDto::title).containsExactly("Older near role");
+        assertThat(page.items().get(0).route().durationSeconds()).isEqualTo(8 * 60);
+        assertThat(page.hasMore()).isTrue();
     }
 
     @Test
@@ -131,6 +184,54 @@ class JobServiceTest {
                 "Tracked role 54", "Tracked role 55", "Tracked role 56", "Tracked role 57", "Tracked role 58", "Tracked role 59", "Tracked role 60");
     }
 
+    @Test
+    void getDoesNotExposeAnotherUsersMatchTrackingOrRoute() {
+        Job job = job(10L, "Shared public role");
+        UserJobProfile profile = new UserJobProfile();
+        profile.setUserId(7L);
+        profile.setTravelMode("DRIVE");
+
+        when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
+        when(matchRepository.findByUserIdAndJobId(7L, 10L)).thenReturn(Optional.empty());
+        when(trackingRepository.findByUserIdAndJobId(7L, 10L)).thenReturn(Optional.empty());
+        when(profileRepository.findByUserId(7L)).thenReturn(Optional.of(profile));
+        when(routeRepository.findByUserIdAndTravelModeOrderByCreatedAtDesc(7L, "DRIVE")).thenReturn(List.of());
+
+        JobDto result = service.get(7L, 10L);
+
+        assertThat(result.id()).isEqualTo(10L);
+        assertThat(result.match()).isNull();
+        assertThat(result.tracking()).isNull();
+        assertThat(result.route()).isNull();
+    }
+
+    @Test
+    void upsertRefreshesLastSeenAndUnarchivesExistingJobWhenSeenAgain() {
+        ZonedDateTime oldFirstSeen = ZonedDateTime.now().minusDays(10);
+        ZonedDateTime oldLastSeen = ZonedDateTime.now().minusDays(3);
+        ZonedDateTime archivedAt = ZonedDateTime.now().minusDays(1);
+        Job existing = job(20L, "Frontend Engineer");
+        existing.setSourceId(5L);
+        existing.setSourceJobKey("greenhouse:123");
+        existing.setFirstSeenAt(oldFirstSeen);
+        existing.setLastSeenAt(oldLastSeen);
+        existing.setArchivedAt(archivedAt);
+
+        when(jobRepository.findBySourceIdAndSourceJobKey(5L, "greenhouse:123")).thenReturn(Optional.of(existing));
+        when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Job result = service.upsert(5L, 88L, normalized("greenhouse:123"));
+
+        ArgumentCaptor<Job> captor = ArgumentCaptor.forClass(Job.class);
+        verify(jobRepository).save(captor.capture());
+        Job saved = captor.getValue();
+        assertThat(result.getId()).isEqualTo(20L);
+        assertThat(saved.getLatestSnapshotId()).isEqualTo(88L);
+        assertThat(saved.getFirstSeenAt()).isEqualTo(oldFirstSeen);
+        assertThat(saved.getLastSeenAt()).isAfter(oldLastSeen);
+        assertThat(saved.getArchivedAt()).isNull();
+    }
+
     private Job job(Long id, String title) {
         Job job = new Job();
         job.setId(id);
@@ -163,5 +264,26 @@ class JobServiceTest {
         tracking.setJobId(jobId);
         tracking.setStatus(status);
         return tracking;
+    }
+
+    private NormalizedJobRecord normalized(String sourceJobKey) {
+        return new NormalizedJobRecord(
+                sourceJobKey,
+                "https://example.com/jobs/" + sourceJobKey,
+                "Frontend Engineer",
+                "Acme",
+                "Bangkok",
+                null,
+                null,
+                null,
+                null,
+                "THB",
+                "Full-time",
+                "Hybrid",
+                List.of("React"),
+                "Build product UI",
+                "https://example.com/apply/" + sourceJobKey,
+                null
+        );
     }
 }

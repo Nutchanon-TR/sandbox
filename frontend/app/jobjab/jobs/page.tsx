@@ -46,7 +46,7 @@ export default function JobjabJobsPage() {
     const analyze = async (job: Job) => {
         setAnalyzingId(job.id);
         try {
-            const match = await fetchApi<JobMatch>(API_SANDBOX.JOBJAB_JOB_MATCH, {}, { jobId: job.id });
+            const match = await fetchApi<JobMatch>(API_SANDBOX.JOBJAB_JOB_ANALYZE, {}, { jobId: job.id });
             setJobs((prev) => prev.map((item) => item.id === job.id ? { ...item, match } : item));
         } finally {
             setAnalyzingId(null);

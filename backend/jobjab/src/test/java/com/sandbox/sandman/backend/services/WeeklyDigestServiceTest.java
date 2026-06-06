@@ -1,6 +1,8 @@
 package com.sandbox.sandman.backend.services;
 
 import com.sandbox.sandman.backend.model.entity.*;
+import com.sandbox.sandman.backend.model.dto.JobDto;
+import com.sandbox.sandman.backend.model.dto.PageResponse;
 import com.sandbox.sandman.backend.repositories.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -9,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,6 +28,7 @@ class WeeklyDigestServiceTest {
     private final UserJobProfileRepository profileRepository = mock(UserJobProfileRepository.class);
     private final RouteCacheRepository routeCacheRepository = mock(RouteCacheRepository.class);
     private final JobService jobService = mock(JobService.class);
+    private final MatchAnalysisService matchAnalysisService = mock(MatchAnalysisService.class);
     private final JobjabMapper mapper = new JobjabMapper();
 
     private final WeeklyDigestService service = new WeeklyDigestService(
@@ -35,6 +39,7 @@ class WeeklyDigestServiceTest {
             profileRepository,
             routeCacheRepository,
             jobService,
+            matchAnalysisService,
             mapper
     );
 
@@ -96,6 +101,33 @@ class WeeklyDigestServiceTest {
     }
 
     @Test
+    void generateBackfillsRecentJobsWithHeuristicMatchesWhenNoMatchesExist() {
+        JobMatch generatedMatch = match(300L, 88, "Heuristic fit from recent job.");
+
+        when(profileRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(digestRepository.findByUserIdAndWeekStart(eq(1L), any(LocalDate.class))).thenReturn(Optional.empty());
+        when(matchRepository.findByUserIdOrderByMatchScoreDescAnalyzedAtDesc(1L)).thenReturn(List.of());
+        when(trackingRepository.findByUserIdOrderByUpdatedAtDesc(1L)).thenReturn(List.of());
+        when(jobService.list(1L, null, 50, true)).thenReturn(new PageResponse<>(List.of(jobDto(300L)), false, null));
+        when(matchAnalysisService.analyzeHeuristicOnly(1L, 300L)).thenReturn(generatedMatch);
+        when(digestRepository.save(any(WeeklyDigest.class))).thenAnswer(invocation -> {
+            WeeklyDigest digest = invocation.getArgument(0);
+            digest.setId(103L);
+            return digest;
+        });
+        when(itemRepository.findByWeeklyDigestIdOrderByRankAsc(103L)).thenReturn(List.of());
+
+        service.generate(1L);
+
+        verify(matchAnalysisService).analyzeHeuristicOnly(1L, 300L);
+        ArgumentCaptor<WeeklyDigestItem> itemCaptor = ArgumentCaptor.forClass(WeeklyDigestItem.class);
+        verify(itemRepository).save(itemCaptor.capture());
+        assertThat(itemCaptor.getValue().getJobId()).isEqualTo(300L);
+        assertThat(itemCaptor.getValue().getMatchId()).isEqualTo(301L);
+        assertThat(itemCaptor.getValue().getReason()).contains("Heuristic fit");
+    }
+
+    @Test
     void generateSkipsJobsThatAlreadyMovedPastInterested() {
         JobMatch appliedMatch = match(100L, 95, "Already applied.");
         JobMatch interestedMatch = match(200L, 85, "Still worth applying.");
@@ -119,6 +151,34 @@ class WeeklyDigestServiceTest {
         ArgumentCaptor<WeeklyDigestItem> itemCaptor = ArgumentCaptor.forClass(WeeklyDigestItem.class);
         verify(itemRepository).save(itemCaptor.capture());
         assertThat(itemCaptor.getValue().getJobId()).isEqualTo(200L);
+    }
+
+    @Test
+    void generateKeepsDigestToTopTenMatchesWhenEnoughJobsAreAvailable() {
+        List<JobMatch> matches = new ArrayList<>();
+        for (long jobId = 1; jobId <= 12; jobId++) {
+            matches.add(match(jobId, (int) (100 - jobId), "Fit " + jobId));
+        }
+
+        when(profileRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(digestRepository.findByUserIdAndWeekStart(eq(1L), any(LocalDate.class))).thenReturn(Optional.empty());
+        when(matchRepository.findByUserIdOrderByMatchScoreDescAnalyzedAtDesc(1L)).thenReturn(matches);
+        when(trackingRepository.findByUserIdOrderByUpdatedAtDesc(1L)).thenReturn(List.of());
+        when(digestRepository.save(any(WeeklyDigest.class))).thenAnswer(invocation -> {
+            WeeklyDigest digest = invocation.getArgument(0);
+            digest.setId(102L);
+            return digest;
+        });
+        when(itemRepository.findByWeeklyDigestIdOrderByRankAsc(102L)).thenReturn(List.of());
+
+        service.generate(1L);
+
+        ArgumentCaptor<WeeklyDigestItem> itemCaptor = ArgumentCaptor.forClass(WeeklyDigestItem.class);
+        verify(itemRepository, times(10)).save(itemCaptor.capture());
+        assertThat(itemCaptor.getAllValues()).extracting(WeeklyDigestItem::getJobId)
+                .containsExactly(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L);
+        assertThat(itemCaptor.getAllValues()).extracting(WeeklyDigestItem::getRank)
+                .containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
     }
 
     private JobMatch match(Long jobId, Integer score, String summary) {
@@ -152,5 +212,33 @@ class WeeklyDigestServiceTest {
         tracking.setJobId(jobId);
         tracking.setStatus(status);
         return tracking;
+    }
+
+    private JobDto jobDto(Long jobId) {
+        return new JobDto(
+                jobId,
+                5L,
+                "source-" + jobId,
+                "https://example.com/jobs/" + jobId,
+                "Frontend Engineer",
+                "Acme",
+                "Bangkok",
+                null,
+                null,
+                null,
+                null,
+                "THB",
+                "Full-time",
+                "Hybrid",
+                List.of("React"),
+                "Build React apps",
+                "https://example.com/apply/" + jobId,
+                null,
+                ZonedDateTime.now(),
+                ZonedDateTime.now(),
+                null,
+                null,
+                null
+        );
     }
 }

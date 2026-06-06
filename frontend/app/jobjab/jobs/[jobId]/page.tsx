@@ -55,7 +55,7 @@ export default function JobjabJobDetailPage() {
         if (!job) return;
         setAnalyzing(true);
         try {
-            const match = await fetchApi<JobMatch>(API_SANDBOX.JOBJAB_JOB_MATCH, {}, { jobId: job.id });
+            const match = await fetchApi<JobMatch>(API_SANDBOX.JOBJAB_JOB_ANALYZE, {}, { jobId: job.id });
             setJob({ ...job, match });
         } finally {
             setAnalyzing(false);

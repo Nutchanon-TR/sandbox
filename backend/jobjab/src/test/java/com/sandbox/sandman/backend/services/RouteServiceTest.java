@@ -69,6 +69,33 @@ class RouteServiceTest {
     }
 
     @Test
+    void computeAcceptsNullRequestBodyAndUsesProfileTravelMode() {
+        Job job = new Job();
+        job.setId(55L);
+        job.setLocationText("Central World, Bangkok");
+        job.setLocationLatitude(13.7466);
+        job.setLocationLongitude(100.5392);
+
+        UserJobProfile profile = new UserJobProfile();
+        profile.setUserId(7L);
+        profile.setTravelMode("TRANSIT");
+        profile.setHomeLocationLabel("BTS Asok, Bangkok");
+        profile.setHomeLatitude(13.7373);
+        profile.setHomeLongitude(100.5607);
+
+        when(jobService.find(55L)).thenReturn(job);
+        when(profileRepository.findByUserId(7L)).thenReturn(Optional.of(profile));
+        when(routeCacheRepository.findByCacheKey(any())).thenReturn(Optional.empty());
+        when(routeCacheRepository.save(any(RouteCache.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        RouteDto result = service.compute(7L, 55L, null);
+
+        assertThat(result.travelMode()).isEqualTo("TRANSIT");
+        assertThat(result.provider()).isEqualTo("ESTIMATE");
+        assertThat(result.durationSeconds()).isGreaterThan(0);
+    }
+
+    @Test
     void computeUsesGoogleRoutesWhenOnlyAddressLabelsAreAvailable() throws Exception {
         Job job = new Job();
         job.setId(60L);

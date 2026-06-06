@@ -34,7 +34,7 @@ export default function JobjabSearchPage() {
             const nextRuns = await fetchApi<SearchRun[]>(API_SANDBOX.JOBJAB_SEARCH_RUN_LIST);
             const nextSources = await fetchApi<JobSource[]>(API_SANDBOX.JOBJAB_SOURCE_LIST);
             setSources(nextSources);
-            const readySources = nextSources.filter((source) => source.searchable).map((source) => source.sourceKey);
+            const readySources = defaultSourceKeys(nextSources);
             if (!form.getFieldValue('sourceKeys')?.length && readySources.length > 0) {
                 form.setFieldValue('sourceKeys', readySources);
             }
@@ -59,6 +59,8 @@ export default function JobjabSearchPage() {
         label: (
             <span className="inline-flex items-center gap-2">
                 {source.displayName}
+                {!source.enabled && <Tag>Disabled</Tag>}
+                {source.requiresPartnerApproval && <Tag color="purple">Approval</Tag>}
                 {source.requiresJobUrl && <Tag>URL</Tag>}
                 {!source.configured && source.acceptsPerSearchTargets && <Tag color="blue">Target</Tag>}
                 {!source.configured && !source.acceptsPerSearchTargets && <Tag color="gold">Needs config</Tag>}
@@ -113,11 +115,17 @@ export default function JobjabSearchPage() {
     const startSearch = async (values: SearchRunRequest) => {
         setSubmitting(true);
         try {
-            const run = await fetchApi<SearchRun>(API_SANDBOX.JOBJAB_SEARCH_RUN_CREATE, cleanSearchRequest(values));
+            const request = cleanSearchRequest(values, sources);
+            if (!request.sourceKeys?.length) {
+                notification.warning({ message: 'Select at least one ready source' });
+                return;
+            }
+            const run = await fetchApi<SearchRun>(API_SANDBOX.JOBJAB_SEARCH_RUN_CREATE, request);
+            const reusedActiveRun = runs.some((item) => item.id === run.id && isRunActive(item.status));
             setSelectedRun(run);
             setEvents([]);
             setRuns((prev) => [run, ...prev.filter((item) => item.id !== run.id)]);
-            notification.info({ message: 'JOBJAB search started' });
+            notification.info({ message: reusedActiveRun ? 'Existing JOBJAB search resumed' : 'JOBJAB search started' });
             void pollRun(run.id);
         } catch (error) {
             console.error(error);
@@ -142,7 +150,7 @@ export default function JobjabSearchPage() {
                         jobUrls: [],
                         manualJobs: [],
                         sourceTargets: { greenhouse: [], lever: [], ashby: [], sitemap: [] },
-                        sourceKeys: sources.filter((source) => source.searchable).map((source) => source.sourceKey),
+                        sourceKeys: defaultSourceKeys(sources),
                     }}
                     onFinish={startSearch}
                 >
@@ -174,7 +182,11 @@ export default function JobjabSearchPage() {
                             <Select mode="tags" tokenSeparators={[',', '\n']} placeholder={sourcePlaceholder(sourceByKey.get('sitemap'), 'https://example.com/sitemap.xml')} />
                         </Form.Item>
                     </div>
-                    <Form.Item label="Sources" name="sourceKeys">
+                    <Form.Item
+                        label="Sources"
+                        name="sourceKeys"
+                        rules={[{ required: true, type: 'array', min: 1, message: 'Select at least one source' }]}
+                    >
                         <Checkbox.Group options={sourceOptions} />
                     </Form.Item>
                     <Form.List name="manualJobs">
@@ -308,19 +320,62 @@ export default function JobjabSearchPage() {
     );
 }
 
-function cleanSearchRequest(values: SearchRunRequest): SearchRunRequest {
+function cleanSearchRequest(values: SearchRunRequest, sources: JobSource[]): SearchRunRequest {
+    const searchableKeys = new Set(sources.filter((source) => source.searchable).map((source) => source.sourceKey));
+    const jobUrls = cleanList(values.jobUrls);
+    const manualJobs = cleanManualJobs(values.manualJobs);
     const sourceTargets: Record<string, string[]> = Object.fromEntries(
         Object.entries(values.sourceTargets || {})
             .map(([key, targets]) => [key, cleanList(targets)])
             .filter(([, targets]) => (targets as string[]).length > 0),
     );
+    const sourceKeys = new Set(cleanList(values.sourceKeys).filter((sourceKey) => searchableKeys.has(sourceKey)));
+    Object.keys(sourceTargets)
+        .filter((sourceKey) => searchableKeys.has(sourceKey))
+        .forEach((sourceKey) => sourceKeys.add(sourceKey));
+    inferredSourceKeys(jobUrls)
+        .filter((sourceKey) => searchableKeys.has(sourceKey))
+        .forEach((sourceKey) => sourceKeys.add(sourceKey));
+    if (manualJobs.length > 0 && searchableKeys.has('manual_jd')) sourceKeys.add('manual_jd');
+    if (jobUrls.length > 0) {
+        if (searchableKeys.has('user_url')) sourceKeys.add('user_url');
+        if (searchableKeys.has('structured_data')) sourceKeys.add('structured_data');
+    }
     return {
         ...values,
-        jobUrls: cleanList(values.jobUrls),
-        manualJobs: cleanManualJobs(values.manualJobs),
+        jobUrls,
+        manualJobs,
         sourceTargets,
-        sourceKeys: cleanList(values.sourceKeys),
+        sourceKeys: Array.from(sourceKeys),
     };
+}
+
+function defaultSourceKeys(sources: JobSource[]) {
+    return sources
+        .filter((source) => source.searchable)
+        .filter((source) => source.configured || !source.acceptsPerSearchTargets)
+        .map((source) => source.sourceKey);
+}
+
+function inferredSourceKeys(urls: string[]) {
+    const keys = new Set<string>();
+    urls.forEach((url) => {
+        try {
+            const host = new URL(url).hostname.toLowerCase();
+            if (host === 'boards.greenhouse.io' || host === 'job-boards.greenhouse.io' || host === 'boards-api.greenhouse.io') {
+                keys.add('greenhouse');
+            }
+            if (host === 'jobs.lever.co' || host === 'api.lever.co') {
+                keys.add('lever');
+            }
+            if (host === 'jobs.ashbyhq.com' || host === 'api.ashbyhq.com') {
+                keys.add('ashby');
+            }
+        } catch {
+            // Ignore invalid URLs; backend adapters will validate the remaining input.
+        }
+    });
+    return Array.from(keys);
 }
 
 function cleanManualJobs(values?: SearchRunRequest['manualJobs']) {

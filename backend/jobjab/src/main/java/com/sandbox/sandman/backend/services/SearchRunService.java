@@ -6,15 +6,22 @@ import com.sandbox.sandman.backend.model.dto.SearchRunRequest;
 import com.sandbox.sandman.backend.model.entity.*;
 import com.sandbox.sandman.backend.repositories.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZonedDateTime;
 import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 public class SearchRunService {
+    private static final List<String> ACTIVE_STATUSES = List.of("QUEUED", "RUNNING");
+
+    @Value("${app.jobjab.search.active-run-ttl-minutes:30}")
+    private long activeRunTtlMinutes = 30;
+
     private final SearchRunRepository searchRunRepository;
     private final SearchRunEventRepository eventRepository;
     private final UserJobProfileRepository profileRepository;
@@ -23,8 +30,18 @@ public class SearchRunService {
 
     public SearchRunDto start(Long userId, SearchRunRequest req) {
         if (req == null) req = new SearchRunRequest(null, null, 10, null, List.of(), List.of(), Map.of(), List.of());
+        Optional<SearchRun> activeRun = searchRunRepository.findFirstByUserIdAndStatusInOrderByIdDesc(userId, ACTIVE_STATUSES);
+        if (activeRun.isPresent()) {
+            SearchRun run = activeRun.get();
+            if (isStaleActiveRun(run)) {
+                markStaleActiveRunFailed(run);
+            } else {
+                event(run.getId(), "INFO", null, "Existing active JOBJAB search reused", Map.of("status", run.getStatus()));
+                return mapper.toDto(run);
+            }
+        }
         UserJobProfile profile = profileRepository.findByUserId(userId).orElse(null);
-        List<String> requestedSources = requestedSources(req.sourceKeys());
+        List<String> requestedSources = requestedSources(req);
         int requestedLimit = req.limit() == null ? 10 : Math.min(Math.max(req.limit(), 1), 50);
         SearchRunRequest effectiveReq = effectiveRequest(req, profile, requestedSources, requestedLimit);
         SearchRun run = new SearchRun();
@@ -37,14 +54,26 @@ public class SearchRunService {
         run.setSourceKeys(requestedSources);
         run.setCriteria(criteria(effectiveReq, req));
         run = searchRunRepository.save(run);
-        event(run.getId(), "INFO", null, "JOBJAB search queued", Map.of(
-                "limit", run.getRequestedLimit(),
-                "query", effectiveReq.query(),
-                "locationText", effectiveReq.locationText(),
-                "profileDefaultsApplied", profileDefaultsApplied(effectiveReq, req)
-        ));
+        event(run.getId(), "INFO", null, "JOBJAB search queued", queuedPayload(run, effectiveReq, req));
         searchRunWorkerService.execute(run.getId(), effectiveReq);
         return mapper.toDto(run);
+    }
+
+    private boolean isStaleActiveRun(SearchRun run) {
+        if (activeRunTtlMinutes <= 0) return false;
+        ZonedDateTime anchor = run.getStartedAt() != null ? run.getStartedAt() : run.getCreatedAt();
+        return anchor != null && anchor.isBefore(ZonedDateTime.now().minusMinutes(activeRunTtlMinutes));
+    }
+
+    private void markStaleActiveRunFailed(SearchRun run) {
+        String previousStatus = run.getStatus() == null ? "UNKNOWN" : run.getStatus();
+        run.setStatus("FAILED");
+        run.setCompletedAt(ZonedDateTime.now());
+        searchRunRepository.save(run);
+        event(run.getId(), "WARN", null, "Stale active JOBJAB search marked failed before starting a new search", Map.of(
+                "previousStatus", previousStatus,
+                "ttlMinutes", activeRunTtlMinutes
+        ));
     }
 
     @Transactional(readOnly = true)
@@ -75,11 +104,30 @@ public class SearchRunService {
         eventRepository.save(event);
     }
 
-    private List<String> requestedSources(List<String> sourceKeys) {
-        if (sourceKeys == null || sourceKeys.isEmpty()) {
-            return List.of("manual_jd", "user_url", "greenhouse", "lever", "ashby", "structured_data", "sitemap");
+    private Map<String, Object> queuedPayload(SearchRun run, SearchRunRequest effectiveReq, SearchRunRequest originalReq) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("limit", run.getRequestedLimit());
+        if (hasText(effectiveReq.query())) payload.put("query", effectiveReq.query());
+        if (hasText(effectiveReq.locationText())) payload.put("locationText", effectiveReq.locationText());
+        payload.put("profileDefaultsApplied", profileDefaultsApplied(effectiveReq, originalReq));
+        payload.put("sourceKeys", run.getSourceKeys());
+        return payload;
+    }
+
+    private List<String> requestedSources(SearchRunRequest req) {
+        if (req.sourceKeys() != null && !req.sourceKeys().isEmpty()) {
+            return req.sourceKeys().stream().filter(s -> s != null && !s.isBlank()).map(String::trim).distinct().toList();
         }
-        return sourceKeys.stream().filter(s -> s != null && !s.isBlank()).map(String::trim).distinct().toList();
+        LinkedHashSet<String> defaults = new LinkedHashSet<>();
+        if (hasManualJobs(req)) defaults.add("manual_jd");
+        if (hasJobUrls(req)) {
+            defaults.add("user_url");
+            defaults.add("structured_data");
+            defaults.addAll(inferredSourceKeys(req));
+        }
+        defaults.addAll(sourceTargets(req));
+        if (!defaults.isEmpty()) return defaults.stream().toList();
+        return List.of("manual_jd", "user_url", "greenhouse", "lever", "ashby", "structured_data", "sitemap");
     }
 
     private SearchRunRequest effectiveRequest(SearchRunRequest req, UserJobProfile profile, List<String> requestedSources, int requestedLimit) {
@@ -142,6 +190,52 @@ public class SearchRunService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private boolean hasManualJobs(SearchRunRequest req) {
+        return req.manualJobs() != null && req.manualJobs().stream()
+                .filter(Objects::nonNull)
+                .anyMatch(job -> hasText(job.title()) || hasText(job.description()) || hasText(job.applyUrl()));
+    }
+
+    private boolean hasJobUrls(SearchRunRequest req) {
+        return hasText(req.jobUrl()) || (req.jobUrls() != null && req.jobUrls().stream().anyMatch(this::hasText));
+    }
+
+    private List<String> sourceTargets(SearchRunRequest req) {
+        if (req.sourceTargets() == null) return List.of();
+        return req.sourceTargets().entrySet().stream()
+                .filter(entry -> entry.getKey() != null && !entry.getKey().isBlank())
+                .filter(entry -> entry.getValue() != null && entry.getValue().stream().anyMatch(this::hasText))
+                .map(entry -> entry.getKey().trim())
+                .distinct()
+                .toList();
+    }
+
+    private List<String> inferredSourceKeys(SearchRunRequest req) {
+        LinkedHashSet<String> keys = new LinkedHashSet<>();
+        List<String> urls = new ArrayList<>();
+        if (hasText(req.jobUrl())) urls.add(req.jobUrl());
+        if (req.jobUrls() != null) urls.addAll(cleaned(req.jobUrls()));
+        for (String url : urls) {
+            try {
+                String host = java.net.URI.create(url).getHost();
+                if (host == null) continue;
+                host = host.toLowerCase(Locale.ROOT);
+                if (host.equals("boards.greenhouse.io") || host.equals("job-boards.greenhouse.io") || host.equals("boards-api.greenhouse.io")) {
+                    keys.add("greenhouse");
+                }
+                if (host.equals("jobs.lever.co") || host.equals("api.lever.co")) {
+                    keys.add("lever");
+                }
+                if (host.equals("jobs.ashbyhq.com") || host.equals("api.ashbyhq.com")) {
+                    keys.add("ashby");
+                }
+            } catch (Exception ignored) {
+                // Invalid URLs are left for adapters to report during extraction.
+            }
+        }
+        return keys.stream().toList();
     }
 
 }

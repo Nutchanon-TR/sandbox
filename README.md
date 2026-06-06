@@ -1,6 +1,6 @@
 # Sandbox
 
-Sandbox is a microservice playground with a Next.js frontend, Spring Boot backend services, an Nginx API gateway, Supabase Auth/Postgres/Storage, AI chat, B-Post social features, realtime messaging, and local/cloud monitoring.
+Sandbox is a microservice playground with a Next.js frontend, Spring Boot backend services, an Nginx API gateway, Supabase Auth/Postgres/Storage, AI chat, B-Post social features, JOBJAB job discovery, realtime messaging, and local/cloud monitoring.
 
 Architecture notes and deeper design docs live in `note/docs/` and `note/arch/`.
 
@@ -16,6 +16,7 @@ gateway/                         Nginx reverse proxy + oauth2-proxy auth_request
   +-- backend/user/               user sync + profile APIs
   +-- backend/chatapp/            AI chat, rooms, Character Studio, PersonaFeed
   +-- backend/bpost/              social feed, friends, messages, realtime, storage
+  +-- backend/jobjab/             job discovery, matching, routing, tracking
       ^
       |
 backend/common-auth/             shared Supabase JWT decoder + current-user resolver
@@ -49,7 +50,8 @@ Sandbox/
 |  |- common-auth/             shared JWT/current-user library
 |  |- user/                    user sync and profile service
 |  |- chatapp/                 chat, AI response, Character Studio, PersonaFeed
-|  \- bpost/                   posts, comments, friends, messages, websocket APIs
+|  |- bpost/                   posts, comments, friends, messages, websocket APIs
+|  \- jobjab/                  job search adapters, matching, route cache, tracking
 |- gateway/                    Nginx image and routing template
 |- monitoring/                 Prometheus and Grafana config/images
 |- note/                       docs, architecture diagrams, reports, Postman files
@@ -74,6 +76,12 @@ Sandbox/
 | `/b-post/socials` | Friends, friend requests, user search, open conversation |
 | `/b-post/messages` | Conversations, chat history, image messages, realtime updates |
 | `/b-post/profile/[supabaseUid]` | B-Post user profile and authored posts |
+| `/jobjab/search` | On-demand cross-source job search with live log |
+| `/jobjab/jobs` | Matched job list |
+| `/jobjab/jobs/[jobId]` | Job detail, match analysis, route calculation |
+| `/jobjab/tracking` | Minimal job application Kanban |
+| `/jobjab/profile` | Job profile and commute preferences |
+| `/jobjab/digest` | In-app weekly digest |
 
 ## Gateway Routing
 
@@ -87,6 +95,7 @@ Sandbox/
 | `/v1/api/chat-app/*` | `chat-service` | `auth_request /oauth2/auth` |
 | `/v1/api/b-post/*` | `bpost-service` | `auth_request /oauth2/auth` |
 | `/v1/api/b-post/ws/*` | `bpost-service` | STOMP `CONNECT` carries the JWT; no nginx `auth_request` |
+| `/v1/api/jobjab/*` | `jobjab-service` | `auth_request /oauth2/auth` |
 
 Backend services still receive `Authorization: Bearer <jwt>`. `common-auth` decodes the Supabase JWT payload, checks `exp`, reads the `sub`, and resolves it to the internal `chat_app.users.id`.
 
@@ -145,6 +154,23 @@ Backend services still receive `Authorization: Bearer <jwt>`. `common-auth` deco
 | Presence | `GET` | `/v1/api/b-post/presence/online` |
 | WebSocket | `STOMP` | SockJS endpoint `/v1/api/b-post/ws`, app destinations `/app/message.send` and `/app/message.read` |
 
+### JOBJAB Service (`backend/jobjab`)
+
+| Area | Path | Purpose |
+|---|---|---|
+| Profile | `/v1/api/jobjab/profile` | User job profile, skills, preferences, home location |
+| Sources | `/v1/api/jobjab/sources` | Adapter source registry and readiness |
+| Search | `/v1/api/jobjab/search-runs` | Start/poll on-demand search runs and live events |
+| Jobs | `/v1/api/jobjab/jobs` | Matched jobs list and job detail |
+| Analyze | `/v1/api/jobjab/jobs/{jobId}/analyze` | Analyze one job against caller profile |
+| Route | `/v1/api/jobjab/jobs/{jobId}/route` | Calculate/read cached commute route |
+| Tracking | `/v1/api/jobjab/tracking` | Kanban tracking status per user/job |
+| Digest | `/v1/api/jobjab/digests` | In-app weekly digest list/generation |
+
+JOBJAB stores data in the Supabase/Postgres schema `jobjab`. The schema is backend-owned in v1; the frontend does not query Supabase tables directly.
+Weekly digest generation ranks existing matches and backfills recent jobs with heuristic-only analysis, so it can produce in-app recommendations without triggering paid AI calls.
+Nearby-first job lists use cached route durations when available, then fall back to in-memory coordinate estimates without calling Google Maps.
+
 ## Environment
 
 Copy the root env template for Docker/backend/gateway settings:
@@ -162,6 +188,11 @@ Important root variables:
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Storage uploads |
 | `GROK_API_KEY` | Groq/Spring AI client |
 | `HUGGINGFACE_API_KEY` | Embedding service |
+| `GOOGLE_MAPS_API_KEY` | Optional JOBJAB route calculation key |
+| `JOBJAB_AI_MATCHING_ENABLED` | Enables paid/external JOBJAB AI matching calls; default `false` |
+| `JOBJAB_AI_AUTO_ANALYZE_LIMIT` | Caps auto analysis during search; default `0` |
+| `JOBJAB_WEEKLY_DIGEST_ENABLED` | Enables JOBJAB weekly digest scheduler; default `false` |
+| `JOBJAB_SEARCH_ACTIVE_RUN_TTL_MINUTES` | Marks stale active JOBJAB search runs failed before creating new work; default `30` |
 | `SUPABASE_PROJECT_ID` | oauth2-proxy issuer config |
 | `OAUTH2_PROXY_CLIENT_ID` / `OAUTH2_PROXY_CLIENT_SECRET` | oauth2-proxy |
 | `OAUTH2_PROXY_COOKIE_SECRET` | oauth2-proxy cookie encryption |
@@ -184,6 +215,7 @@ NEXT_PUBLIC_USER_API_URL=
 BACKEND_USER_URL=http://localhost:8080
 BACKEND_CHAT_URL=http://localhost:8081
 BACKEND_BPOST_URL=http://localhost:8082
+BACKEND_JOBJAB_URL=http://localhost:8083
 ```
 
 `NEXT_PUBLIC_*` values are baked into the frontend bundle during `next build` and must be provided as Docker build args for production images.
@@ -211,6 +243,10 @@ cd backend\chatapp
 cd backend\bpost
 .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
 # http://localhost:8082
+
+cd backend\jobjab
+.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
+# http://localhost:8083
 ```
 
 Run the frontend:
@@ -229,6 +265,7 @@ In development, `frontend/next.config.ts` rewrites:
 | `/v1/api/user/*` | `http://localhost:8080` |
 | `/v1/api/chat-app/*` | `http://localhost:8081` |
 | `/v1/api/b-post/*` | `http://localhost:8082` |
+| `/v1/api/jobjab/*` | `http://localhost:8083` |
 
 ## Docker-On-Local
 
@@ -269,6 +306,7 @@ Prometheus scrapes:
 user-service:80/actuator/prometheus
 chat-service:80/actuator/prometheus
 bpost-service:80/actuator/prometheus
+jobjab-service:80/actuator/prometheus
 ```
 
 The GitHub Actions workflow also builds and deploys:
@@ -289,6 +327,7 @@ See `monitoring/README.md` for details.
 | `user-service` | internal | `8080` |
 | `chat-service` | internal | `8081` |
 | `bpost-service` | internal | `8080` |
+| `jobjab-service` | internal | `8083` |
 | `oauth2-proxy` | internal | `4180` |
 | `prometheus-service` | internal | `9090` |
 | `grafana-service` | external | `3000` |
@@ -300,6 +339,7 @@ FRONTEND_PORT=80
 CHAT_PORT=80
 BACKEND_PORT=80
 BPOST_PORT=80
+JOBJAB_PORT=80
 OAUTH2_PROXY_PORT=80
 ```
 
@@ -321,6 +361,9 @@ Backend:
 cd backend\chatapp
 .\mvnw.cmd -f ..\common-auth\pom.xml test
 .\mvnw.cmd test
+
+cd backend\jobjab
+.\mvnw.cmd test
 ```
 
 ## Current Notes
@@ -329,6 +372,7 @@ cd backend\chatapp
 - Cloud REST APIs are expected to pass through `gateway-service` and oauth2-proxy.
 - `common-auth` decodes the JWT payload and trusts the gateway/oauth2-proxy as the signature verification boundary. Do not expose backend services directly in production.
 - `/v1/api/b-post/ws/` is handled differently because STOMP sends the JWT in the `CONNECT` frame.
+- JOBJAB paid integrations are off by default. AI matching, auto-analysis, weekly digest scheduling, and Google route calls should be enabled intentionally.
 - Docker Compose does not provision a local Supabase/Postgres emulator; the app uses the configured Supabase project.
 - Some legacy ChatApp/B-Post endpoints remain for compatibility.
 
@@ -337,6 +381,7 @@ cd backend\chatapp
 - [Authentication Flow](./note/docs/AUTH.md)
 - [ChatApp Feature Design](./note/docs/CHATAPP.md)
 - [Infrastructure / Port Map](./note/docs/INFRA.md)
+- [JOBJAB Feature Design](./note/docs/JOBJAB.md)
 - [API Keys Configuration](./note/docs/KEYS.md)
 - [Supabase Specification](./note/docs/SUPABASE.md)
 - [Provider Notes](./note/docs/PROVIDER.md)

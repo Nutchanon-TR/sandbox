@@ -49,7 +49,7 @@ public class JobSourceService {
         boolean acceptsPerSearchTargets = registered && (adapter.fetchMode() == JobFetchMode.OFFICIAL_API || adapter.fetchMode() == JobFetchMode.SITEMAP);
         boolean requiresJobUrl = registered && Set.of(JobFetchMode.USER_URL, JobFetchMode.STRUCTURED_DATA).contains(adapter.fetchMode());
         boolean configured = configured(source, adapter);
-        boolean searchable = source.isEnabled() && registered && (configured || acceptsPerSearchTargets);
+        boolean searchable = source.isEnabled() && !source.isRequiresPartnerApproval() && registered && (configured || acceptsPerSearchTargets);
         return new JobSourceDto(
                 source.getId(),
                 source.getSourceKey(),
@@ -87,13 +87,10 @@ public class JobSourceService {
     }
 
     private String guidance(JobSource source, JobSourceAdapter adapter, boolean configured) {
-        if (!source.isEnabled()) {
-            return "Source is disabled for now.";
-        }
+        if (source.isRequiresPartnerApproval()) return "Needs partner/API approval before JOBJAB can fetch this platform.";
+        if (!source.isEnabled()) return "Source is disabled for now.";
         if (adapter == null) {
-            return source.isRequiresPartnerApproval()
-                    ? "Needs partner/API approval before JOBJAB can fetch this platform."
-                    : "No adapter registered yet.";
+            return "No adapter registered yet.";
         }
         if (adapter.fetchMode() == JobFetchMode.OFFICIAL_API && !configured) {
             return "Ready with per-search board/company targets, or add defaults in job_sources.adapter_config.";

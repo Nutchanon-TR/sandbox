@@ -132,6 +132,7 @@ export const API_SANDBOX: Record<string, ApiDetail> = {
     JOBJAB_JOB_LIST: { path: `${contextPath}/v1/api/jobjab/jobs`, method: 'GET' },
     JOBJAB_JOB_DETAIL: { path: `${contextPath}/v1/api/jobjab/jobs/{jobId}`, method: 'GET' },
     JOBJAB_JOB_MATCH: { path: `${contextPath}/v1/api/jobjab/jobs/{jobId}/match`, method: 'POST' },
+    JOBJAB_JOB_ANALYZE: { path: `${contextPath}/v1/api/jobjab/jobs/{jobId}/analyze`, method: 'POST' },
     JOBJAB_TRACKING_LIST: { path: `${contextPath}/v1/api/jobjab/tracking`, method: 'GET' },
     JOBJAB_TRACKING_UPDATE: { path: `${contextPath}/v1/api/jobjab/jobs/{jobId}/tracking`, method: 'PUT' },
     JOBJAB_ROUTE_COMPUTE: { path: `${contextPath}/v1/api/jobjab/jobs/{jobId}/route`, method: 'POST' },

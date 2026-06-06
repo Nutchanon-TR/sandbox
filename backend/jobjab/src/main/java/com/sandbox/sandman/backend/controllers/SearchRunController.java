@@ -19,7 +19,7 @@ public class SearchRunController {
     private final SearchRunService searchRunService;
 
     @PostMapping
-    public ResponseEntity<SearchRunDto> start(@RequestBody SearchRunRequest req) {
+    public ResponseEntity<SearchRunDto> start(@RequestBody(required = false) SearchRunRequest req) {
         return ResponseEntity.ok(searchRunService.start(currentUser.requireUserId(), req));
     }
 

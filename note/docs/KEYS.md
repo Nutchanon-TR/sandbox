@@ -1,5 +1,33 @@
 # Environment Keys - Current Code Spec
 
+## JOBJAB Cost Keys
+
+JOBJAB has two optional paid integrations: external AI matching and Google route calculation. Current defaults keep both off unless explicitly enabled.
+
+| Key | Used by | Default | Notes |
+|---|---|---:|---|
+| `JOBJAB_AI_MATCHING_ENABLED` | `backend/jobjab` | `false` | Enables external AI matching calls. |
+| `JOBJAB_AI_AUTO_ANALYZE_LIMIT` | `backend/jobjab` | `0` | Caps automatic analysis per search run. `0` avoids auto paid analysis. |
+| `JOBJAB_WEEKLY_DIGEST_ENABLED` | `backend/jobjab` | `false` | Enables the weekly digest scheduler. |
+| `JOBJAB_WEEKLY_DIGEST_CRON` | `backend/jobjab` | `0 0 8 ? * MON` | Weekly digest cron expression. |
+| `JOBJAB_SEARCH_ACTIVE_RUN_TTL_MINUTES` | `backend/jobjab` | `30` | Marks stale active search runs failed before creating new work. `0` disables the stale guard. |
+| `JOBJAB_SEARCH_CORE_POOL_SIZE` | `backend/jobjab` | `2` | Core threads for on-demand search workers. |
+| `JOBJAB_SEARCH_MAX_POOL_SIZE` | `backend/jobjab` | `4` | Maximum on-demand search worker threads. |
+| `JOBJAB_SEARCH_QUEUE_CAPACITY` | `backend/jobjab` | `100` | Queue size before the caller applies backpressure. |
+| `GOOGLE_MAPS_API_KEY` | `backend/jobjab` | empty | Enables Google route calculation. Empty key avoids Google calls. |
+| `BACKEND_JOBJAB_URL` | `frontend/next.config.ts` | `http://localhost:8083` | Local Next.js rewrite target. |
+| `JOBJAB_PORT` | `gateway/nginx.conf.template` | local `8083`, ACA `80` | Gateway upstream port for `jobjab-service`. |
+
+Cost guard summary:
+
+```text
+JOBJAB_AI_MATCHING_ENABLED=false
+JOBJAB_AI_AUTO_ANALYZE_LIMIT=0
+JOBJAB_WEEKLY_DIGEST_ENABLED=false
+JOBJAB_SEARCH_ACTIVE_RUN_TTL_MINUTES=30
+GOOGLE_MAPS_API_KEY=
+```
+
 เอกสารนี้สรุป environment variables และ secrets ที่พบใน source code ปัจจุบัน
 
 ---

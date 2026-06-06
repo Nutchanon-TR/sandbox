@@ -15,7 +15,7 @@ public class WeeklyDigestScheduler {
     private final UserJobProfileRepository profileRepository;
     private final WeeklyDigestService weeklyDigestService;
 
-    @Value("${app.jobjab.digest.enabled:true}")
+    @Value("${app.jobjab.digest.enabled:false}")
     private boolean enabled;
 
     @Scheduled(cron = "${app.jobjab.digest.cron:0 0 8 ? * MON}", zone = "Asia/Bangkok")

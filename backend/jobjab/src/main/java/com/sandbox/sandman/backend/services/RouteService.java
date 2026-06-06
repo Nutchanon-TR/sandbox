@@ -44,9 +44,10 @@ public class RouteService {
         Job job = jobService.find(jobId);
         UserJobProfile profile = profileRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Create a JOBJAB profile before computing routes"));
-        String travelMode = req.travelMode() == null || req.travelMode().isBlank()
+        RouteRequest request = req == null ? new RouteRequest(null) : req;
+        String travelMode = request.travelMode() == null || request.travelMode().isBlank()
                 ? defaultMode(profile.getTravelMode())
-                : defaultMode(req.travelMode());
+                : defaultMode(request.travelMode());
         String cacheKey = cacheKey(userId, jobId, travelMode, profile, job);
         RouteCache cached = routeCacheRepository.findByCacheKey(cacheKey).orElse(null);
         if (cached != null && (cached.getExpiresAt() == null || cached.getExpiresAt().isAfter(ZonedDateTime.now()))) {

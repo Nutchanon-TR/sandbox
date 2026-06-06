@@ -46,4 +46,25 @@ class TrackingServiceTest {
         assertThat(saved.getAppliedAt()).isNotNull();
         assertThat(result.id()).isEqualTo(42L);
     }
+
+    @Test
+    void updateCreatesUserScopedTrackingRowWhenSameJobWasTrackedBySomeoneElse() {
+        when(trackingRepository.findByUserIdAndJobId(7L, 50L)).thenReturn(Optional.empty());
+        when(trackingRepository.save(any(JobTracking.class))).thenAnswer(invocation -> {
+            JobTracking saved = invocation.getArgument(0);
+            saved.setId(77L);
+            return saved;
+        });
+
+        JobTrackingDto result = service.update(7L, 50L, new TrackingUpdateRequest("INTERESTED", "Worth checking"));
+
+        ArgumentCaptor<JobTracking> captor = ArgumentCaptor.forClass(JobTracking.class);
+        verify(jobService).find(50L);
+        verify(trackingRepository).save(captor.capture());
+        JobTracking saved = captor.getValue();
+        assertThat(saved.getUserId()).isEqualTo(7L);
+        assertThat(saved.getJobId()).isEqualTo(50L);
+        assertThat(saved.getStatus()).isEqualTo("INTERESTED");
+        assertThat(result.userId()).isEqualTo(7L);
+    }
 }

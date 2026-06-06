@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
@@ -232,6 +233,147 @@ class SearchRunWorkerServiceTest {
         org.assertj.core.api.Assertions.assertThat(run.getStatus()).isEqualTo("PARTIAL");
     }
 
+    @Test
+    void skipsDisabledSourceBeforeCallingAdapterSearch() {
+        JobSourceAdapter adapter = mock(JobSourceAdapter.class);
+        SearchRunRepository searchRunRepository = mock(SearchRunRepository.class);
+        SearchRunEventRepository eventRepository = mock(SearchRunEventRepository.class);
+        RawJobSnapshotRepository snapshotRepository = mock(RawJobSnapshotRepository.class);
+        JobSourceService jobSourceService = mock(JobSourceService.class);
+        JobService jobService = mock(JobService.class);
+        MatchAnalysisService matchAnalysisService = mock(MatchAnalysisService.class);
+        SearchRunWorkerService service = new SearchRunWorkerService(
+                List.of(adapter),
+                searchRunRepository,
+                eventRepository,
+                snapshotRepository,
+                jobSourceService,
+                jobService,
+                matchAnalysisService,
+                new ObjectMapper()
+        );
+
+        SearchRun run = new SearchRun();
+        run.setId(13L);
+        run.setUserId(7L);
+        run.setRequestedLimit(5);
+        run.setSourceKeys(List.of("jobthai"));
+        when(searchRunRepository.findById(13L)).thenReturn(Optional.of(run));
+        when(adapter.sourceKey()).thenReturn("jobthai");
+        JobSource source = new JobSource();
+        source.setId(9L);
+        source.setSourceKey("jobthai");
+        source.setEnabled(false);
+        when(jobSourceService.ensureSource(adapter)).thenReturn(source);
+
+        service.execute(13L, new SearchRunRequest("Java", "Bangkok", 5, null, List.of(), List.of(), Map.of(), List.of("jobthai")));
+
+        verify(adapter, never()).search(any());
+        verify(jobService, never()).upsert(anyLong(), anyLong(), any());
+        org.assertj.core.api.Assertions.assertThat(run.getStatus()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void skipsPartnerApprovalSourceBeforeCallingAdapterSearch() {
+        JobSourceAdapter adapter = mock(JobSourceAdapter.class);
+        SearchRunRepository searchRunRepository = mock(SearchRunRepository.class);
+        SearchRunEventRepository eventRepository = mock(SearchRunEventRepository.class);
+        RawJobSnapshotRepository snapshotRepository = mock(RawJobSnapshotRepository.class);
+        JobSourceService jobSourceService = mock(JobSourceService.class);
+        JobService jobService = mock(JobService.class);
+        MatchAnalysisService matchAnalysisService = mock(MatchAnalysisService.class);
+        SearchRunWorkerService service = new SearchRunWorkerService(
+                List.of(adapter),
+                searchRunRepository,
+                eventRepository,
+                snapshotRepository,
+                jobSourceService,
+                jobService,
+                matchAnalysisService,
+                new ObjectMapper()
+        );
+
+        SearchRun run = new SearchRun();
+        run.setId(14L);
+        run.setUserId(7L);
+        run.setRequestedLimit(5);
+        run.setSourceKeys(List.of("linkedin"));
+        when(searchRunRepository.findById(14L)).thenReturn(Optional.of(run));
+        when(adapter.sourceKey()).thenReturn("linkedin");
+        JobSource source = new JobSource();
+        source.setId(10L);
+        source.setSourceKey("linkedin");
+        source.setEnabled(true);
+        source.setRequiresPartnerApproval(true);
+        when(jobSourceService.ensureSource(adapter)).thenReturn(source);
+
+        service.execute(14L, new SearchRunRequest("Java", "Bangkok", 5, null, List.of(), List.of(), Map.of(), List.of("linkedin")));
+
+        verify(adapter, never()).search(any());
+        verify(jobService, never()).upsert(anyLong(), anyLong(), any());
+        org.assertj.core.api.Assertions.assertThat(run.getStatus()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void infersOfficialApiTargetsFromPastedJobUrls() {
+        JobSourceAdapter greenhouse = mock(JobSourceAdapter.class);
+        JobSourceAdapter lever = mock(JobSourceAdapter.class);
+        JobSourceAdapter ashby = mock(JobSourceAdapter.class);
+        SearchRunRepository searchRunRepository = mock(SearchRunRepository.class);
+        SearchRunEventRepository eventRepository = mock(SearchRunEventRepository.class);
+        RawJobSnapshotRepository snapshotRepository = mock(RawJobSnapshotRepository.class);
+        JobSourceService jobSourceService = mock(JobSourceService.class);
+        JobService jobService = mock(JobService.class);
+        MatchAnalysisService matchAnalysisService = mock(MatchAnalysisService.class);
+        SearchRunWorkerService service = new SearchRunWorkerService(
+                List.of(greenhouse, lever, ashby),
+                searchRunRepository,
+                eventRepository,
+                snapshotRepository,
+                jobSourceService,
+                jobService,
+                matchAnalysisService,
+                new ObjectMapper()
+        );
+
+        SearchRun run = new SearchRun();
+        run.setId(15L);
+        run.setUserId(7L);
+        run.setRequestedLimit(10);
+        run.setSourceKeys(List.of("greenhouse", "lever", "ashby"));
+        when(searchRunRepository.findById(15L)).thenReturn(Optional.of(run));
+        stubTargetInspectingAdapter(greenhouse, "greenhouse", "boards", "airbnb");
+        stubTargetInspectingAdapter(lever, "lever", "companies", "netflix");
+        stubTargetInspectingAdapter(ashby, "ashby", "boards", "openai");
+        when(jobSourceService.ensureSource(any())).thenAnswer(invocation -> {
+            JobSourceAdapter adapter = invocation.getArgument(0);
+            JobSource source = new JobSource();
+            source.setId((long) adapter.sourceKey().hashCode());
+            source.setSourceKey(adapter.sourceKey());
+            source.setAdapterConfig(Map.of());
+            return source;
+        });
+
+        service.execute(15L, new SearchRunRequest(
+                "engineer",
+                null,
+                10,
+                null,
+                List.of(
+                        "https://boards.greenhouse.io/airbnb/jobs/123",
+                        "https://jobs.lever.co/netflix/abc",
+                        "https://jobs.ashbyhq.com/openai/456"
+                ),
+                List.of(),
+                Map.of(),
+                List.of("greenhouse", "lever", "ashby")
+        ));
+
+        verify(greenhouse).search(any());
+        verify(lever).search(any());
+        verify(ashby).search(any());
+    }
+
     private ExternalJobRef ref(String key) {
         return new ExternalJobRef(key, "https://example.com/jobs/" + key, key, "Acme", "Bangkok");
     }
@@ -264,6 +406,18 @@ class SearchRunWorkerServiceTest {
                     raw.url(),
                     null
             );
+        });
+    }
+
+    private void stubTargetInspectingAdapter(JobSourceAdapter adapter, String sourceKey, String targetKey, String expectedTarget) {
+        when(adapter.sourceKey()).thenReturn(sourceKey);
+        when(adapter.fetchMode()).thenReturn(JobFetchMode.OFFICIAL_API);
+        when(adapter.search(any())).thenAnswer(invocation -> {
+            JobSearchCriteria criteria = invocation.getArgument(0);
+            assertThat(criteria.sourceConfig()).containsKey(targetKey);
+            assertThat(criteria.sourceConfig().get(targetKey)).asList().contains(expectedTarget);
+            assertThat(criteria.sourceConfig().get("inferredTargets")).asList().contains(expectedTarget);
+            return List.of();
         });
     }
 }

@@ -13,8 +13,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class MatchAnalysisServiceTest {
     private final JobService jobService = mock(JobService.class);
@@ -59,5 +58,36 @@ class MatchAnalysisServiceTest {
         assertThat(result.missingSkills()).contains("GraphQL", "Playwright");
         assertThat(result.redFlags()).contains("Salary is vague", "Below salary expectation");
         assertThat(result.aiSummary()).contains("This job asks for GraphQL");
+    }
+
+    @Test
+    void heuristicOnlyAnalysisDoesNotCallAiClient() {
+        Job job = new Job();
+        job.setId(21L);
+        job.setTitle("Backend Engineer");
+        job.setCompany("Acme");
+        job.setDescription("Build Java and Spring Boot services.");
+        job.setSkills(List.of("Java"));
+        job.setCurrency("THB");
+
+        UserJobProfile profile = new UserJobProfile();
+        profile.setId(11L);
+        profile.setUserId(1L);
+        profile.setSkills(List.of("Java"));
+
+        when(jobService.find(21L)).thenReturn(job);
+        when(profileRepository.findByUserId(1L)).thenReturn(Optional.of(profile));
+        when(jobMatchRepository.findByUserIdAndJobId(1L, 21L)).thenReturn(Optional.empty());
+        when(jobMatchRepository.save(any(JobMatch.class))).thenAnswer(invocation -> {
+            JobMatch match = invocation.getArgument(0);
+            match.setId(31L);
+            return match;
+        });
+
+        JobMatch result = service.analyzeHeuristicOnly(1L, 21L);
+
+        assertThat(result.getId()).isEqualTo(31L);
+        assertThat(result.getMatchedSkills()).contains("Java");
+        verify(aiClient, never()).analyze(any(), any());
     }
 }

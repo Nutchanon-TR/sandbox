@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.ZonedDateTime;
@@ -30,10 +31,10 @@ public class SearchRunWorkerService {
     private final MatchAnalysisService matchAnalysisService;
     private final ObjectMapper objectMapper;
 
-    @Value("${app.jobjab.ai.auto-analyze-limit:10}")
+    @Value("${app.jobjab.ai.auto-analyze-limit:0}")
     private int autoAnalyzeLimit;
 
-    @Async
+    @Async("jobjabSearchExecutor")
     public void execute(Long runId, SearchRunRequest req) {
         SearchRun run = searchRunRepository.findById(runId)
                 .orElseThrow(() -> new IllegalArgumentException("Search run not found"));
@@ -60,7 +61,10 @@ public class SearchRunWorkerService {
             }
             try {
                 JobSource source = jobSourceService.ensureSource(adapter);
-                Map<String, Object> sourceConfig = sourceConfig(sourceKey, source.getAdapterConfig(), req.sourceTargets());
+                if (!canRunSource(run.getId(), sourceKey, source)) {
+                    continue;
+                }
+                Map<String, Object> sourceConfig = sourceConfig(sourceKey, source.getAdapterConfig(), req.sourceTargets(), req);
                 event(run.getId(), "INFO", sourceKey, "Searching source", Map.of("fetchMode", adapter.fetchMode().name()));
                 if (requiresConfiguredTargets(adapter) && !hasConfiguredTargets(sourceConfig)) {
                     event(run.getId(), "WARN", sourceKey, "Source needs adapter_config or per-search targets before it can return jobs", Map.of(
@@ -119,6 +123,18 @@ public class SearchRunWorkerService {
         ));
         run.setCompletedAt(ZonedDateTime.now());
         searchRunRepository.save(run);
+    }
+
+    private boolean canRunSource(Long runId, String sourceKey, JobSource source) {
+        if (!source.isEnabled()) {
+            event(runId, "WARN", sourceKey, "Source is disabled and was skipped", Map.of());
+            return false;
+        }
+        if (source.isRequiresPartnerApproval()) {
+            event(runId, "WARN", sourceKey, "Source needs partner/API approval before JOBJAB can fetch it", Map.of());
+            return false;
+        }
+        return true;
     }
 
     private String statusMessage(String status) {
@@ -182,10 +198,13 @@ public class SearchRunWorkerService {
                         || value instanceof String text && !text.isBlank());
     }
 
-    private Map<String, Object> sourceConfig(String sourceKey, Map<String, Object> baseConfig, Map<String, List<String>> sourceTargets) {
+    private Map<String, Object> sourceConfig(String sourceKey, Map<String, Object> baseConfig, Map<String, List<String>> sourceTargets, SearchRunRequest req) {
         Map<String, Object> merged = new LinkedHashMap<>();
         if (baseConfig != null) merged.putAll(baseConfig);
-        List<String> targets = sourceTargets == null ? List.of() : cleaned(sourceTargets.get(sourceKey));
+        LinkedHashSet<String> targetSet = new LinkedHashSet<>(sourceTargets == null ? List.of() : cleaned(sourceTargets.get(sourceKey)));
+        List<String> inferredTargets = inferredTargets(sourceKey, req);
+        targetSet.addAll(inferredTargets);
+        List<String> targets = targetSet.stream().toList();
         if (targets.isEmpty()) return merged;
         switch (sourceKey) {
             case "greenhouse", "ashby" -> mergeList(merged, "boards", targets);
@@ -194,7 +213,92 @@ public class SearchRunWorkerService {
             default -> mergeList(merged, "targets", targets);
         }
         merged.put("perSearchTargets", targets);
+        if (!inferredTargets.isEmpty()) merged.put("inferredTargets", inferredTargets);
         return merged;
+    }
+
+    private List<String> inferredTargets(String sourceKey, SearchRunRequest req) {
+        if (req == null) return List.of();
+        return urls(req).stream()
+                .map(url -> inferTarget(sourceKey, url))
+                .flatMap(Optional::stream)
+                .distinct()
+                .toList();
+    }
+
+    private Optional<String> inferTarget(String sourceKey, String url) {
+        try {
+            URI uri = URI.create(url);
+            String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+            List<String> segments = pathSegments(uri);
+            Map<String, String> query = queryParams(uri);
+            return switch (sourceKey) {
+                case "greenhouse" -> inferGreenhouse(host, segments, query);
+                case "lever" -> inferLever(host, segments);
+                case "ashby" -> inferAshby(host, segments);
+                default -> Optional.empty();
+            };
+        } catch (Exception ignored) {
+            return Optional.empty();
+        }
+    }
+
+    private Optional<String> inferGreenhouse(String host, List<String> segments, Map<String, String> query) {
+        if (host.equals("boards.greenhouse.io") && !segments.isEmpty()) return nonBlank(segments.get(0));
+        if (host.equals("job-boards.greenhouse.io") && !segments.isEmpty()) return nonBlank(segments.get(0));
+        if (host.equals("boards-api.greenhouse.io")) {
+            int boardsIndex = segments.indexOf("boards");
+            if (boardsIndex >= 0 && segments.size() > boardsIndex + 1) return nonBlank(segments.get(boardsIndex + 1));
+        }
+        return nonBlank(query.get("for"));
+    }
+
+    private Optional<String> inferLever(String host, List<String> segments) {
+        if (host.equals("jobs.lever.co") && !segments.isEmpty()) return nonBlank(segments.get(0));
+        if (host.equals("api.lever.co")) {
+            int postingsIndex = segments.indexOf("postings");
+            if (postingsIndex >= 0 && segments.size() > postingsIndex + 1) return nonBlank(segments.get(postingsIndex + 1));
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> inferAshby(String host, List<String> segments) {
+        if (host.equals("jobs.ashbyhq.com") && !segments.isEmpty()) return nonBlank(segments.get(0));
+        if (host.equals("api.ashbyhq.com")) {
+            int boardIndex = segments.indexOf("job-board");
+            if (boardIndex >= 0 && segments.size() > boardIndex + 1) return nonBlank(segments.get(boardIndex + 1));
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> nonBlank(String value) {
+        return value == null || value.isBlank() ? Optional.empty() : Optional.of(value.trim());
+    }
+
+    private List<String> pathSegments(URI uri) {
+        String path = uri.getPath();
+        if (path == null || path.isBlank()) return List.of();
+        return Arrays.stream(path.split("/"))
+                .map(String::trim)
+                .filter(segment -> !segment.isBlank())
+                .map(this::decode)
+                .toList();
+    }
+
+    private Map<String, String> queryParams(URI uri) {
+        String query = uri.getRawQuery();
+        if (query == null || query.isBlank()) return Map.of();
+        Map<String, String> params = new LinkedHashMap<>();
+        for (String pair : query.split("&")) {
+            String[] parts = pair.split("=", 2);
+            if (parts.length == 0 || parts[0].isBlank()) continue;
+            params.put(decode(parts[0]), parts.length > 1 ? decode(parts[1]) : "");
+        }
+        return params;
+    }
+
+    private String decode(String value) {
+        return java.net.URLDecoder.decode(value, StandardCharsets.UTF_8);
     }
 
     private String exampleTarget(String sourceKey) {

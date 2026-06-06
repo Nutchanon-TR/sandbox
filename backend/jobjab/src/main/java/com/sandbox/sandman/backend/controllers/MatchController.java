@@ -8,13 +8,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("${app.api.prefix.jobjab}/jobs/{jobId}/match")
+@RequestMapping("${app.api.prefix.jobjab}/jobs/{jobId}")
 @RequiredArgsConstructor
 public class MatchController {
     private final CurrentUser currentUser;
     private final MatchAnalysisService matchAnalysisService;
 
-    @PostMapping
+    @PostMapping({"/match", "/analyze"})
     public ResponseEntity<JobMatchDto> analyze(@PathVariable Long jobId) {
         return ResponseEntity.ok(matchAnalysisService.analyze(currentUser.requireUserId(), jobId));
     }
